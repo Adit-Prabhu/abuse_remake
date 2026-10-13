@@ -224,7 +224,7 @@ class AbuseEpisode:
                 self.counters["checkpoints"] += 1
             elif k == "teleported":
                 self.counters["teleports"] += 1
-            elif k == "sound" and e.data["name"] == "ZAP_SND":
+            elif k == "shot" and e.data.get("by_player"):  # the player's own shots, not the ants'
                 self.counters["shots_fired"] += 1
         self.counters["damage_taken"] += max(0, hp - g.player.hp)
 

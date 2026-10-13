@@ -53,8 +53,7 @@ class Remastered:
         st["iframes"] = DASH_IFRAMES
         st["cooldown"] = DASH_COOLDOWN
         st["dashes"] += 1
-        p = self.game.player
-        self.game.world.emit("dash", x=p.x, y=p.y, direction=st["dash_dir"])
+        st["announce"] = True  # emitted after the next step: World.step clears events at its start
         return True
 
     def before_step(self) -> None:
@@ -63,9 +62,16 @@ class Remastered:
     def after_step(self) -> None:
         st = self.state
         p = self.game.player
-        if st["dash_left"] > 0 and p.aistate == NORMAL_PLAY:
+        if st.pop("announce", False):
+            self.game.world.emit("dash", x=p.x, y=p.y, direction=st["dash_dir"])
+        if st["dash_left"] > 0 and (p.aistate != NORMAL_PLAY or p.lvars.get("is_teleporting")):
+            st["dash_left"] = 0  # a teleport or death cancels the rest of the dash
+        if st["dash_left"] > 0:
             _, xv, _ = p.try_move(p.x, p.y, DASH_SPEED * st["dash_dir"], 0, 3)
             p.x += xv
+            top = p.objs[0] if p.objs else None
+            if top is not None and not top.deleted:
+                top.x += xv  # cop_ai placed the top half before this move; keep the two together
             p.direction = st["dash_dir"]
             st["dash_left"] -= 1
             if st["dash_left"] == 0 or xv == 0:

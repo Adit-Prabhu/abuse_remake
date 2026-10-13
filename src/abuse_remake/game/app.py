@@ -34,7 +34,8 @@ TICK = 1.0 / 15.0
 
 def parse_args(argv=None):
     p = argparse.ArgumentParser(prog="abuse-remake", description="Abuse (1996), Level 1, rebuilt")
-    p.add_argument("--mode", choices=("classic", "remastered"), default="remastered")
+    p.add_argument("--mode", choices=("classic", "remastered"), default=None,
+                   help="default: remastered, or classic with --playtest (playtests are the human reference)")
     p.add_argument("--difficulty", choices=DIFFICULTIES, default="hard")
     p.add_argument("--seed", type=int, default=None, help="random table start (default: from the clock)")
     p.add_argument("--scale", type=int, default=0, help="window scale (default: fit the screen)")
@@ -46,7 +47,12 @@ def parse_args(argv=None):
     p.add_argument("--skip-title", action="store_true")
     p.add_argument("--frames", type=int, default=0, help="run N display frames with scripted input, then exit")
     p.add_argument("--screenshot", type=Path, help="save the last frame (with --frames)")
-    return p.parse_args(argv)
+    args = p.parse_args(argv)
+    if args.horde and args.mode == "classic":
+        p.error("--horde is a Remastered rule set; it cannot run with --mode classic")
+    if args.mode is None:
+        args.mode = "classic" if args.playtest else "remastered"
+    return args
 
 
 class App:
@@ -100,8 +106,9 @@ class App:
         self.game.world.globals["save_hook"] = self._on_console_save
         self.level_start = self.game.snapshot()
         self.checkpoint = self.level_start
-        self.stats = {"ticks": 0, "kills": 0, "secrets": 0, "deaths": 0, "shots": 0, "hits": 0, "damage_taken": 0,
-                      "dashes": 0}
+        self.stats = {"ticks": 0, "kills": 0, "secrets": 0, "deaths": 0, "shots": 0, "enemies_hit": 0,
+                      "damage_taken": 0, "dashes": 0}
+        self.hit_uids: set[int] = set()
         self.acc = 0.0
         self.pending_weapon: WeaponCommand | None = None
         self.pending_dash = False
@@ -122,7 +129,8 @@ class App:
         self.trace = open(path, "w")  # noqa: SIM115 - closed on exit
         self.trace.write(json.dumps({"kind": "header", "game": "abuse_remake", "level": "level01",
                                      "seed": self.seed, "difficulty": self.args.difficulty,
-                                     "mode": self.args.mode, "player": "human"}) + "\n")
+                                     "mode": self.args.mode, "horde": self.horde, "player": "human",
+                                     "rules": "remastered" if self.modern else "classic"}) + "\n")
 
     def _on_console_save(self, console):
         # restart_ai calls this with the player's health already set for the save
@@ -191,10 +199,7 @@ class App:
                 elif ev.type == pg.JOYBUTTONDOWN and self.state == "play" and ev.button == 2 and self.modern:
                     self.pending_dash = True
             if self.state == "play":
-                self.acc += dt if not self.args.frames else TICK / 2
-                while self.acc >= TICK:
-                    self.acc -= TICK
-                    self.tick(frames)
+                self.advance(dt if not self.args.frames else TICK / 2, frames)
             self.draw()
             frames += 1
             if self.args.frames and frames >= self.args.frames:
@@ -206,6 +211,13 @@ class App:
         pg.quit()
         return 0
 
+    def advance(self, dt: float, frame_no: int = 0) -> None:
+        """Run the 15 Hz ticks that ``dt`` seconds of display time owe, and none after the end."""
+        self.acc += dt
+        while self.acc >= TICK and self.state == "play":
+            self.acc -= TICK
+            self.tick(frame_no)
+
     def on_key(self, key) -> bool:
         pg = self.pg
         if self.state == "title":
@@ -213,6 +225,8 @@ class App:
                 self.state = "play"
             elif key == pg.K_m:
                 self.args.mode = "classic" if self.modern else "remastered"
+                if self.args.mode == "classic":
+                    self.args.horde = False  # Horde is Remastered only
                 self.__init__(self.args)
                 self.state = "title"
             elif key == pg.K_h:
@@ -272,9 +286,8 @@ class App:
         lines = ["LEVEL COMPLETE", f"time {clock_text(s['ticks'])}",
                  f"kills {s['kills']}   secrets {s['secrets']}   deaths {s['deaths']}"]
         if self.modern:
-            acc = f"{min(100, 100 * s['hits'] // s['shots'])}%" if s["shots"] else "-"
-            lines.append(f"damage taken {s['damage_taken']}   shots {s['shots']}   accuracy {acc}   dashes "
-                         f"{s['dashes']}")
+            lines.append(f"damage taken {s['damage_taken']}   shots fired {s['shots']}   enemies hit "
+                         f"{s['enemies_hit']}   dashes {s['dashes']}")
             f = self.finish or {}
             best = f.get("best")
             if f.get("new_best"):
@@ -293,10 +306,11 @@ class App:
     def tick(self, frame_no):
         inp = self.scripted_inputs(self.stats["ticks"]) if self.args.frames else self.read_inputs()
         weapon, self.pending_weapon = self.pending_weapon, None
+        dashed = False
         if self.pending_dash and self.game.remastered is not None:
             self.pending_dash = False
-            if self.game.remastered.request_dash(inp.x):
-                self.stats["dashes"] += 1
+            dashed = self.game.remastered.request_dash(inp.x)
+            self.stats["dashes"] += int(dashed)
         hp_before = self.game.player.hp
         self.game.step(inp, weapon)
         self.stats["ticks"] += 1
@@ -306,15 +320,17 @@ class App:
         for e in w.events:
             if e.kind == "enemy_killed":
                 self.stats["kills"] += 1
-            elif e.kind == "damage" and e.data.get("by_player") and e.data["target"] != self.game.player.uid:
-                self.stats["hits"] += 1
+            elif e.kind == "damage" and e.data.get("by_player") and e.data["target"] != self.game.player.uid \
+                    and not e.data["type"].startswith("HIDDEN_WALL"):
+                self.hit_uids.add(e.data["target"])
+                self.stats["enemies_hit"] = len(self.hit_uids)
             elif e.kind == "horde_wave":
                 self.hud.say(f"Wave {e.data['wave']}: {e.data['size']} incoming")
             elif e.kind == "horde_cleared":
                 self.hud.say(f"Wave {e.data['wave']} cleared - supplies dropped")
             elif e.kind == "wall_destroyed":
                 self.stats["secrets"] += 1
-            elif e.kind == "sound" and e.data["name"] == "ZAP_SND":
+            elif e.kind == "shot" and e.data.get("by_player"):  # the player's own shots only
                 self.stats["shots"] += 1
         self.stats["damage_taken"] += max(0, hp_before - self.game.player.hp)
         self.renderer.note_events(w.events)
@@ -326,6 +342,8 @@ class App:
                    "px": inp.pointer_x, "py": inp.pointer_y}
             if weapon is not None:
                 rec["weapon"] = {"select": weapon.select, "cycle": weapon.cycle}
+            if dashed:
+                rec["dash"] = 1
             self.trace.write(json.dumps(rec) + "\n")
         if self.horde and self.game.horde.state["over"]:
             from .remaster import record_horde
@@ -353,7 +371,8 @@ class App:
             self.particles.step(0.25)
             xoff, yoff = self.renderer.camera(alpha)
             if self.ghost and self.show_ghost and self.state == "play":
-                row = self.ghost[min(self.stats["ticks"], len(self.ghost) - 1)]
+                # rows[k] is the state after tick k+1, and the game has run stats["ticks"] ticks
+                row = self.ghost[max(0, min(self.stats["ticks"] - 1, len(self.ghost) - 1))]
                 if self.ghost_painter is None:
                     from .remaster import GhostPainter
 

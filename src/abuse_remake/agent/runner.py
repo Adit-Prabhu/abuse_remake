@@ -75,6 +75,25 @@ def budget_stop(budgets: Budgets, usage: dict, wall_s: float) -> str | None:
     return None
 
 
+def new_usage() -> dict:
+    return {"input_tokens": 0, "output_tokens": 0, "model_calls": 0, "model_errors": 0, "latency_s": [],
+            "error_categories": {}}
+
+
+def stop_reason(budgets: Budgets, usage: dict, wall_s: float, reply: dict) -> tuple[str | None, str | None]:
+    """Why the runner must end the episode after this decision (or None), and any fatal error.
+    Shared by every runner: abuse-agent, abuse-eval and the spectator."""
+    meta = reply.get("meta") or {}
+    stop = budget_stop(budgets, usage, wall_s)
+    if meta.get("budget_exhausted"):
+        stop = stop or "token budget exhausted"
+    fatal = None
+    if reply.get("fatal") or meta.get("fatal"):  # e.g. rejected credentials: every later request would fail
+        fatal = str(reply.get("error") or "")[:200]
+        stop = stop or "player failed"
+    return stop, fatal
+
+
 def add_usage(usage: dict, meta: dict) -> None:
     usage["input_tokens"] += int(meta.get("input_tokens") or 0)
     usage["output_tokens"] += int(meta.get("output_tokens") or 0)
@@ -105,8 +124,7 @@ def run_episode(player, scenario: str, seed: int, difficulty: str = "hard", budg
                   "budgets": asdict(budgets)})
     obs = ep.observe(PLAYER_ID)
     tracker = ProgressTracker(obs["player"]["x"], obs["player"]["y"])
-    usage = {"input_tokens": 0, "output_tokens": 0, "model_calls": 0, "model_errors": 0, "latency_s": [],
-             "error_categories": {}}
+    usage = new_usage()
     model_id = provider = memory = fatal_error = None
     while ep.outcome()["status"] == "ongoing":
         legal = ep.legal_actions(PLAYER_ID)
@@ -135,12 +153,8 @@ def run_episode(player, scenario: str, seed: int, difficulty: str = "hard", budg
             if full_obs:
                 row["observation"] = obs
             trace.write(json.dumps(row) + "\n")
-        stop = budget_stop(budgets, usage, time.time() - started)
-        if meta.get("budget_exhausted"):
-            stop = stop or "token budget exhausted"
-        if reply.get("fatal") or meta.get("fatal"):  # e.g. rejected credentials: every later request would fail
-            fatal_error = str(reply.get("error") or "")[:200]
-            stop = stop or "player failed"
+        stop, fatal = stop_reason(budgets, usage, time.time() - started, reply)
+        fatal_error = fatal or fatal_error
         if stop:
             ep.stop(stop)
     episode_outcome = ep.outcome()

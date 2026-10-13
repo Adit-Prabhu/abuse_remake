@@ -60,6 +60,14 @@ def _shotgun_bullet(world, creator, x, y, angle, lifetime, speed, bright, medium
 
 
 def fire_object(creator, wtype: int, x: int, y: int, angle: int, target):
+    shot = _fire_object(creator, wtype, x, y, angle, target)
+    if shot is not None:  # an output event for statistics; it draws no random numbers
+        creator.world.emit("shot", uid=shot.uid, weapon=wtype, x=x, y=y,
+                           by_player=creator.world.player_owned(shot))
+    return shot
+
+
+def _fire_object(creator, wtype: int, x: int, y: int, angle: int, target):
     world = creator.world
     if wtype == 0:
         return _shotgun_bullet(world, creator, x, y, angle, 6, 15, (255, 255, 200), (150, 150, 0))

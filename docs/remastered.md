@@ -1,7 +1,9 @@
 # Remastered mode
 
-`uv run abuse-remake` starts in Remastered mode, and `--mode classic` gives the faithful port. The title
-screen toggles the mode (M), the difficulty (D) and Horde (H).
+`uv run abuse-remake` starts in Remastered mode, and `--mode classic` gives the faithful port.
+`--playtest` starts in Classic mode, because playtests are the human reference for the Classic
+evaluation. The title screen toggles the mode (M), the difficulty (D) and Horde (H). Horde is
+Remastered only, so switching to Classic turns it off.
 
 Classic mode is the reconstruction: the original rules and the original 316x162 view. Every
 fidelity test and every evaluation runs Classic rules. Remastered keeps the same engine and level
@@ -12,7 +14,7 @@ and adds the following. Mechanics that change rules live in the engine behind
 
 - A wider 16:9 view (480x270), 60 fps drawing interpolated between the 15 Hz ticks.
 - Dynamic light from muzzle flashes and explosions, and particles for shots, kills, pickups,
-  broken walls and dashes.
+  broken walls and dashes. Classic draws only the level's own lights (`render.py`).
 - Mouse and gamepad aiming, and the mouse wheel or bumpers to switch weapon.
 
 ## New mechanics (rule changes, Remastered only)
@@ -27,9 +29,9 @@ and adds the following. Mechanics that change rules live in the engine behind
 | Feature | Controls | What it does | Code |
 |---|---|---|---|
 | Quick restart | R | Back to the last console save at once (the original reloads the save after death) | `game/app.py` |
-| Stats screen | at the exit | Time, kills, secrets, deaths, damage taken, shots, accuracy, dashes, and your best time | `game/app.py`, `game/remaster.py` |
-| Ghost race | G toggles it | Your best finished run is shown as a translucent figure at the same tick of the run timer | `game/remaster.py` |
-| AI spectator and replay | `abuse-replay --player scripted` or `--trace FILE` | Watch any player (scripted, random, the model, or a `cmd:` program) under Classic rules, with a panel showing what it sees and chooses. Or replay a trace, checking every observation hash, to the screen or to MP4 with `--video` | `game/spectate.py` |
+| Stats screen | at the exit | Time, kills, secrets, deaths, damage taken, the player's own shots fired, distinct enemies hit, dashes, and your best time | `game/app.py`, `game/remaster.py` |
+| Ghost race | G toggles it | Your best finished run is shown as a translucent figure at the same tick of the run timer. Unlike the player, it is not interpolated between ticks | `game/remaster.py` |
+| AI spectator and replay | `abuse-replay --player scripted` or `--trace FILE` | Watch any player (scripted, random, the model, or a `cmd:` program) under Classic rules, with a panel showing what it sees and chooses. A watched player gets the same budgets and fatal-error stops as in `abuse-agent`. Or replay a trace: every observation hash, every step and the final outcome must match. The output goes to the screen, or to MP4 with `--video` | `game/spectate.py` |
 
 Records and ghosts are kept per player in `~/.abuse_remake/`, never in the repo. Set
 `ABUSE_REMAKE_HOME` to keep them elsewhere.

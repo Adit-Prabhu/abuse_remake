@@ -43,9 +43,27 @@ def _write(path: Path, data) -> None:
         pass  # records are a convenience; a read-only home must not stop the game
 
 
+RECORD_KEYS = {"level01": ("ticks", "kills", "secrets", "deaths", "damage_taken"), "horde": ("cleared", "kills")}
+
+
+def _valid_record(key: str, rec) -> bool:
+    need = RECORD_KEYS["horde" if key.startswith("horde-") else "level01"]
+    return isinstance(rec, dict) and all(isinstance(rec.get(k), int) for k in need)
+
+
 def load_records() -> dict:
-    got = _read(data_dir() / "records.json")
-    return got if isinstance(got, dict) else {}
+    """Valid records only. A file that cannot be read is moved aside (never silently replaced),
+    and entries in the wrong shape are ignored."""
+    path = data_dir() / "records.json"
+    got = _read(path)
+    if got is None and path.exists():
+        try:
+            path.replace(path.with_suffix(".unreadable.json"))
+        except OSError:
+            pass
+    if not isinstance(got, dict):
+        return {}
+    return {k: v for k, v in got.items() if isinstance(k, str) and _valid_record(k, v)}
 
 
 def record_finish(difficulty: str, stats: dict) -> dict:
@@ -83,7 +101,13 @@ def load_ghost(difficulty: str) -> list[list] | None:
     if not isinstance(got, dict) or got.get("version") != GHOST_VERSION:
         return None
     rows = got.get("rows")
-    return rows if isinstance(rows, list) and rows else None
+    if not isinstance(rows, list) or not rows:
+        return None
+    for r in rows:  # a hand-edited or partial file must not crash the game
+        if not (isinstance(r, list) and len(r) in (5, 9) and all(isinstance(v, int) for v in (r[0], r[1], r[2], r[4]))
+                and isinstance(r[3], str)):
+            return None
+    return rows
 
 
 class GhostPainter:
