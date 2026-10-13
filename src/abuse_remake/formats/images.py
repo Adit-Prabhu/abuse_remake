@@ -3,7 +3,8 @@
 Sources (historicalsource/abuse@01cce80):
 - image layout: imlib/image.c:132 (u16 width, u16 height, width*height palette indices)
 - point list:   abuse/src/points.c:17 (u8 count, then count (x, y) byte pairs)
-- boundary:     abuse/src/items.c:8 and :87 (per-segment "inside" flags, forward and flipped copy)
+- boundary:     abuse/src/items.c:8 (from file) and :100 (the copy used for the flipped frame);
+                they differ only for vertical segments (items.c:42 checks left, :125 checks right)
 - figure:       abuse/src/items.c:270 (image, hit_damage, xcfg, advance, damage boundary, hit list)
 """
 

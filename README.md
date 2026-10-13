@@ -3,8 +3,9 @@
 A reconstruction of **Level 1 of Abuse** (Crack dot Com, 1996) in Python, with a model-driven
 player and a scripted baseline. This is a COMS E6998 midterm project.
 
-- The scope record is `SCOPE.md`. The original data comes from the public-domain shareware
-  release; see `data/original/PROVENANCE.md`.
+- The scope record is `SCOPE.md`. `data/original/PROVENANCE.md` gives the data's provenance
+  and licence terms. `docs/data-lineage.md` shows that Level 1 is byte-identical to the 1995
+  and 1996 releases, and that the rule scripts match the 1996 retail Lisp.
 - The game logic is a deterministic port of the original C engine and Lisp rules, running at
   15 ticks per second. Every rule is cited in `docs/rule-source-map.md`.
 - Classic mode is the faithful port. Remastered mode adds modern features on top.

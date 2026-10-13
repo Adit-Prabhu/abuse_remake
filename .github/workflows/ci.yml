@@ -20,6 +20,7 @@ jobs:
       SDL_VIDEODRIVER: dummy
       SDL_AUDIODRIVER: dummy
       PYGAME_HIDE_SUPPORT_PROMPT: '1'
+      ABUSE_REQUIRE_C_REFERENCE: '1'  # differential tests against the original C must run
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -27,7 +28,7 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: uv sync --frozen
       - name: Lint
-        run: uv run --frozen ruff check src tests
+        run: uv run --frozen ruff check src tests scripts
       - name: Original data checksums
         run: uv run --frozen abuse-data verify
       - name: Tests (no network, no model calls)

@@ -17,8 +17,10 @@ from pathlib import Path
 from .images import Boundary, Image
 from .spec import SPEC_BACKTILE, SPEC_FORETILE, SPEC_PALETTE, SpecFile
 
-FORE_W, FORE_H = 30, 15  # abuse foreground tile size (checked on load below)
-BACK_W, BACK_H = 64, 64
+# The grid size is the size of tile 0 in each set (loader2.c:439-442: f_wid, f_hi, b_wid, b_hi).
+# TileSet.grid_sizes() reads it; these constants are the values the shipped data gives.
+FORE_W, FORE_H = 30, 15
+BACK_W, BACK_H = 60, 30
 
 # data/lisp/startup.lsp, (load_tiles ...): foreground files then background files.
 TILE_FILES = (
@@ -92,6 +94,11 @@ class TileSet:
     @property
     def nbacktiles(self) -> int:
         return max(self.back, default=-1) + 1
+
+    def grid_sizes(self) -> tuple[tuple[int, int], tuple[int, int]]:
+        """(fore w, h), (back w, h): the sizes of tile 0, as loader2.c:439-442 sets them."""
+        f, b = self.fore[0].image, self.back[0].image
+        return (f.width, f.height), (b.width, b.height)
 
 
 def _number(name: str) -> int | None:

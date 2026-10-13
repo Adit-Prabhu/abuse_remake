@@ -7,45 +7,62 @@
 ## The classic
 
 Abuse, the 1996 MS-DOS side-scrolling run-and-gun by Crack dot Com. You run and jump through an
-alien-infested prison and aim 360° with the mouse, independently of your movement. The source code
-and the shareware data are public domain (see `data/original/PROVENANCE.md`).
+alien-infested prison and aim 360° with the mouse, independently of your movement. Provenance
+and licence terms for the code and data are in `data/original/PROVENANCE.md`. The evidence that
+our data matches the original releases is in `docs/data-lineage.md`.
 
 ## The bounded reconstruction
 
 **Level 1 (`levels/level01.spe`)**, the first combat level, loaded straight from the original
-file. The game logic runs at the original fixed rate of 15 ticks per second.
+file. The file is byte-identical to the 1995 shareware and 1996 retail releases.
 
-| Area | What is in scope | Rule source |
+The original caps game logic at 15 frames per second (`game.c:1630-1633` delays any frame that
+would run faster). Its release note calls these "the 15 Hz updates". The reconstruction runs
+exactly one logic tick per original frame, at a fixed 15 Hz. Rendering is interpolated in
+between.
+
+Every object type in the file is in scope. `src/abuse_remake/scope.py` lists them, and a test
+checks that list against the level file and against this page.
+
+| Area | Object types and rules | Rule source |
 |---|---|---|
 | Map | foreground and background tile maps; tile collision outlines; background scroll rate | `level.c`, `items.c`, art `.spe` files |
-| Player (DARNEL) | run, jump, stop and turn physics; the top half aiming in 360°; health 100; flinch; death | `objects.c` `tick`/`mover`, `cop.c`, `people.lsp` |
-| Weapons | laser rifle (`MBULLET`), grenade launcher, firebomb (napalm), rocket launcher; ammo and pickups | `cop.c`, `weapons.lsp` |
-| Enemies | `ANT_ROOF`, `HIDDEN_ANT`, `ANT_CRACK` (alien ants), `SPRAY_GUN` (turret), `BOLDER` (boulder) | `ant.c`, `ant.lsp`, `guns.lsp`, `duong.lsp` |
-| Pickups | `HEALTH`, ammo icons (`MBULLET_ICON5/20`, `GRENADE_ICON2/10`, `FBOMB_ICON1`, `ROCKET_ICON2`) | `powerup.lsp`, `weapons.lsp` |
-| Logic | `SENSOR`, `DEATH_SENSOR`, `GATE_AND/XOR/NOT/DELAY/PULSE`, `SWITCH`, `SWITCH_ONCE`, `SWITCH_MOVER`, `SWITCH_DIMMER` | `switch.lsp`, `gates.lsp`, `light.lsp` |
-| World objects | `SWITCH_DOOR`, `FORCE_FIELD`, `TRAP_DOOR2/3`, `HIDDEN_WALL*`, `SMART_PLAT_SMALL`, `TP_DOOR`, `TELE2`, `TELE_BEAM`, `RESTART_POSITION`, `START`, `NEXT_LEVEL` | `doors.lsp`, `duong.lsp`, `platform.lsp`, `teleport.lsp`, `people.lsp` |
-| Presentation | camera follow and per-area offsets, lighting from the level's light list and ambient level | `view.c`, `light.c` |
-| Difficulty | `easy`, `medium`, `hard`, `extreme` health scaling | `people.lsp` `give_player_health` |
+| Player | `START` spawns DARNEL. In scope: run, jump, stop and turn physics; aiming the top half in 360°; health 100; flinch; death | `objects.c` `tick`/`mover`, `cop.c`, `people.lsp` |
+| Weapons | laser rifle (`MBULLET`), grenade launcher, firebomb (napalm), rocket launcher; ammo | `cop.c`, `weapons.lsp`, `guns.lsp` |
+| Enemies and hazards | `ANT_ROOF`, `HIDDEN_ANT`, `ANT_CRACK` (alien ants), `SPRAY_GUN` (turret), `BOLDER` (boulder) | `ant.c`, `ant.lsp`, `guns.lsp`, `duong.lsp` |
+| Pickups | `HEALTH`, `MBULLET_ICON5`, `MBULLET_ICON20`, `GRENADE_ICON2`, `GRENADE_ICON10`, `FBOMB_ICON1`, `ROCKET_ICON2` | `powerup.lsp`, `weapons.lsp` |
+| Logic | `SENSOR`, `DEATH_SENSOR`, `GATE_AND`, `GATE_XOR`, `GATE_NOT`, `GATE_DELAY`, `GATE_PULSE`, `SWITCH`, `SWITCH_ONCE`, `SWITCH_MOVER`, `SWITCH_DIMMER` | `switch.lsp`, `gates.lsp`, `light.lsp` |
+| World objects | `SWITCH_DOOR`, `FORCE_FIELD`, `TRAP_DOOR2`, `TRAP_DOOR3`, `SMART_PLAT_SMALL`, `TP_DOOR`, `TELE2`, `TELE_BEAM`, `HIDDEN_WALL1`, `HIDDEN_WALL2`, `HIDDEN_WALL3`, `HIDDEN_WALL4`, `HIDDEN_WALL5`, `HIDDEN_WALL_2x2`, `HIDDEN_WALL_3WAL`, `HIDDEN_WALL_3FLR` | `doors.lsp`, `duong.lsp`, `platform.lsp`, `teleport.lsp`, `people.lsp` |
+| Progress | `RESTART_POSITION` (save console), `NEXT_LEVEL` and `NEXT_LEVEL_TOP` (the exit) | `people.lsp` |
+| Sound emitters | `AMBIENT_SOUND`. It plays a sound, but it also draws from the shared random table, as `NEXT_LEVEL_TOP` does. Leaving either out would change every enemy's random choices | `sfx.lsp` |
+| Presentation | camera follow and per-area offsets; lighting from the level's light list and ambient level | `view.c`, `light.c` |
+| Difficulty | `easy`, `medium`, `hard`, `extreme` damage and health scaling | `people.lsp` `bottom_damage`, `give_player_health` |
 
 ## Ending and episode limit
 
 An episode ends at the first of:
 
-1. The player stands at `NEXT_LEVEL` and presses the action key. **Win.** (`people.lsp`
-   `next_level_ai`: `touching_bg` and `pressing_action_key`.)
-2. The player dies. **Loss.** This is a course choice, not a rule of the game. In single-player
-   mode the original reloads the level from the start, or reloads the save made at the last
-   `RESTART_POSITION` console the player activated (`people.lsp` `restart_player`,
-   `restart_ai`). The human game keeps that restart, using an in-memory snapshot as the save;
-   agent episodes stop.
-3. The tick limit for the scenario is reached. **Timeout.** Defaults: 9000 ticks (10 minutes of
-   game time) for the full level, and 2700 ticks for checkpoint segments.
+1. **Win.** The player stands at `NEXT_LEVEL` and presses the action key, which is down
+   (`people.lsp` `next_level_ai`: `touching_bg` and `pressing_action_key`, where
+   `pressing_action_key` is `(> (player_y_suggest) 0)`).
+2. **Loss.** The player dies.
+   - This is a course choice, not a rule of the game. In single-player mode the original
+     reloads the level from the start (health 100), or reloads the save made at the last
+     `RESTART_POSITION` console (`people.lsp` `restart_player`).
+   - A console saves when the player presses the action key at it and picks a save slot. Health
+     is set to 100 for the save unless the difficulty is `extreme` (`restart_ai`).
+   - The human game keeps this restart, using an in-memory snapshot as the save; agent episodes
+     stop at death.
+3. **Timeout.** The scenario's tick limit is reached: 9000 ticks (10 minutes of game time) for
+   the full level, or 2700 ticks for segments that start at a restart console. Both limits are
+   course choices.
 
 ## Out of scope
 
-Other levels, network play, the level editor, save games, a Lisp interpreter (rules are
+Other levels, network play, the level editor, save files on disk, a Lisp interpreter (rules are
 hand-ported and each one is cited in `docs/rule-source-map.md`), the retail data, the original
-sounds and music (copyrighted), and the `frabs` add-ons.
+sounds and music (copyrighted), and the later add-on content in the Lisp (plasma gun, light
+saber, extra powers, boss).
 
 ## Optional layer: Remastered mode
 

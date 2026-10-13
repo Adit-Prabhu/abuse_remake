@@ -2,11 +2,16 @@
 
 Ported from historicalsource/abuse@01cce80 abuse/src/level.c:
 - maps:        level::level (lines 1286-1345): ``fgmap``/``bgmap`` are u32 width, u32 height,
-               then width*height u16 tile values; foreground values keep flag bits 0x4000/0x8000
+               then width*height u16 tile values; foreground values carry flag bits 0x4000/0x8000
+- load fix-ups: level::level (lines 1357-1399): with no ``player_info`` entry the 0x8000 "seen"
+               bit is cleared on every foreground cell; cells naming a tile that does not exist
+               become 0; objects whose type is unknown or whose x or y is negative are deleted
 - options:     level::load_options (2085-2144): ``bg_scroll_rate``, ``area_list.v1``, ``tick_counter``
 - objects:     level::load_objects (1005-1240): type names, state names and local-variable names
                are stored per type, then one array per base variable across all objects
-- links:       level::load_links (2001-2050): 1-based object numbers; negative targets are players
+- links:       level::load_links (2001-2050): 1-based object numbers. A target <= 0 is looked up
+               in the player list by its negation; 0 resolves to NULL, which
+               simple_object::add_object (extend.c:49) ignores
 - lights:      abuse/src/light.c:1243 ``read_lights``
 """
 
@@ -49,6 +54,7 @@ class LevelObject:
     links: list[int] = field(default_factory=list)  # object numbers this object holds
     player_links: list[int] = field(default_factory=list)  # links to players (negative numbers)
     light_links: list[int] = field(default_factory=list)  # 1-based light numbers
+    removed_on_load: bool = False  # level.c:1393-1399 deletes unknown types and negative x/y
 
     @property
     def x(self) -> int:
@@ -99,8 +105,9 @@ class LevelFile:
     areas: list[AreaController]
     tick_counter: int
     objects: list[LevelObject]
-    min_light_level: int
+    min_light_level: int  # light.c: ushort
     lights: list[Light]
+    has_player_info: bool = False
 
     def fg_tile(self, x: int, y: int) -> int:
         if 0 <= x < self.fg_width and 0 <= y < self.fg_height:
@@ -108,7 +115,9 @@ class LevelFile:
         return 0
 
     def fg_raised(self, x: int, y: int) -> bool:
-        return bool(self.fg[x + y * self.fg_width] & 0x4000)  # level.hpp above_tile()
+        if 0 <= x < self.fg_width and 0 <= y < self.fg_height:
+            return bool(self.fg[x + y * self.fg_width] & 0x4000)  # level.hpp above_tile()
+        return False
 
     def bg_tile(self, x: int, y: int) -> int:
         if 0 <= x < self.bg_width and 0 <= y < self.bg_height:
@@ -116,7 +125,11 @@ class LevelFile:
         return 0
 
     def objects_of(self, type_name: str) -> list[LevelObject]:
-        return [o for o in self.objects if o.type_name == type_name]
+        return [o for o in self.objects if o.type_name == type_name and not o.removed_on_load]
+
+    def live_objects(self) -> list[LevelObject]:
+        """Objects that survive level::level's post-load deletion, in file order."""
+        return [o for o in self.objects if not o.removed_on_load]
 
     def object(self, number: int) -> LevelObject:
         return self.objects[number - 1]
@@ -141,7 +154,13 @@ def _read_value(r: Reader, rc: int) -> int:
     return r.s32()
 
 
-def load_level(path: str | Path) -> LevelFile:
+def load_level(path: str | Path, foretiles: set[int] | None = None,
+               backtiles: set[int] | None = None) -> LevelFile:
+    """Read a level and apply the original loader's fix-ups.
+
+    ``foretiles``/``backtiles`` are the tile numbers that exist; when given, map cells naming
+    any other tile become 0, as level.c:1366-1374 does.
+    """
     spec = SpecFile.open(path)
     first_name = None
     e = spec.find("first name")
@@ -171,7 +190,15 @@ def load_level(path: str | Path) -> LevelFile:
     if e is not None:
         r = spec.reader(e)
         if r.u8() == RC_L:
-            tick_counter = r.s32()
+            tick_counter = r.u32()  # level.hpp: ulong
+
+    has_player_info = spec.find("player_info") is not None
+    if not has_player_info:
+        fg = [v & ~0x8000 for v in fg]  # clear the has-seen bit (level.c:1360-1364)
+    if foretiles is not None:
+        fg = [v if (v & 0x3FFF) in foretiles else 0 for v in fg]
+    if backtiles is not None:
+        bg = [v if v in backtiles else 0 for v in bg]
 
     objects = _load_objects(spec)
     _load_links(spec, objects)
@@ -181,14 +208,18 @@ def load_level(path: str | Path) -> LevelFile:
     if e is not None:
         r = spec.reader(e)
         total = r.s32()
-        min_light = r.s32()
+        min_light = r.s32() & 0xFFFF
         for _ in range(total):
             x, y, xs, ys, ir, orad = (r.s32() for _ in range(6))
             ty = r.u8()
             lights.append(Light(ty, x, y, xs, ys, ir, orad))
 
+    for o in objects:
+        if o.type_name is None or o.vars.get("x", 0) < 0 or o.vars.get("y", 0) < 0:
+            o.removed_on_load = True
+
     return LevelFile(str(path), first_name, fg_w, fg_h, fg, bg_w, bg_h, bg, bg_scroll, areas,
-                     tick_counter, objects, min_light, lights)
+                     tick_counter, objects, min_light, lights, has_player_info)
 
 
 def _load_objects(spec: SpecFile) -> list[LevelObject]:
@@ -197,13 +228,17 @@ def _load_objects(spec: SpecFile) -> list[LevelObject]:
         raise ValueError(f"{spec.path}: pre-1995 object format is not supported")
     r = spec.reader(e)
     old_tot = r.u16()
+    # C reads the names straight after the count; shipped files store them contiguously.
     names_entry = spec.find("describe_names")
-    if names_entry is not None:
-        r.seek(names_entry.offset)
+    if names_entry is None or old_tot == 0:
+        return []
+    r.seek(names_entry.offset)
     type_names = [r.pstring() for _ in range(old_tot)]
 
     state_names: list[list[str]] = []
     e = spec.find("describe_states")
+    if e is None:
+        return []  # level.c:1042 returns without loading any object
     r = spec.reader(e)
     for _ in range(old_tot):
         state_names.append([r.pstring() for _ in range(r.u16())])
@@ -219,9 +254,12 @@ def _load_objects(spec: SpecFile) -> list[LevelObject]:
         return []
     total = spec.reader(e).u32()
 
-    r = spec.reader(spec.find("type"))
+    e = spec.find("type")
+    if e is None:
+        return []
+    r = spec.reader(e)
     if r.u8() != RC_S:
-        raise ValueError(f"{spec.path}: object type array is not RC_S")
+        return []  # level.c:1128: no objects are created
     types = [r.u16() for _ in range(total)]
 
     states = [0] * total
@@ -235,12 +273,16 @@ def _load_objects(spec: SpecFile) -> list[LevelObject]:
     e = spec.find("lvars")
     if e is not None:
         r = spec.reader(e)
+        abort = False
         for i in range(total):
+            if abort:
+                break  # level.c:1172: a type mismatch stops lvar loading for the rest
             count = r.s16()
             names = lvar_names[types[i]] if types[i] < old_tot else []
             for k in range(count):
                 if r.u8() != RC_L:
-                    raise ValueError(f"{spec.path}: lvar {k} of object {i + 1} is not RC_L")
+                    abort = True
+                    break
                 v = r.s32()
                 if k < len(names):
                     lvars[i][names[k]] = v
@@ -283,8 +325,9 @@ def _load_links(spec: SpecFile, objects: list[LevelObject]) -> None:
                     continue  # "bad object link"
                 if x2 > 0:
                     objects[x1 - 1].links.append(x2)
-                else:
+                elif x2 < 0:
                     objects[x1 - 1].player_links.append(-x2)
+                # x2 == 0 resolves to NULL and add_object(NULL) is ignored
     e = spec.find("light_links")
     if e is not None:
         r = spec.reader(e)

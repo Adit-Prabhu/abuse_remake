@@ -18,10 +18,6 @@ model = [
 ]
 
 [project.scripts]
-abuse-remake = "abuse_remake.game.app:main"
-abuse-agent = "abuse_remake.agent.runner:main"
-abuse-eval = "abuse_remake.agent.evaluate:main"
-abuse-replay = "abuse_remake.agent.replay:main"
 abuse-data = "abuse_remake.formats.cli:main"
 
 [dependency-groups]
