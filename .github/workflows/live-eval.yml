@@ -1,0 +1,72 @@
+name: Live evaluation
+
+# Manual only, and only on the default branch: live runs call a paid model.
+# Before the first run the repository owner sets up (Settings > Secrets and variables > Actions):
+#   variables: GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION, GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_SERVICE_ACCOUNT
+#   (Workload Identity Federation, so no key file is stored). The model ID is a run input and is
+#   recorded in the report; nothing in the code names a billable model.
+
+on:
+  workflow_dispatch:
+    inputs:
+      config:
+        description: Evaluation config
+        type: choice
+        options: [live-smoke, live]
+        default: live-smoke
+      model:
+        description: Model ID for COURSE_MODEL (recorded in the report)
+        type: string
+        required: true
+      jobs:
+        description: Parallel offline (baseline) episodes
+        type: string
+        default: '4'
+
+permissions:
+  contents: read
+  id-token: write  # Workload Identity Federation to Google Cloud
+
+concurrency:
+  group: live-eval
+  cancel-in-progress: false
+
+jobs:
+  live:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      SDL_VIDEODRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+      PYGAME_HIDE_SUPPORT_PROMPT: '1'
+      COURSE_MODEL: ${{ inputs.model }}
+      GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
+      GOOGLE_CLOUD_LOCATION: ${{ vars.GOOGLE_CLOUD_LOCATION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+      - run: uv sync --frozen --all-extras
+      - name: Deterministic tests first (no network)
+        run: uv run --frozen pytest -q
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+      - name: Token and cost estimate (no calls)
+        run: uv run --frozen abuse-eval estimate --config eval/configs/${{ inputs.config }}.toml
+      - name: Live comparison
+        run: >
+          uv run --frozen abuse-eval run --config eval/configs/${{ inputs.config }}.toml --live
+          --jobs ${{ inputs.jobs }} --out runs/${{ inputs.config }}-${{ github.run_id }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ inputs.config }}-${{ github.run_id }}
+          path: |
+            runs/
+            !runs/**/gha-creds-*.json
+          if-no-files-found: warn
+          retention-days: 90
