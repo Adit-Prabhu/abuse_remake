@@ -1,0 +1,18 @@
+# Baselines only: no network, no model calls. The regression record for the scripted baseline.
+name = "offline"
+scenarios = ["level01", "level01-cp1", "level01-cp2", "level01-cp3"]
+seeds = [0, 1, 2, 3, 4]
+difficulty = "hard"
+isolation = "process"   # players are separate programs speaking agent/protocol.py
+reference = "scripted"
+
+[budgets]               # per episode; max_ticks defaults to the scenario's limit (9000 full, 2700 segments)
+max_decisions = 600
+
+[[players]]
+label = "random"
+player = "random"
+
+[[players]]
+label = "scripted"
+player = "scripted"

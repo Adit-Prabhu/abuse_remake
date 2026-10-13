@@ -1,0 +1,25 @@
+# Used by the CI eval smoke test: tiny, offline, and it still lists a live player so the report
+# shows it as not run rather than silently dropping or faking it.
+name = "ci-smoke"
+scenarios = ["level01-cp1"]
+seeds = [0, 1]
+difficulty = "hard"
+isolation = "process"
+reference = "scripted"
+
+[budgets]
+max_decisions = 12
+
+[[players]]
+label = "random"
+player = "random"
+
+[[players]]
+label = "scripted"
+player = "scripted"
+
+[[players]]
+label = "model-M1"
+player = "model"
+args = ["--provider", "vertex", "--memory", "M1"]
+live = true
