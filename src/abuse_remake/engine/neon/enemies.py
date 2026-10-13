@@ -743,7 +743,7 @@ class Target(Enemy):
 
     def s_idle(self, game) -> None:
         f = (game.frames * 6 + self.uid * 211) % 1024
-        self.y = self.home_y + SIN[f] * 5 // 1024
+        self.y = self.home_y - self.h // 2 + SIN[f] * 5 // 1024
 
 
 # ---------------------------------------------------------------- nest
@@ -802,6 +802,8 @@ class Warden(Enemy):
     right: int = 0
     floor: int = 0
     stomp_wind: int = 0  # the raised-leg telegraph before a stomp
+    sweep_x: int = 0  # centre of the moving laser segment
+    sweep_dir: int = 1
 
     def hittable(self) -> bool:
         return not self.dead and self.roar == 0
@@ -818,6 +820,13 @@ class Warden(Enemy):
     def update(self, game) -> None:
         self.tick_common(game)
         p = game.player
+        if not self.alerted:
+            # dormant until the runner comes into the arena (or is heard)
+            if abs(p.cx - self.cx) < 560 and self.sees(game, 600):
+                self.alert(game, scream=False)
+                self.roar = 30
+                game.emit("boss_wake", self.cx, self.cy)
+            return
         if self.roar:
             self.roar -= 1
             self.vx = 0
@@ -870,16 +879,22 @@ class Warden(Enemy):
         elif self.laser == "charge":
             self.laser_t -= 1
             if self.laser_t <= 0:
-                self.laser, self.laser_t, self.laser_hit = "sweep", 30, False
+                self.laser, self.laser_t, self.laser_hit = "sweep", 40, False
+                self.sweep_dir = (1 if p.cx >= self.cx else -1)
+                self.sweep_x = self.cx
                 game.emit("laser_fire", self.cx, self.cy, high=self.laser_high)
         elif self.laser == "sweep":
+            # an 80 px beam segment sweeps out across the arena at 22 px/tick: it passes any one
+            # spot in about four ticks, so a timed jump clears the low beam and a crouch the high one
             self.laser_t -= 1
+            self.sweep_x += self.sweep_dir * 22
             top, bottom = self.beam()
             if not self.laser_hit and p.alive and p.y < bottom and p.bottom > top \
-                    and self.left - 40 <= p.cx <= self.right + 40:
-                if p.hurt(game, 20, self.cx, "laser"):
+                    and abs(p.cx - self.sweep_x) < SWEEP_HALF + p.w // 2:
+                if p.hurt(game, 20, self.sweep_x, "laser"):
                     self.laser_hit = True
-            if self.laser_t <= 0:
+            past = self.sweep_x > self.right + 120 or self.sweep_x < self.left - 120
+            if self.laser_t <= 0 or past:
                 self.laser, self.laser_t = "vent", 75
                 game.emit("vent", self.cx, self.cy)
         elif self.laser == "vent":
@@ -895,6 +910,8 @@ class Warden(Enemy):
     def heard(self, game, x, y) -> None:
         self.alert(game, scream=False)
 
+
+SWEEP_HALF = 40
 
 KINDS = {"crawler": Crawler, "stinger": Stinger, "sentry": Sentry, "strider": Strider, "drone": Drone,
          "nest": Nest, "warden": Warden, "target": Target}

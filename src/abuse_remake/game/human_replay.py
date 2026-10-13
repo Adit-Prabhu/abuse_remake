@@ -81,12 +81,15 @@ class _Session:
 class _NeonSession:
     """Replay Neon Protocol (``neon-trace-2``), without Classic route scoring or pygame.
 
-    A save console and the start of every campaign sector are checkpoints, as in the game.
+    A save console and the start of every campaign sector are checkpoints, as in the game, and
+    the start of the current sector is where "restart sector" (``level_start``) goes.
     """
 
     def __init__(self, row):
         from ..engine.neon import NeonGame
 
+        if "sector" not in row:
+            raise SystemExit("a Neon Protocol v1 game in this trace; v1 was replaced, so it cannot be replayed")
         self.game = NeonGame(row["seed"], row["variant"], row.get("difficulty", "hard"), row.get("sector", 0))
         self.level_start = self.game.snapshot()
         self.checkpoint = self.level_start
@@ -106,6 +109,8 @@ class _NeonSession:
             if e["kind"] in ("checkpoint", "sector_start"):
                 self.checkpoint = g.snapshot()
                 self.saves += e["kind"] == "checkpoint"
+            if e["kind"] == "sector_start":
+                self.level_start = self.checkpoint
         self.deaths += int(g.status == "dead")
         self.won |= g.status == "won"
 

@@ -239,11 +239,17 @@ def test_dash_is_fast_invulnerable_and_never_passes_walls():
 ####################
 """)
     p = g.player
+    p.x = 11 * 16 - p.w - 40  # 40 px from the wall: the dash alone would carry it 72 px
     run(g, 1, dash=True, x=1)
     assert p.iframes > 0 and p.dash_t
-    run(g, 12, x=1)
-    assert p.x + p.w <= 11 * 16
-    assert not run(g, 1, dash=True) and p.dash_t == 0  # cooling down
+    for _ in range(8):
+        run(g, 1, x=1)
+        assert p.x + p.w <= 11 * 16
+    assert p.x + p.w == 11 * 16  # stopped flush against the wall, not inside or past it
+    assert p.dash_t == 0
+    cd = p.dash_cd
+    run(g, 1, dash=True, x=-1)
+    assert cd > 0 and p.dash_t == 0  # refused while cooling down
 
 
 def test_double_jump_needs_the_boots():
@@ -273,16 +279,16 @@ def test_elevator_carries_the_runner_to_the_other_end():
 #...|....#
 #...|....#
 #...|....#
-#...L....#
-#.P......#
+#...|....#
+#.P.L....#
 ##########
 """)
     el = g.elevators[0]
-    assert el.top == 4 * 16 and el.bottom == 9 * 16
+    assert el.top == 5 * 16 and el.bottom == 11 * 16 == el.y  # resting flush with the floor
     p = g.player
-    p.x, p.y = el.x + 16, el.y - p.h
+    p.x = el.x + 16
     run(g, 2)
-    assert p.riding == 0 or p.bottom == el.y
+    assert p.bottom == el.y
     run(g, 80)
     assert el.y == el.top and p.bottom == el.top
 
@@ -330,11 +336,18 @@ def test_a_scream_alerts_neighbours_but_not_distant_crawlers():
 #........................................................#
 #........................................................#
 #........................................................#
-#.P....x..x.........................................x....#
+#.P..........................x....x..........x...........#
 ##########################################################
 """)
     near_a, near_b, far = sorted((e for e in g.enemies), key=lambda e: e.x)
+    # nobody can see the runner (more than 250 px away), the far one is beyond the 170 px scream
+    assert min(e.cx for e in g.enemies) - g.player.cx > 400
+    assert near_b.cx - near_a.cx < 170 < far.cx - near_a.cx
+    idle(g, 30)
+    assert not any(e.alerted for e in g.enemies)
     near_a.alert(g)
+    idle(g, 3)
+    assert not near_b.alerted  # the scream reaches the others a few ticks later
     idle(g, 10)
     assert near_b.alerted and not far.alerted
 
@@ -500,14 +513,34 @@ def test_mortar_bounces_then_bursts_and_breaks_cracked_walls():
 """)
     own_all(g)
     g.weapon = 3
-    run(g, 1, fire=True, aim=(g.player.cx + 100, g.player.cy + 10))
+    # lobbed at the floor short of the wall: it bounces on the floor first, then the blast cracks the wall
+    run(g, 1, fire=True, aim=(g.player.cx + 40, g.player.cy + 60))
     bounced = broken = False
     for _ in range(90):
         run(g, 1)
         bounced |= any(e["kind"] == "bounce" for e in g.events)
         broken |= any(e["kind"] == "break" for e in g.events)
-    assert broken and g.secrets > 0
+    assert bounced and broken and g.secrets > 0
     assert g.grid.at(11, 4) == EMPTY or g.grid.at(11, 3) == EMPTY
+
+
+def test_a_mortar_hitting_a_cracked_wall_bursts_without_bouncing():
+    g = world("""
+##############################
+#............................#
+#............................#
+#..........%%................#
+#.P........%%................#
+##############################
+""")
+    from abuse_remake.engine.neon.weapons import Shot
+
+    g.shots.append(Shot("mortar", 160, 60, 8 * 256, 0, 55, life=60, gravity=0, bounces=2, radius=46))
+    events = []
+    for _ in range(5):
+        run(g, 1)
+        events += [e["kind"] for e in g.events]
+    assert "break" in events and "bounce" not in events
 
 
 def test_seekers_turn_toward_a_target_off_their_line():
@@ -667,10 +700,28 @@ def test_same_inputs_give_the_same_state_and_snapshots_repeat():
 
     a, b = play(), play()
     assert a.state_hash() == b.state_hash()
-    snap = a.snapshot()
-    for _ in range(3):
-        a.restore(snap)
-        assert a.state_hash() == b.state_hash()
+
+
+def test_restore_then_the_same_inputs_reproduce_the_uninterrupted_run():
+    """The property checkpoints and replays depend on, with enemies and the RNG in play."""
+    def inputs(t, p):
+        return NeonInput(x=1 if t % 90 < 60 else -1, jump=t % 25 == 0, fire=t % 3 == 0, dash=t % 70 == 0,
+                         px=p.cx + 120, py=p.cy - 30)
+
+    g = NeonGame(seed=9, variant="campaign")
+    for t in range(200):
+        g.step(inputs(t, g.player))
+    snap = g.snapshot()
+    rng_before = g.rng.getstate()
+    for t in range(200, 500):
+        g.step(inputs(t, g.player))
+    straight = g.state_hash()
+    assert g.rng.getstate() != rng_before  # enemies and drops really used the RNG
+    for _ in range(2):
+        g.restore(snap)
+        for t in range(200, 500):
+            g.step(inputs(t, g.player))
+        assert g.state_hash() == straight
 
 
 def test_dying_ends_the_run_after_the_death_animation():
@@ -789,3 +840,336 @@ def test_horde_moves_a_stuck_hostile_back_to_a_vent():
     for _ in range(horde.STUCK_TICKS + 2):
         horde._unstick(g, [e])
     assert e.x < 2000
+
+
+# ---------------------------------------------------------------- review follow-ups: boundaries
+def test_upgrade_choice_is_refused_without_an_offer_or_with_a_bad_index():
+    from abuse_remake.engine.neon import horde
+
+    g = NeonGame(seed=2, variant="horde")
+    h0 = g.state_hash()
+    assert not horde.choose(g, 0)  # nothing offered yet
+    g.horde.offer = ["amp", "rapid"]
+    assert not horde.choose(g, 2) and not horde.choose(g, -1)
+    assert g.horde.offer == ["amp", "rapid"] and not g.horde.taken
+    assert horde.choose(g, 1) and g.horde.taken == ["rapid"]
+    assert h0 != g.state_hash()
+
+
+def test_timed_door_closes_and_waits_while_something_stands_in_it():
+    g = world("""
+####################
+#..........a.......#
+#..........a.......#
+#..........a.......#
+#.P.A......a.......#
+####################
+""".replace("A", "A"), seed=1)
+    door = g.doors[0]
+    g.switches[0].timer = 30
+    p = g.player
+    p.x = 4 * 16 + 8 - p.w // 2
+    run(g, 1, interact=True)
+    assert door.open
+    p.x = 11 * 16  # standing in the doorway
+    idle(g, 40)
+    assert door.open  # never closes on the runner
+    p.x = 4 * 16
+    idle(g, 15)
+    assert not door.open and g.grid.at(11, 3) != EMPTY
+
+
+def test_energy_floor_hurts_only_while_live():
+    g = world("""
+####################
+#..................#
+#..................#
+#..................#
+#.P....^^^^........#
+####################
+""", difficulty="hard")
+    from abuse_remake.engine.neon.objects import hazard_live
+
+    p = g.player
+    p.x = 8 * 16
+    hp = p.hp
+    for _ in range(140):
+        g.step(NeonInput(px=p.cx + 50, py=p.cy))
+        if not hazard_live(g):
+            assert p.hp == hp or p.iframes  # no damage while safe (except the previous hit's protection)
+        else:
+            hp = p.hp
+    assert p.hp < 100
+
+
+def test_power_ups_shield_overcharge_haste_and_phase_do_what_they_say():
+    from abuse_remake.engine.neon.objects import Pickup
+    from abuse_remake.engine.neon.player import DASH_COOLDOWN, RUN
+
+    g = world(FLOOR, difficulty="hard")
+    p = g.player
+    for kind in ("shield", "overcharge", "haste", "phase"):
+        assert g.collect(Pickup(kind, 0, 0))
+    assert p.hurt(g, 30, 0) == 0 and p.shield == 20  # the shield soaks the first 50
+    assert g.player_damage(7) == 14
+    run(g, 20, x=1)
+    assert p.vx > RUN
+    p.iframes = 0
+    run(g, 1, dash=True, x=1)
+    assert p.dash_cd < DASH_COOLDOWN
+    assert not g.collect(Pickup("health", 0, 0))  # full integrity: left on the floor
+
+
+def test_elevator_can_be_called_and_stops_rather_than_crush_a_rider():
+    g = world("""
+##########
+#........#
+#........#
+#........#
+#...|....#
+#...|....#
+#...|....#
+#...|....#
+#...|....#
+#...|....#
+#.P.L....#
+##########
+""")
+    el = g.elevators[0]
+    el.y = el.top  # parked at the top
+    p = g.player
+    p.x = el.x - p.w - 2  # beside the shaft, not under the platform
+    run(g, 1, interact=True)
+    assert el.target == el.bottom
+    run(g, 80)
+    assert el.y == el.bottom and el.target == -1  # arrived and waits for a rider
+    # a low ceiling over the top stop: it must halt, not push the rider into the roof
+    g2 = world("""
+##########
+#........#
+#...|....#
+#...|....#
+#...|....#
+#...|....#
+#...|....#
+#.P.L....#
+##########
+""")
+    el2 = g2.elevators[0]
+    p2 = g2.player
+    p2.x, p2.y = el2.x + 16, el2.y - p2.h
+    run(g2, 120)
+    assert p2.y >= 16 and el2.y > el2.top and el2.target == -1
+
+
+def test_warden_low_laser_can_be_jumped_and_the_high_one_crouched_under():
+    from abuse_remake.engine.neon.player import NeonInput as In
+
+    def sweep(high: bool, action) -> int:
+        g = NeonGame(seed=1, variant="campaign", sector=3)
+        w = next(e for e in g.enemies if e.kind == "warden")
+        g.enemies = [w]
+        w.alerted, w.phase, w.cd, w.cd2 = True, 3, 9999, 9999
+        p = g.player
+        p.x, p.y = w.left - 20, w.floor - p.h
+        w.laser, w.laser_t, w.laser_high, w.laser_hit = "charge", 1, high, False
+        hp = p.hp
+        for _ in range(45):
+            g.step(action(g, w))
+        return hp - p.hp
+
+    def stand(g, w):
+        return In(px=g.player.cx + 50, py=g.player.cy)
+
+    def jump_when_close(g, w):
+        p = g.player
+        near = w.laser == "sweep" and abs(w.sweep_x - p.cx) < 140  # about six ticks ahead of the beam
+        return In(jump=near, px=p.cx + 50, py=p.cy)  # held for a full jump while it passes
+
+    def crouch(g, w):
+        return In(y=1, px=g.player.cx + 50, py=g.player.cy)
+
+    assert sweep(False, stand) > 0 and sweep(False, jump_when_close) == 0
+    assert sweep(True, stand) > 0 and sweep(True, crouch) == 0
+
+
+def test_warden_stays_dormant_until_the_runner_comes_close():
+    g = NeonGame(seed=1, variant="campaign", sector=3)
+    w = next(e for e in g.enemies if e.kind == "warden")
+    for _ in range(60):
+        g.step()
+    assert not w.alerted and not [s for s in g.shots if s.hostile]
+    p = g.player
+    p.x = w.x - 300
+    for _ in range(3):
+        g.step()
+    assert w.alerted
+
+
+def test_climbing_is_the_same_speed_both_ways_and_down_jump_drops_off_a_ladder_top():
+    g = world("""
+################
+#..............#
+#..............#
+#..............#
+#######H########
+#......H.......#
+#......H.......#
+#......H.......#
+#......H.......#
+#.P....H.......#
+################
+""")
+    p = g.player
+    p.x = 7 * 16 + 8 - p.w // 2
+    y0 = p.y
+    run(g, 20, y=-1)
+    up = y0 - p.y
+    y1 = p.y
+    run(g, 20, y=1)
+    down = p.y - y1
+    assert up == down == 50
+    # stand on the ladder top, then S + Space drops straight through it
+    p.x, p.y = 7 * 16 + 8 - p.w // 2, 4 * 16 - p.h
+    p.climbing, p.drop, p.vy = False, 0, 0
+    run(g, 3)
+    assert p.grounded and not p.climbing
+    run(g, 2, y=1, jump=True)
+    run(g, 10)
+    assert p.bottom > 4 * 16 + 8 and not p.climbing
+
+
+def test_dash_off_an_elevator_does_not_keep_riding_it():
+    g = world("""
+##############
+#............#
+#............#
+#............#
+#...|........#
+#...|........#
+#...|........#
+#...|........#
+#.P.L........#
+##############
+""")
+    el = g.elevators[0]
+    p = g.player
+    p.x = el.x + 16
+    run(g, 12)  # boards; the ride starts
+    assert el.moving
+    run(g, 1, dash=True, x=1)  # the press tick: still standing on it while it moves
+    y = p.y
+    run(g, 6, x=1)
+    assert p.x > el.x + el.w  # off the platform
+    assert p.y >= y  # not lifted with the elevator once dashing
+
+
+def test_neon_inputs_are_normalised_so_truthy_values_hash_the_same():
+    a = world(FLOOR)
+    b = world(FLOOR)
+    for t in range(30):
+        a.step(NeonInput(x=1, jump=t % 9 == 0, fire=True, px=300, py=60))
+        b.step(NeonInput(x=1, jump=1 if t % 9 == 0 else 0, fire=1, px=300, py=60))
+    assert a.state_hash() == b.state_hash()
+
+
+def test_training_targets_float_at_their_tile():
+    g = NeonGame(seed=1, variant="training")
+    m = g.map
+    tgt = next(e for e in g.enemies if e.kind == "target")
+    ent = next(e for e in m.entities if e.kind == "enemy" and e.args[0] == "target" and abs(e.tx * 16 + 8 - tgt.cx) < 2)
+    idle(g, 5)
+    assert abs(tgt.cy - (ent.ty * 16 + 8)) <= 6
+
+
+def test_horde_unsticks_stingers_too_and_always_updates_hostiles():
+    from abuse_remake.engine.neon import horde
+
+    g = NeonGame(seed=2, variant="horde")
+    s = g.spawn_enemy("stinger", 40 * 16, 10 * 16)
+    s.x, s.y = 9000, 9000
+    for _ in range(horde.STUCK_TICKS + 2):
+        horde._unstick(g, [s])
+    assert s.x < 2000
+    far = g.spawn_enemy("crawler", 60 * 16, 28 * 16)
+    g.player.x = 3 * 16
+    far.alerted, far.state = False, "idle"
+    x = far.x
+    for _ in range(10):
+        g.step()
+    assert far.x != x  # updated even though it is far from the runner
+
+
+def test_horde_heavy_spawns_use_floor_vents():
+    from abuse_remake.engine.neon import horde
+
+    g = NeonGame(seed=3, variant="horde")
+    for _ in range(20):
+        horde._spawn(g, "strider")
+    for e in g.enemies:
+        if e.kind == "strider":
+            assert not g.grid.rect_hits(e.x, e.y, e.w, e.h, (1,)), (e.x, e.y)
+
+
+def test_nano_repair_stacks():
+    g = NeonGame(seed=2, variant="horde")
+    p = g.player
+    p.hp = 50
+    g.upgrades["nano"] = 1
+    for _ in range(120):
+        g.step()
+    one = p.hp - 50
+    p.hp = 50
+    g.upgrades["nano"] = 3
+    for _ in range(120):
+        g.step()
+    assert p.hp - 50 > one >= 1
+
+
+def test_v1_neon_traces_are_refused_clearly(tmp_path):
+    import json
+
+    from abuse_remake.game.human_replay import replay_human
+
+    v1 = tmp_path / "v1.jsonl"
+    v1.write_text(json.dumps({"kind": "header", "format": "neon-trace-1"}) + "\n")
+    with pytest.raises(SystemExit, match="v1"):
+        replay_human(v1)
+    mixed = tmp_path / "mixed.jsonl"
+    mixed.write_text("\n".join(json.dumps(r) for r in (
+        {"kind": "header", "format": "human-trace-1"},
+        {"kind": "new_game", "rules": "neon", "seed": 1, "variant": "tutorial", "difficulty": "hard"})) + "\n")
+    with pytest.raises(SystemExit, match="v1"):
+        replay_human(mixed)
+
+
+def test_replay_restart_sector_returns_to_the_start_of_the_current_sector():
+    from abuse_remake.game.human_replay import _NeonSession
+
+    s = _NeonSession({"seed": 2, "variant": "campaign", "difficulty": "hard", "sector": 0})
+    g = s.game
+    ex, ey = g.exit
+    p = g.player
+    p.x, p.y = ex - p.w // 2, ey - p.h
+    s.step({"x": 0, "y": 0, "interact": 1, "px": p.cx + 50, "py": p.cy})
+    for _ in range(60):
+        s.step({"x": 0, "y": 0, "px": 0, "py": 0})
+    assert g.sector == 1
+    for _ in range(30):
+        s.step({"x": 1, "y": 0, "px": 0, "py": 0})
+    s.restore("level_start")
+    assert s.game.sector == 1 and s.game.frames < g.frames + 1
+
+
+def test_campaign_elevators_stop_flush_with_the_floors_they_serve():
+    from abuse_remake.engine.neon.tilemap import SOLID as WALL
+
+    for sector in range(4):
+        g = NeonGame(seed=1, variant="campaign", sector=sector)
+        for el in g.elevators:
+            left, right = (el.x >> 4) - 1, (el.x + el.w) >> 4
+            for stop in (el.top, el.bottom):
+                assert stop % 16 == 0
+                beside = {g.grid.at(left, stop >> 4), g.grid.at(right, stop >> 4)}
+                under = g.grid.at((el.x + el.w // 2) >> 4, stop >> 4)
+                assert WALL in beside or under == WALL, (g.map.name, stop)
