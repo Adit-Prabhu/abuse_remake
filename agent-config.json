@@ -1,0 +1,172 @@
+{
+  "schema_version": "course-1",
+  "purpose": "Play Level 1 of the reconstructed Abuse (1996) through the five-operation player interface, choosing one legal action per decision, and compare that play fairly with a scripted search baseline and a random floor.",
+  "tools_available": [],
+  "prohibited_actions": [
+    "change game state except through step() with an action from legal_actions()",
+    "read the World object, level files, the original Lisp or C, or docs/rule-source-map.md",
+    "use the evaluator's progress measure or route",
+    "access credentials or the runner's environment",
+    "retry a failed model request, repair an answer, or substitute a fixture for a live player"
+  ],
+  "memory_policy": "Set per experiment condition, and nothing persists across episodes. M0: the current observation only. M1: plus the last 8 turns (action, result, health, position, events). M2: plus the model's own notes (at most 600 characters) and an automap summary built only from past observations.",
+  "context_sources": [
+    "src/abuse_remake/agent/observation.py:build_observation (the 316x162 view, HUD, on-screen tiles, objects and events)",
+    "src/abuse_remake/agent/interface.py:AbuseEpisode.legal_actions",
+    "src/abuse_remake/agent/memory.py:Memory.render (M1, M2)",
+    "src/abuse_remake/agent/prompts.py:SYSTEM (manual-level knowledge and the baseline's priors, no map knowledge)"
+  ],
+  "model_choice": {
+    "default_mode": "offline: the random and scripted players; the model player runs only when asked for, and in abuse-eval only with --live",
+    "live_providers": [
+      "vertex",
+      "anthropic",
+      "openai"
+    ],
+    "default_live_provider": "vertex",
+    "live_model": "Explicit COURSE_MODEL (or --model) for the chosen provider; no model ID is in the code. The model the API reports (Vertex model_version, Anthropic and OpenAI model) is recorded per decision in traces and listed in reports."
+  },
+  "prompts_or_system_instructions": "src/abuse_remake/agent/prompts.py: SYSTEM, NOTES_RULE, REPLY_RULE, system_prompt(), decision_schema(), render_turn()",
+  "named_failure_modes": [
+    "illegal action (not in legal_actions): refused and counted",
+    "an answer that is not a JSON object, or an action that is not a string: refused and counted",
+    "provider timeout, rate limit, connection or server error: a refused decision with its category",
+    "truncated answer (output cap, including thinking tokens) or a continuation: refused as truncated",
+    "provider refusal: refused as refusal",
+    "rejected or missing credentials: fatal, the episode ends as 'player failed'",
+    "late reply after the decision timeout: dropped by request id, its tokens still counted",
+    "repeating an action that does not move the player: visible in M1/M2 history; not prevented"
+  ],
+  "evaluation_cases": "Offline and in CI: tests/test_player_interface.py, tests/test_model_player.py (mocked provider clients, real SDK error types), tests/test_evaluate.py (an eval smoke run, budget caps, statistics). Live: eval/configs/live-smoke.toml, then eval/configs/live.toml, through abuse-eval --live after the owner approves the estimate.",
+  "logging_policy": "Each decision's trace row (runs/<run>/traces/<player>/<scenario>-s<seed>.jsonl) records the tick, the action, whether it was accepted, the episode's and the player's errors, the raw reply (truncated to 600 characters), the note, the M2 notes, the usage (model, tokens, latency, error category) and a hash of the observation. Prompts are not stored: they are a pure function of the observation, which --full-obs stores. No credentials or environment are logged.",
+  "human_override_points": [
+    "choose the provider, the model (COURSE_MODEL) and the memory condition",
+    "approve the token and cost estimate before any live run",
+    "stop a run at any time (results are written as episodes finish)",
+    "decide every reviewer finding",
+    "merge each PR and push the release tag"
+  ],
+  "test_command": "uv run pytest",
+  "ci_workflow_path": ".github/workflows/ci.yml",
+  "live_workflow_path": ".github/workflows/live-eval.yml",
+  "native_artifact": "src/abuse_remake/agent/players/model_player.py: a player program speaking the JSON-lines protocol in src/abuse_remake/agent/protocol.py, with structured output validated by the episode",
+  "limits": {
+    "max_decisions_per_episode": 600,
+    "max_decisions_per_episode_live_comparison": 200,
+    "max_ticks_full_level": 9000,
+    "max_ticks_segment": 2700,
+    "max_action_ticks": 15,
+    "max_output_tokens_per_request": 2048,
+    "request_timeout_seconds": 20,
+    "request_attempts": 1,
+    "decision_timeout_seconds": 60,
+    "max_input_tokens_per_episode": 600000,
+    "max_output_tokens_per_episode": 150000,
+    "max_input_tokens_per_run": 30000000,
+    "max_output_tokens_per_run": 4000000,
+    "history_turns": 8,
+    "notes_characters": 600
+  },
+  "fallback": "A failed request is a refused decision: counted, fed back in last_result, never retried, repaired or replaced by a fixture. A fatal credential error ends the episode as 'player failed'. Live players are reported as 'not run' when --live is not given or the run's token cap is reached.",
+  "limitations": [
+    "Process isolation limits what the runner hands a player; it is not a security sandbox against a hostile program.",
+    "The token budgets rely on the usage the player process reports from the provider's response.",
+    "The scripted baseline is deterministic in practice, so intervals over seeds can have zero width; they measure seed variation, not other ways a player could play.",
+    "Comparisons are between fixed players under equal budgets. Self-play alone does not establish learning or strong play; human playtests give the human reference.",
+    "Level 1 only. Death ends an episode, a course choice; the original reloads the last save.",
+    "The live comparison needs the owner's Vertex AI setup and has not been run at the time of writing."
+  ],
+  "agent_team": [
+    {
+      "role": "Implementation agent",
+      "native_artifact": "AGENTS.md (with CLAUDE.md importing it)",
+      "purpose": "Build the reconstruction, the player interface, the players and the evaluation under the student's direction.",
+      "context": [
+        "AGENTS.md",
+        "SCOPE.md",
+        "docs/rule-source-map.md",
+        "src/",
+        "tests/",
+        "data/original/lisp/",
+        "historicalsource/abuse@01cce80 (fetched into a scratch folder)"
+      ],
+      "tools_and_permissions": "Repository read and write, tests, git on feature branches, opening PRs; no merges, no tags, no credential access without asking.",
+      "outputs": "Feature branches, passing tests, map rows and a change summary per PR.",
+      "handoff": "The PR and its summary go to the independent reviewer; findings and fixes are recorded in docs/reviews/PR-<n>.md.",
+      "human_approval": "The student merges every PR and pushes the release tag."
+    },
+    {
+      "role": "Reusable skill: port-classic-rule",
+      "native_artifact": ".claude/skills/port-classic-rule/SKILL.md",
+      "purpose": "One procedure for porting or changing a rule: cite the original at its pinned commit, add the map row, write the failing test, port with the original arithmetic, check the player boundary, summarise.",
+      "context": [
+        "docs/rule-source-map.md",
+        "src/abuse_remake/engine/",
+        "src/abuse_remake/agent/observation.py"
+      ],
+      "tools_and_permissions": "Runs inside the implementation agent with its permissions.",
+      "outputs": "A map row, a test, the port and a summary.",
+      "handoff": "The summary is the reviewer's input.",
+      "human_approval": "The student accepts or rejects the summary's assumptions."
+    },
+    {
+      "role": "Reusable skill: agent-eval",
+      "native_artifact": ".claude/skills/agent-eval/SKILL.md",
+      "purpose": "One procedure for a fair repeated comparison: commit the config, estimate, get approval, smoke-test, run, report every episode, keep the evidence.",
+      "context": [
+        "eval/configs/",
+        "docs/evaluation.md",
+        "docs/budgets.md"
+      ],
+      "tools_and_permissions": "Runs inside the implementation agent; live runs only after the student approves the estimate.",
+      "outputs": "A run directory, a report and selected traces under evidence/.",
+      "handoff": "The report goes to the student.",
+      "human_approval": "The student approves every live run's cost and the report's conclusions."
+    },
+    {
+      "role": "Independent review task: rules-reviewer",
+      "native_artifact": ".claude/agents/rules-reviewer.md",
+      "purpose": "Check evidence, fidelity to the cited original, agreement of engine, test and map, test strength, the player's boundary and fair evaluation.",
+      "context": [
+        "the change summary and diff, read through git objects",
+        "SCOPE.md",
+        "docs/rule-source-map.md",
+        "src/",
+        "tests/"
+      ],
+      "tools_and_permissions": "Read-only (Read, Grep, Glob, read-only git); a fresh context that did not write the change; no network or model calls.",
+      "outputs": "Findings as [blocking | should fix | note] file:line lines, or 'No findings'.",
+      "handoff": "Findings go to the student and the implementation agent; fixes and decisions are recorded in docs/reviews/PR-<n>.md.",
+      "human_approval": "The student decides every finding; the reviewer cannot approve or merge."
+    }
+  ],
+  "playing_agent_interface": {
+    "native_artifact": "src/abuse_remake/agent/interface.py:AbuseEpisode",
+    "operations": {
+      "player": [
+        "observe(player_id)",
+        "legal_actions(player_id)",
+        "step(player_id, action)"
+      ],
+      "runner": [
+        "reset(seed)",
+        "outcome()",
+        "stop(reason)"
+      ]
+    },
+    "sees": "the JSON results of observe(), legal_actions() and step() only, sent over the JSON-lines protocol to a separate process with a minimal environment",
+    "never_sees": [
+      "the World object or any engine object",
+      "level files, the original Lisp or C, or docs/rule-source-map.md",
+      "enemy health, AI state, links, timers or the random table",
+      "the evaluator's progress measure",
+      "credentials (only the model player process gets its provider's SDK variables, which never enter prompts or traces)"
+    ],
+    "limits": {
+      "max_decisions": 600,
+      "max_action_ticks": 15
+    },
+    "evaluation_cases": "tests/test_player_interface.py and tests/test_model_player.py",
+    "runner_constraint": "The runner (agent/runner.py, agent/evaluate.py, game/spectate.py) holds the AbuseEpisode; players run as child processes and receive only JSON. Tests check the observation contents, the copies, the environment and the end message."
+  }
+}
