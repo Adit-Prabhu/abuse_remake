@@ -212,3 +212,150 @@ def test_full_level_runs_deterministically_per_seed():
         return g.state_hash()
     assert run(11) == run(11)
     assert run(11) != run(12)  # the seed reaches the enemies through the random table
+
+
+# --- review follow-ups: ant AI, random draws, walls, doors, turret, boulder rocks -------------
+
+from abuse_remake.engine.cmath import RAND_TABLE  # noqa: E402
+
+
+def lone(type_name, seed=0):
+    g = Game(seed=seed, strict=False, object_filter=lambda o: o.type_name == "START")
+    o = g.world.spawn(type_name, g.player.x + 60, g.player.y)
+    return g, o
+
+
+def test_hanging_ant_waits_until_the_player_passes_below_within_130_px():
+    from abuse_remake.engine.behaviors.enemies import ANT_FALL_DOWN, ANT_HANGING, ant_ai
+    g, ant = lone("ANT_ROOF")
+    ant.set_aistate(ANT_HANGING)
+    ant.lvars["hide_flag"] = 0
+    ant.y = g.player.y + 50  # player above the ant: keep hanging
+    ant_ai(ant)
+    assert ant.aistate == ANT_HANGING and ant.targetable_on == 0
+    ant.y = g.player.y - 80
+    ant.x = g.player.x + 200  # below-left but too far
+    ant_ai(ant)
+    assert ant.aistate == ANT_HANGING
+    ant.x = g.player.x + 100
+    ant_ai(ant)
+    assert ant.aistate == ANT_FALL_DOWN and ant.state == "fall_start" and ant.targetable_on == 1
+
+
+def test_hanging_ant_draws_one_random_number_per_tick():
+    from abuse_remake.engine.behaviors.enemies import ANT_HANGING, ant_ai
+    g, ant = lone("ANT_ROOF", seed=9)
+    ant.set_aistate(ANT_HANGING)
+    ant.y = g.player.y + 50
+    rng = g.world.rng
+    start = rng.rand_on
+    for _ in range(5):
+        ant_ai(ant)  # (jrand()%128)==0 picks the scare sound (ant.c:178)
+    assert rng.rand_on == (start + 5) & 0xFFFF
+
+
+def test_switch_once_draws_a_random_number_from_its_debug_print():
+    g = Game(seed=0, strict=False, object_filter=lambda o: o.type_name in ("START", "SWITCH_ONCE"))
+    sw = g.world.find_type("SWITCH_ONCE")
+    place_player(g, sw.x + 5, sw.y)
+    idle(g, 2)
+    from abuse_remake.engine.behaviors.logic import switch_once_ai
+    g.view.y_suggestion = 1  # holding the action key
+    start = g.world.rng.rand_on
+    switch_once_ai(sw)
+    assert sw.aistate == 1 and g.world.rng.rand_on == (start + 1) & 0xFFFF
+    switch_once_ai(sw)  # already on: no further draws
+    assert g.world.rng.rand_on == (start + 1) & 0xFFFF
+
+
+def test_force_field_shifts_the_random_table_every_tick():
+    from abuse_remake.engine.behaviors.world_objects import ff_ai
+    g = Game(seed=0, strict=False, object_filter=lambda o: o.type_name in ("START", "FORCE_FIELD"))
+    ff = g.world.find_type("FORCE_FIELD")
+    rng = g.world.rng
+    start = rng.rand_on
+    ff_ai(ff)  # (shift_rand_table (random 80)): draw one, then add it to rand_on
+    assert rng.rand_on == (start + 1 + RAND_TABLE[start & 1023] % 80) & 0xFFFF
+
+
+def test_bounce_move_returns_nil_on_landing_and_t_in_the_air():
+    from abuse_remake.engine.behaviors.world_objects import small_rock_ai
+    g = Game(seed=0, strict=False, object_filter=lambda o: o.type_name == "START")
+    tiles = g.world.tiles
+
+    def empty(bx, by):
+        return not tiles.segments.get(tiles.get(bx, by))
+
+    bx, by = next((bx, by) for by in range(tiles.height - 12) for bx in range(1, tiles.width - 1)
+                  if all(empty(bx + dx, by + dy) for dx in (-1, 0, 1) for dy in range(8)))
+    rock = g.world.spawn("SMALL_BOLDER", bx * 30 + 15, by * 15 + 20)
+    rock.xvel, rock.yvel = 0, 0
+    results = []
+    for _ in range(60):
+        r = small_rock_ai(rock)
+        results.append(r)
+        if not r:
+            break
+    assert results[0] is True and results[-1] is False and len(results) > 3  # flies, then goes on landing
+
+
+def test_linked_wall_ignores_damage_until_its_signal_then_explodes():
+    from abuse_remake.engine.behaviors.world_objects import hwall_ai
+    g = Game(seed=0, strict=False, object_filter=lambda o: o.type_name in ("START", "HIDDEN_WALL1"))
+    w = g.world.find_type("HIDDEN_WALL1")
+    signal = g.world.create("GATE_AND", 0, 0)
+    w.objs[:] = [signal]
+    signal.aistate = 0
+    hp = w.hp
+    w.do_damage(5, None, w.x, w.y, 0, 0)
+    assert w.hp == hp  # hwall_damage: not activated, no damage
+    assert hwall_ai(w) is True
+    signal.aistate = 1
+    assert hwall_ai(w) is False  # signalled: it explodes even at full health
+
+
+def test_switch_door_follows_its_signal():
+    from abuse_remake.engine.behaviors.world_objects import sdoor_ai
+    g = Game(seed=0, strict=False, object_filter=lambda o: o.type_name in ("START", "SWITCH_DOOR"))
+    door = g.world.find_type("SWITCH_DOOR")
+    signal = g.world.create("GATE_AND", 0, 0)
+    door.objs[:] = [signal]
+    door.set_aistate(0)
+    signal.aistate = 1
+    sdoor_ai(door)
+    assert door.aistate == 1 and door.state == "running"  # opening
+    for _ in range(10):
+        sdoor_ai(door)
+    assert door.aistate == 2 and door.state == "blocking"  # open
+    signal.aistate = 0
+    sdoor_ai(door)
+    assert door.aistate == 3  # closing
+    for _ in range(10):
+        sdoor_ai(door)
+    assert door.aistate == 0 and door.state == "stopped"
+
+
+def test_active_turret_fires_every_five_ticks_and_slower_at_turns():
+    g = Game(seed=0, strict=False, object_filter=lambda o: o.type_name in ("START", "SPRAY_GUN"))
+    gun = g.world.find_type("SPRAY_GUN")
+    gun.objs.clear()  # unlinked: always activated
+    place_player(g, gun.x - 60, gun.y + 40)
+    fired = []
+    for t in range(40):
+        idle(g)
+        if any(e.kind == "sound" and e.data["name"] == "ZAP_SND" for e in g.world.events):
+            fired.append(t)
+    gaps = [b - a for a, b in zip(fired, fired[1:], strict=False)]
+    # state_time > 4 with the timer reset each shot: every 5 ticks; turning round adds 1 or 2
+    assert fired and set(gaps) <= {5, 6, 7} and gaps.count(5) >= 2
+
+
+def test_crack_releases_an_ant_when_the_player_comes_near():
+    g = Game(seed=0, strict=False, object_filter=lambda o: o.type_name in ("START", "ANT_CRACK"))
+    crack = g.world.find_type("ANT_CRACK")
+    crack.objs.clear()
+    before = sum(1 for o in g.world.objects if o.ctype.name == "ANT_ROOF")
+    place_player(g, crack.x + 30, crack.y)
+    idle(g, 8)
+    after = sum(1 for o in g.world.objects if o.ctype.name == "ANT_ROOF")
+    assert after > before
