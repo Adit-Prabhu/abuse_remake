@@ -439,8 +439,9 @@ def test_recorded_human_traces_say_which_rules_and_include_dashes(home, tmp_path
     app.tick(3)
     app.trace.close()
     rows = [json.loads(x) for x in rec.read_text().splitlines()]
-    assert rows[0]["rules"] == "remastered" and rows[0]["horde"] is False
-    assert [r.get("dash") for r in rows[1:]] == [None, None, None, 1]
+    game = next(r for r in rows if r["kind"] == "new_game")
+    assert rows[0]["format"] == "human-trace-1" and game["rules"] == "remastered" and game["horde"] is False
+    assert [r.get("dash") for r in rows if r["kind"] == "input"] == [None, None, None, 1]
 
 
 def _replay(path, *extra):

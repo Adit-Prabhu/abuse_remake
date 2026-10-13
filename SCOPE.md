@@ -66,8 +66,10 @@ saber, extra powers, boss).
 
 ## Optional layer: Remastered mode
 
-The modern features (60 fps interpolation, dynamic lighting, particles, menus, gamepad support,
-dash, stats, ghost race, AI spectator, Horde arena) are listed in `README.md`.
+Both modes have the 60 fps drawing interpolated between ticks, the menus, mouse aiming and
+gamepad support. Remastered adds the wider view, flash lighting, particles, the dash, the stats
+screen, the ghost race and the Horde arena (`docs/remastered.md`). The AI spectator
+(`abuse-replay`) always shows Classic rules.
 
 - Classic mode shows the original 316x162 view; the wider view, particles, ghost and the other
   presentation features belong to Remastered mode (`docs/remastered.md`). Both modes draw the

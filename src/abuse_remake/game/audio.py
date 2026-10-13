@@ -2,8 +2,14 @@
 
 The original sounds are Bobby Prince's copyright and are not shipped. Rather than depend on a
 download, each effect is synthesised with numpy at start-up (a small sfxr-style generator), so
-the game is self-contained and licence-clean. Sounds play with stereo pan and volume falloff by
-distance from the player, as the original's ``game::play_sound`` does with x and y.
+the game is self-contained and licence-clean.
+
+Volume follows the original's ``game::play_sound`` (abuse/src/game.c:134-166): sounds quieter
+than 15 are dropped; the distance is the octagonal ``dx + dy - min(dx, dy) / 2`` from the player
+(``view::x_center`` is the focus); nothing plays beyond 500 px; it is full volume within 100 px;
+and the volume is ``(400 - (d - 100)) * sfx_volume / 400 - (127 - vol)`` on the 0..127 scale.
+Classic plays every sound, centred, as the original did. Remastered adds stereo pan and plays
+one copy of each sound per tick.
 """
 
 from __future__ import annotations
@@ -12,6 +18,22 @@ import numpy as np
 import pygame
 
 RATE = 22050
+
+
+SFX_VOLUME = 127  # the original's full sound-effect volume
+
+
+def original_volume(vol: int, dx: int, dy: int, sfx_volume: int = SFX_VOLUME) -> int:
+    """game::play_sound's volume (0..127) for a sound at (dx, dy) from the listener, or 0."""
+    if vol < 15:
+        return 0
+    cx, cy = abs(dx), abs(dy)
+    d = cx + cy - ((cx if cx < cy else cy) >> 1)
+    if d > 500:
+        return 0
+    d = 0 if d < 100 else d - 100
+    v = (400 - d) * sfx_volume // 400 - (127 - vol)
+    return max(0, v)
 
 
 def _env(n, attack=0.01, decay=1.0):
@@ -105,7 +127,8 @@ for i in range(17):
 
 
 class Audio:
-    def __init__(self, enabled: bool = True, volume: float = 0.8):
+    def __init__(self, enabled: bool = True, volume: float = 0.8, modern: bool = True):
+        self.modern = modern
         self.enabled = enabled
         self.volume = volume
         self.sounds: dict[str, pygame.mixer.Sound] = {}
@@ -135,16 +158,20 @@ class Audio:
             if e.kind != "sound":
                 continue
             name = e.data["name"]
-            if name in played:  # one copy per tick is enough
+            if self.modern and name in played:  # Remastered: one copy per tick is enough
                 continue
             played.add(name)
-            dx = e.data["x"] - listener_x
-            dy = e.data["y"] - listener_y
-            dist = (dx * dx + dy * dy) ** 0.5
-            if dist > 600:
+            dx = int(e.data["x"] - listener_x)
+            dy = int(e.data["y"] - listener_y)
+            v = original_volume(int(e.data.get("volume", 127)), dx, dy)
+            if v <= 0:
                 continue
-            vol = self.volume * (e.data.get("volume", 127) / 127) * max(0.15, 1 - dist / 600)
-            pan = max(-1.0, min(1.0, dx / 300))
+            vol = self.volume * v / 127
             ch = self._sound(name).play()
-            if ch is not None:
+            if ch is None:
+                continue
+            if self.modern:
+                pan = max(-1.0, min(1.0, dx / 300))
                 ch.set_volume(vol * (1 - max(0, pan)), vol * (1 + min(0, pan)))
+            else:
+                ch.set_volume(vol)

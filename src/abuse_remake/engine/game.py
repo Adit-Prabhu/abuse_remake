@@ -116,15 +116,30 @@ class Game:
                 memo[id(v)] = v
         return memo
 
+    def _hooks(self) -> dict:
+        return {k: v for k, v in self.world.globals.items() if callable(v)}
+
     def snapshot(self):
+        """A deep copy of the game state. Front-end hooks (callables in ``world.globals``, such
+        as the app's ``save_hook``) are left out of the copy, so restoring a snapshot any number
+        of times never copies the front end itself."""
         import copy
 
-        return copy.deepcopy((self.world, self.view, self.player, self.frames), self._shared())
+        hooks = self._hooks()
+        for k in hooks:
+            del self.world.globals[k]
+        try:
+            return copy.deepcopy((self.world, self.view, self.player, self.frames), self._shared())
+        finally:
+            self.world.globals.update(hooks)
 
     def restore(self, snap) -> None:
+        """Replace the state with a copy of ``snap``; the live game's hooks stay bound."""
         import copy
 
+        hooks = self._hooks()
         self.world, self.view, self.player, self.frames = copy.deepcopy(snap, self._shared())
+        self.world.globals.update(hooks)
 
     @property
     def player_dead(self) -> bool:
