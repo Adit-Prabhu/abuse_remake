@@ -177,3 +177,65 @@ def test_classic_app_has_no_remastered_features(home):
     assert app.stats["dashes"] == 0
     app.run()
     assert "accuracy" not in " ".join(app.stats_lines())
+
+
+# --- the spectator and trace replay ---------------------------------------------------------------
+def _short_trace(tmp_path, decisions=10):
+    from abuse_remake.agent.interface import Budgets
+    from abuse_remake.agent.players.baselines import ScriptedPlayer
+    from abuse_remake.agent.protocol import InProcessPlayer
+    from abuse_remake.agent.runner import run_episode
+
+    path = tmp_path / "t.jsonl"
+    run_episode(InProcessPlayer(ScriptedPlayer()), "level01-cp1", 2,
+                budgets=Budgets(max_ticks=2700, max_decisions=decisions), trace_path=path, label="scripted")
+    return path
+
+
+def test_replay_reproduces_every_observation(home, tmp_path):
+    from abuse_remake.game.spectate import main
+
+    assert main(["--trace", str(_short_trace(tmp_path)), "--headless", "--scale", "1"]) == 0
+
+
+def test_replay_detects_a_trace_that_does_not_match_the_game(home, tmp_path):
+    import json
+
+    from abuse_remake.game.spectate import main
+
+    path = _short_trace(tmp_path)
+    rows = [json.loads(x) for x in path.read_text().splitlines()]
+    steps = [r for r in rows if r["kind"] == "step"]
+    steps[3]["action"] = "wait" if steps[3]["action"] != "wait" else "move left"
+    path.write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+    assert main(["--trace", str(path), "--headless", "--scale", "1"]) == 1
+
+
+def test_spectating_does_not_change_the_game(home):
+    from abuse_remake.agent.players.baselines import ScriptedPlayer
+    from abuse_remake.agent.protocol import InProcessPlayer
+    from abuse_remake.game.spectate import Spectator
+
+    def play(watch):
+        ep = AbuseEpisode("level01-cp1", seed=1)
+        ep.budgets.max_decisions = 8
+        if watch:
+            sp = Spectator(ep, InProcessPlayer(ScriptedPlayer()), "scripted", scale=1, headless=True)
+            sp.run()
+            sp.close()
+        else:
+            p = ScriptedPlayer()
+            while ep.outcome()["status"] == "ongoing":
+                ep.step(PLAYER_ID, p.decide(ep.observe(PLAYER_ID), ep.legal_actions(PLAYER_ID))["action"])
+        return ep._game.state_hash()
+
+    assert play(True) == play(False)
+
+
+@pytest.mark.skipif(__import__("shutil").which("ffmpeg") is None, reason="needs ffmpeg")
+def test_replay_renders_a_video(home, tmp_path):
+    from abuse_remake.game.spectate import main
+
+    out = tmp_path / "v.mp4"
+    assert main(["--trace", str(_short_trace(tmp_path, 3)), "--headless", "--scale", "1", "--video", str(out)]) == 0
+    assert out.stat().st_size > 1000

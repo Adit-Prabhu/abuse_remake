@@ -84,6 +84,7 @@ class AbuseEpisode:
         self.scenario = SCENARIOS[scenario]
         self.difficulty = difficulty
         self.budgets = budgets or Budgets(max_ticks=self.scenario.max_ticks)
+        self.on_tick = None  # runner side only (the spectator draws each tick); players never see it
         self.reset(seed)
 
     # --- runner operations -------------------------------------------------------------
@@ -208,6 +209,8 @@ class AbuseEpisode:
         g.step(inputs, weapon)
         self.ticks += 1
         self._reveal()
+        if self.on_tick is not None:
+            self.on_tick()
         for e in g.world.events:
             self._pending_events.append(e)
             k = e.kind
