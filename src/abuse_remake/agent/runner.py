@@ -62,6 +62,17 @@ def make_player(spec: str, isolation: str = "process", player_args: list[str] | 
     return ProcessPlayer(command, decision_timeout=decision_timeout)
 
 
+def budget_stop(budgets: Budgets, usage: dict, wall_s: float) -> str | None:
+    """The runner's budgets: tokens as reported by the player, and wall-clock time."""
+    if budgets.max_input_tokens and usage["input_tokens"] >= budgets.max_input_tokens:
+        return "token budget exhausted"
+    if budgets.max_output_tokens and usage["output_tokens"] >= budgets.max_output_tokens:
+        return "token budget exhausted"
+    if budgets.max_wall_s and wall_s >= budgets.max_wall_s:
+        return "wall-clock budget exhausted"
+    return None
+
+
 def run_episode(player, scenario: str, seed: int, difficulty: str = "hard", budgets: Budgets | None = None,
                 trace_path: Path | None = None, full_obs: bool = False, label: str = "",
                 config: dict | None = None) -> dict:
@@ -81,7 +92,7 @@ def run_episode(player, scenario: str, seed: int, difficulty: str = "hard", budg
     obs = ep.observe(PLAYER_ID)
     tracker = ProgressTracker(obs["player"]["x"], obs["player"]["y"])
     usage = {"input_tokens": 0, "output_tokens": 0, "model_calls": 0, "model_errors": 0, "latency_s": []}
-    model_id = None
+    model_id = provider = memory = None
     while ep.outcome()["status"] == "ongoing":
         legal = ep.legal_actions(PLAYER_ID)
         reply = player.decide(obs, legal)
@@ -95,19 +106,26 @@ def run_episode(player, scenario: str, seed: int, difficulty: str = "hard", budg
             if meta.get("latency_s") is not None:
                 usage["latency_s"].append(float(meta["latency_s"]))
             model_id = meta.get("model") or model_id
+            provider = meta.get("provider") or provider
+            memory = meta.get("memory") or memory
         res = ep.step(PLAYER_ID, action)
         obs = res["observation"]
         tracker.update(obs["player"]["x"], obs["player"]["y"])
         if trace is not None:
             row = {"kind": "step", "decision": ep.decisions, "tick": ep.ticks, "action": action,
-                   "accepted": res["accepted"], "error": res["error"] or reply.get("error"), "ticks": res["ticks"],
-                   "legal_count": len(legal), "note": (reply.get("note") or "")[:300],
+                   "accepted": res["accepted"], "error": res["error"], "player_error": reply.get("error"),
+                   "ticks": res["ticks"], "legal_count": len(legal), "note": str(reply.get("note") or "")[:300],
                    "raw": (reply.get("raw") or "")[:600], "wall_s": round(reply.get("wall_s", 0.0), 4),
                    "meta": meta, "player": obs["player"], "events": obs["events"],
                    "obs_sha": hashlib.sha256(json.dumps(obs, sort_keys=True).encode()).hexdigest()[:16]}
+            if "notes" in reply:
+                row["notes"] = str(reply["notes"])[:700]
             if full_obs:
                 row["observation"] = obs
             trace.write(json.dumps(row) + "\n")
+        stop = budget_stop(budgets, usage, time.time() - started)
+        if stop:
+            ep.stop(stop)
     out = ep.outcome()
     out["progress"] = round(tracker.value(out["reason"] == "reached the exit"), 4)
     lat = sorted(usage.pop("latency_s"))
@@ -115,7 +133,7 @@ def run_episode(player, scenario: str, seed: int, difficulty: str = "hard", budg
     usage["latency_p95_s"] = round(lat[min(len(lat) - 1, int(len(lat) * 0.95))], 3) if lat else None
     out.update(usage)
     out.update({"scenario": scenario, "seed": seed, "difficulty": difficulty, "label": label,
-                "model": model_id, "wall_s": round(time.time() - started, 2)})
+                "model": model_id, "provider": provider, "memory": memory, "wall_s": round(time.time() - started, 2)})
     player.end(out)
     if trace is not None:
         trace.write(json.dumps({"kind": "outcome", **out}) + "\n")
@@ -131,6 +149,9 @@ def main(argv=None) -> int:
     ap.add_argument("--difficulty", default="hard")
     ap.add_argument("--max-decisions", type=int, default=None)
     ap.add_argument("--max-ticks", type=int, default=None)
+    ap.add_argument("--max-input-tokens", type=int, default=0, help="per episode, 0 = no cap")
+    ap.add_argument("--max-output-tokens", type=int, default=0, help="per episode, 0 = no cap")
+    ap.add_argument("--max-wall-s", type=float, default=0.0, help="per episode, 0 = no cap")
     ap.add_argument("--isolation", choices=("process", "inprocess"), default="process")
     ap.add_argument("--decision-timeout", type=float, default=90.0)
     ap.add_argument("--trace", type=Path)
@@ -138,9 +159,17 @@ def main(argv=None) -> int:
     ap.add_argument("player_args", nargs="*", help="extra arguments for the player program (after --)")
     args = ap.parse_args(argv)
     sc = SCENARIOS[args.scenario]
-    budgets = Budgets(max_ticks=args.max_ticks or sc.max_ticks)
+    budgets = Budgets(max_ticks=args.max_ticks or sc.max_ticks, max_input_tokens=args.max_input_tokens,
+                      max_output_tokens=args.max_output_tokens, max_wall_s=args.max_wall_s)
     if args.max_decisions:
         budgets.max_decisions = args.max_decisions
+    if args.player == "model":
+        from .players.model_player import check_config
+
+        problem = check_config(args.player_args)
+        if problem:
+            print(f"abuse-agent: {problem}", file=sys.stderr)
+            return 2
     player = make_player(args.player, args.isolation, args.player_args, args.decision_timeout)
     out = run_episode(player, args.scenario, args.seed, args.difficulty, budgets, args.trace, args.full_obs,
                       label=args.player)
