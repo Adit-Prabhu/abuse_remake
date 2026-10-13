@@ -36,7 +36,7 @@ from ..engine.cmath import cdiv
 from ..engine.game import Game, WeaponCommand
 from ..engine.view import Inputs
 from ..scope import FULL_LEVEL_TICK_LIMIT, SEGMENT_TICK_LIMIT
-from .nav import KnownMap, Navigator, cell_of
+from .nav import KnownMap, Navigator, blocked_cells, cell_of
 from .observation import WEAPON_NAMES, IdMap, build_observation, view_rect
 
 PLAYER_ID = "player"
@@ -246,6 +246,9 @@ class AbuseEpisode:
             threats = {k for k, o in self._visible().items() if o["kind"] in THREATS}
             if threats - visible_before and verb not in ("attack",):
                 break  # something new and dangerous came into view
+        if self.ticks == start_ticks and self._status()[0] == "playing":
+            px, py = self._aim_forward()
+            self._tick(Inputs(pointer_x=px, pointer_y=py))  # every accepted action takes at least a tick
         return self.ticks - start_ticks
 
     # --- controllers (generators of Inputs) ------------------------------------------------
@@ -271,10 +274,10 @@ class AbuseEpisode:
             yield Inputs(x=x, pointer_x=p.x + 100 * (x or p.direction), pointer_y=p.y - 20)
 
     def _nav(self) -> Navigator:
-        return Navigator(self._game.world.tiles, self._known)
+        return Navigator(self._game.world.tiles, self._known, blocked_cells(self._visible().values()))
 
-    def _follow(self, goal_cell, press_at_end: bool = False, close_px: int = 10):
-        """Walk along an A* path over the automap toward goal_cell."""
+    def _follow(self, goal_cell, press_at_end: bool = False, close_px: int = 8, target_x: int | None = None):
+        """Walk along an A* path over the automap toward goal_cell (and target_x, if given)."""
         for _ in range(self.budgets.max_action_ticks):
             p = self._game.player
             nav = self._nav()
@@ -284,16 +287,26 @@ class AbuseEpisode:
             if start is None or goal is None:
                 return
             path = nav.plan(start, lambda n, g=goal: 0 if n == g else abs(n[0] - g[0]) + abs(n[1] - g[1]))
-            tx_goal = goal[0] * 30 + 15
             if path is None:
                 return
-            if len(path) == 1 or (abs(p.x - tx_goal) <= close_px and cell_of(p.x, p.y)[1] in (goal[1], goal[1] - 1)):
+            tx_goal = target_x if target_x is not None else goal[0] * 30 + 15
+            near_row = cell_of(p.x, p.y)[1] in (goal[1] - 1, goal[1], goal[1] + 1)
+            if len(path) == 1 or (len(path) <= 2 and near_row):
+                if abs(p.x - tx_goal) > close_px and not p.gravity():
+                    x = 1 if tx_goal > p.x else -1
+                    yield Inputs(x=x, pointer_x=p.x + 100 * x, pointer_y=p.y - 20)
+                    continue
                 if press_at_end:
                     for _ in range(2):
                         yield Inputs(y=1, pointer_x=p.x + 100 * p.direction, pointer_y=p.y - 20)
                     yield Inputs(pointer_x=p.x + 100 * p.direction, pointer_y=p.y - 20)
                 return
-            (nc, nr), kind = path[1]
+            # aim for the first node ahead that needs a horizontal move (slopes step up a row
+            # while staying in the same column), and jump if any edge on the way is a jump
+            i = 1
+            while i < len(path) - 1 and abs(path[i][0][0] * 30 + 15 - p.x) < 6 and path[i][1] != "jump":
+                i += 1
+            (nc, nr), kind = path[i]
             tx = nc * 30 + 15
             dx = tx - p.x
             x = 0 if abs(dx) < 4 else (1 if dx > 0 else -1)
@@ -302,25 +315,21 @@ class AbuseEpisode:
                 y = -1
                 if x == 0:
                     x = 1 if nc > start[0] else (-1 if nc < start[0] else 0)
+            elif x == 0 and nr < cell_of(p.x, p.y)[1] - 1 and not p.gravity():
+                y = -1  # the next node is above us: hop up
             yield Inputs(x=x, y=y, pointer_x=p.x + 100 * (x or p.direction), pointer_y=p.y - 20)
 
-    def _object_cell(self, oid):
+    def _c_goto(self, oid):
         o = self._visible().get(oid)
         if o is None:
-            return None
-        return cell_of(o["x"], o["y"])
-
-    def _c_goto(self, oid):
-        cell = self._object_cell(oid)
-        if cell is None:
             return
-        yield from self._follow(cell)
+        yield from self._follow(cell_of(o["x"], o["y"]), target_x=o["x"])
 
     def _c_use(self, oid):
-        cell = self._object_cell(oid)
-        if cell is None:
+        o = self._visible().get(oid)
+        if o is None:
             return
-        yield from self._follow(cell, press_at_end=True, close_px=12)
+        yield from self._follow(cell_of(o["x"], o["y"]), press_at_end=True, close_px=10, target_x=o["x"])
 
     def _c_explore(self, d):
         nav = self._nav()

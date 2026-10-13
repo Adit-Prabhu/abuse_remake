@@ -49,6 +49,8 @@ class ScriptedPlayer:
         self.history: list[int] = []
         self.stuck = 0
         self.teleported_at = -10_000
+        self.attacks: dict[str, int] = {}  # consecutive attacks on a target that did not change it
+        self.last_attack: tuple[str, bool] | None = None
 
     def start(self, info: dict) -> None:
         self.__init__()
@@ -64,14 +66,31 @@ class ScriptedPlayer:
         moved = abs(self.history[-1] - self.history[-5]) if len(self.history) >= 5 else 999
         self.stuck = self.stuck + 1 if moved < 20 else 0
 
+        seen = {o["id"]: o for o in objs}
+        if self.last_attack is not None:
+            tid, damaged_before = self.last_attack
+            o = seen.get(tid)
+            if o is not None and o.get("damaged", False) == damaged_before:
+                self.attacks[tid] = self.attacks.get(tid, 0) + 1
+            else:
+                self.attacks.pop(tid, None)
+            self.last_attack = None
+
         def pick(action, why):
+            if action.startswith("attack "):
+                tid = action.split()[1]
+                self.last_attack = (tid, seen.get(tid, {}).get("damaged", False))
             return {"action": action, "note": why}
+
+        def can_attack(o):
+            limit = 3 if o["kind"] == "wall_block" else 6
+            return f"attack {o['id']}" in legal_set and self.attacks.get(o["id"], 0) < limit
 
         # 1. fight
         threats = [o for o in objs if o["kind"] in THREAT_KINDS and o["dist"] < 220
                    and o.get("state") not in ("hanging", "folded", "dying")]
         for o in threats:
-            if f"attack {o['id']}" in legal_set:
+            if can_attack(o):
                 return pick(f"attack {o['id']}", f"threat {o['kind']} at {o['dist']} px")
         # 2. heal
         if p["hp"] < 50:
@@ -102,7 +121,7 @@ class ScriptedPlayer:
         walls = [o for o in objs if o["kind"] == "wall_block" and abs(o["dy"]) < 50
                  and (o["dx"] * sign > 0 or self.stuck >= 2) and o["dist"] < (90 if self.stuck < 2 else 200)]
         for o in walls:
-            if f"attack {o['id']}" in legal_set:
+            if can_attack(o):
                 return pick(f"attack {o['id']}", "break through")
         # 8. teleport when stuck
         if self.stuck >= 3 and obs["tick"] - self.teleported_at > 600:

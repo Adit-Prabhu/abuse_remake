@@ -40,13 +40,16 @@ def cell_of(x: int, y: int) -> tuple[int, int]:
 
 
 class Navigator:
-    def __init__(self, tilemap, known: KnownMap):
+    def __init__(self, tilemap, known: KnownMap, blocked: set[tuple[int, int]] | None = None):
         self.tm = tilemap
         self.known = known
+        self.blocked = blocked or set()  # cells covered by visible blocking objects (walls, doors)
 
     def cls(self, c: int, r: int) -> str | None:
         if (c, r) not in self.known.seen:
             return None
+        if (c, r) in self.blocked:
+            return "#"
         return tile_class(self.tm, self.tm.get(c, r))
 
     def passable(self, c: int, r: int) -> bool:
@@ -150,3 +153,20 @@ class Navigator:
     def is_frontier(self, node) -> bool:
         c, r = node
         return any((c + dc, r + dr) not in self.known.seen for dc in (-2, -1, 1, 2) for dr in (-2, -1, 0, 1))
+
+
+def blocked_cells(objects) -> set[tuple[int, int]]:
+    """Cells covered by visible objects that stop the player: wall blocks, closed doors and
+    active force fields. Taken from the observation, so it uses only what is on screen."""
+    out = set()
+    for o in objects:
+        kind = o["kind"]
+        if kind == "wall_block" or (kind == "door" and o.get("state") in ("closed", "closing")):
+            c, r = cell_of(o["x"], o["y"])
+            for dr in range(0, 3):
+                out.add((c, r - dr))
+        elif kind == "force_field":
+            c, r = cell_of(o["x"], o["y"])
+            for dr in range(0, 8):
+                out.add((c, r + dr))
+    return out
