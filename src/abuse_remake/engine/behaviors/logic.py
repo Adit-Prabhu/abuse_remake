@@ -24,16 +24,16 @@ from .lispfns import (
 
 def _on(o) -> None:
     o.set_state("on_state")
-    o.set_aistate(1)
+    set_aistate(o, 1)  # Lisp set_aistate also zeroes aistate_time (clisp.c:1074-1078)
 
 
 def _off(o) -> None:
     o.set_state("stopped")
-    o.set_aistate(0)
+    set_aistate(o, 0)
 
 
 def pressing_action_key(player) -> bool:
-    """people.lsp:71-72: the action key is "down"."""
+    """people.lsp:74-75: the action key is "down"."""
     v = player.controller
     return v is not None and v.y_suggestion > 0
 
@@ -145,7 +145,7 @@ def switcher_ai(o) -> bool:
             play_sound(o, "SWITCH_SND")
             o.set_state("running")
             set_aistate(o, 1)
-            o.world.emit("switch", uid=o.uid, on=True)
+            o.world.emit("switch", uid=o.uid, on=True, x=o.x, y=o.y)
     elif s == 1:
         if not pressing_action_key(o.world.bg(o)):
             set_aistate(o, 2)
@@ -154,7 +154,7 @@ def switcher_ai(o) -> bool:
             play_sound(o, "SWITCH_SND")
             o.set_state("stopped")
             set_aistate(o, 4)
-            o.world.emit("switch", uid=o.uid, on=False)
+            o.world.emit("switch", uid=o.uid, on=False, x=o.x, y=o.y)
     elif s == 4:
         if not pressing_action_key(o.world.bg(o)):
             set_aistate(o, 0)
@@ -170,7 +170,7 @@ def switch_once_ai(o) -> bool:
             play_sound(o, "SWITCH_SND")
             o.set_state("running")
             set_aistate(o, 1)
-            o.world.emit("switch", uid=o.uid, on=True)
+            o.world.emit("switch", uid=o.uid, on=True, x=o.x, y=o.y)
     return True
 
 
@@ -279,7 +279,7 @@ def _get_light_value(o) -> int:
 def _set_light_value(o, x: int) -> None:
     if o.lights:
         light = o.lights[0]
-        if x > light.inner_radius:  # set_light_r2 (clisp.c case 105)
+        if x > light.inner_radius:  # set_light_r2 (clisp.c case 105); calc_range only affects drawing
             light.outer_radius = x
     elif 0 <= x < 64:  # set_ambient_light (clisp.c case 179)
         o.world.views[0].ambient = x
@@ -351,7 +351,7 @@ def amb_sound_ai(o) -> bool:
 @lisp("amb_sound_ct")
 def amb_sound_ct(o) -> None:
     if o.aitype > 16:
-        o.set_aitype(0)
+        o.change_aitype(0)  # Lisp set_aitype runs this function again (clisp.c:1161)
     else:
         play_sound(o, f"AMB_SOUND{o.aitype}")
 
@@ -404,7 +404,7 @@ def tele_beam_ai(o) -> bool:
 
 @lisp("restart_ai")
 def restart_ai(o) -> bool:
-    """people.lsp:870-904: a save console. The original asks for a save slot; we save to one
+    """people.lsp:873-904: a save console. The original asks for a save slot; we save to one
     in-memory slot without the dialog (a course choice recorded in the rule map)."""
     s = o.aistate
     if s in (0, 1):
@@ -425,7 +425,7 @@ def restart_ai(o) -> bool:
             player.set_hp(100)
         play_sound(player, "SAVE_SND")
         player.lvars["has_saved_this_level"] = 1
-        o.world.emit("checkpoint_saved", console=o.uid, station=o.xvel)
+        o.world.emit("checkpoint_saved", console=o.uid, station=o.xvel, x=o.x, y=o.y)
         save = o.world.globals.get("save_hook")
         if save is not None:
             save(o)

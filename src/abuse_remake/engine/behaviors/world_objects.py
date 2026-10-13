@@ -46,7 +46,7 @@ def general_sdoor_ai(o, push: bool) -> bool:
             if o.objs[0].aistate != 0:
                 o.set_state("running")
                 play_sound(o, "SWISH", 70)
-                o.world.emit("door", uid=o.uid, opening=True)
+                o.world.emit("door", uid=o.uid, opening=True, x=o.x, y=o.y)
                 go_state(o, 1)
             else:
                 o.set_state("stopped")
@@ -60,7 +60,7 @@ def general_sdoor_ai(o, push: bool) -> bool:
         if o.objs and o.objs[0].aistate == 0:
             o.set_state("walking")
             play_sound(o, "SWISH", 70)
-            o.world.emit("door", uid=o.uid, opening=False)
+            o.world.emit("door", uid=o.uid, opening=False, x=o.x, y=o.y)
             go_state(o, 3)
     elif s == 3:
         if not o.next_picture():
@@ -93,7 +93,7 @@ def _ff_push(o, who, xamount: int) -> None:
 
 @lisp("ff_ai")
 def ff_ai(o) -> bool:
-    """doors.lsp:85-99: the force field pushes the player back while its signal is on."""
+    """doors.lsp:93-107: the force field pushes the player back while its signal is on."""
     o.world.rng.shift(random(o, 80))
     if activated(o):
         nowx, nowy = o.x, o.y
@@ -113,7 +113,7 @@ def _wall_blown(o) -> bool:
 
 @lisp("hwall_ai")
 def hwall_ai(o) -> bool:
-    """doors.lsp:121-131: a breakable wall section; it explodes when shot to 0 hp or signalled."""
+    """doors.lsp:130-139: a breakable wall section; it explodes when shot to 0 hp or signalled."""
     if _wall_blown(o):
         o.world.spawn("EXPLODE1", o.x + 15, o.y - 7, 0)
         play_sound(o, "HWALL_SND")
@@ -197,7 +197,7 @@ def _cop_set_fade(p, value) -> None:
 
 @lisp("bolder_ai")
 def bolder_ai(o) -> bool:
-    """duong.lsp:268-327: a rolling boulder that bounces and hurts what it touches."""
+    """duong.lsp:279-327: a rolling boulder that bounces and hurts what it touches."""
     if o.objs and o.objs[0].aistate == 0:
         return True
     if o.hp == 0:
@@ -337,7 +337,7 @@ def _platform_move(o, source, dest) -> None:
 
 @lisp("platform_ai")
 def platform_ai(o) -> bool:
-    """platform.lsp:62-95: rides between its two linked markers when called or signalled."""
+    """platform.lsp:57-89: rides between its two linked markers when called or signalled."""
     n = len(o.objs)
     if n == 2 or (n == 3 and o.objs[2].aistate != 0):
         if o.state == "stopped":

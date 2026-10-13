@@ -58,7 +58,7 @@ def _scream_check(o, b) -> None:
     if _ant_can_see(o, o.x, o.y, b.x, b.y):
         if o.lvars["no_see_time"] == 0 or o.lvars["no_see_time"] > 20:
             play_sound(o, "ASCREAM_SND")
-            o.world.emit("enemy_alert", uid=o.uid)
+            o.world.emit("enemy_alert", uid=o.uid, x=o.x, y=o.y)
         o.lvars["no_see_time"] = 1
     else:
         o.lvars["no_see_time"] += 1
@@ -108,7 +108,7 @@ def _fire_at_player(o, b) -> None:
         angle = lisp_atan2(firey - playery, playerx - firex)
         fire_object(o, o.aitype, firex, firey, angle, b)
         o.set_state("weapon_fire")
-        o.world.emit("enemy_fired", uid=o.uid)
+        o.world.emit("enemy_fired", uid=o.uid, x=o.x, y=o.y)
 
 
 def _fall_trigger(o) -> bool:
@@ -144,7 +144,7 @@ def ant_ai(o) -> bool:
             o.set_state("falling")
             o.set_aistate(ANT_FALL_DOWN)
             o.targetable_on = 1
-            o.world.emit("enemy_revealed", uid=o.uid)
+            o.world.emit("enemy_revealed", uid=o.uid, x=o.x, y=o.y)
         else:
             o.targetable_on = 0
     elif s == ANT_HANGING:
@@ -344,7 +344,7 @@ def ant_ct(o) -> None:
 
 @lisp("crack_ai")
 def crack_ai(o) -> bool:
-    """ant.lsp:526-557: a wall crack that releases ants when triggered."""
+    """ant.lsp:524-551: a wall crack that releases ants when triggered."""
     if o.aistate == 0:
         if not o.objs:
             trig = distx(o) < 50 and disty(o) < 70
@@ -367,7 +367,7 @@ def crack_ai(o) -> bool:
             ant.xvel = d * 20
             ant.set_state("run_jump")
             set_aistate(ant, 6)
-            o.world.emit("enemy_spawned", uid=ant.uid)
+            o.world.emit("enemy_spawned", uid=ant.uid, x=ant.x, y=ant.y)
         elif f in (0, 1, 2):
             o.next_picture()
     return True
