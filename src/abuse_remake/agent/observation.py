@@ -201,7 +201,8 @@ def visible_events(game, events, ids: IdMap, x0, y0, w, h) -> list[dict]:
     for e in events:
         if e.kind == "damage":
             if e.data["target"] == p.uid:
-                out.append({"type": "player_hurt", "amount": e.data["amount"], "by": KINDS.get(e.data["source"] or "", "unknown")})
+                by = KINDS.get(e.data["source"] or "", "unknown")
+                out.append({"type": "player_hurt", "amount": e.data["amount"], "by": by})
             continue
         if e.kind not in EVENT_KINDS:
             continue
