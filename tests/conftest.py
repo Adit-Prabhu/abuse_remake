@@ -14,9 +14,12 @@ os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
 def _compile(src: Path, out: Path) -> str | None:
     """Compile a reference harness; return None on success or the last error."""
-    cc = shutil.which("cc") or shutil.which("gcc") or shutil.which("clang")
+    if src.suffix == ".cpp":
+        cc = shutil.which("c++") or shutil.which("g++") or shutil.which("clang++")
+    else:
+        cc = shutil.which("cc") or shutil.which("gcc") or shutil.which("clang")
     if cc is None:
-        return "no C compiler on PATH"
+        return f"no compiler on PATH for {src.suffix}"
     attempts = [[cc, "-w", "-O0", "-o", str(out), str(src)]]
     if sys.platform == "darwin":  # some Command Line Tools ship an SDK the linker rejects
         sdks = sorted(Path("/Library/Developer/CommandLineTools/SDKs").glob("MacOSX1*.sdk"), reverse=True)
@@ -38,7 +41,10 @@ def c_reference(tmp_path_factory):
     def get(name: str) -> Path:
         if name not in built:
             out = tmp_path_factory.mktemp("cref") / name
-            err = _compile(C_REFERENCE / f"{name}.c", out)
+            src = C_REFERENCE / f"{name}.c"
+            if not src.exists():
+                src = C_REFERENCE / f"{name}.cpp"
+            err = _compile(src, out)
             if err is not None:
                 if os.environ.get("ABUSE_REQUIRE_C_REFERENCE") == "1":
                     pytest.fail(f"cannot build C reference {name}: {err}")
