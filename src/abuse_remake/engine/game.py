@@ -82,6 +82,30 @@ class Game:
         self.world.step()
         self.frames += 1
 
+    # --- save and restore (the human game's restart; see SCOPE.md) ---
+    def _shared(self) -> dict:
+        """Objects every snapshot shares rather than copies: art, types, tiles, functions."""
+        w = self.world
+        memo = {id(w.frames): w.frames, id(w.registry): w.registry, id(w.level): w.level,
+                id(w.tiles.segments): w.tiles.segments, id(w.types): w.types,
+                id(w._types_by_index): w._types_by_index, id(w.weapon_types): w.weapon_types}
+        for ct in w.types.values():
+            memo[id(ct)] = ct
+        for v in w.globals.values():
+            if callable(v):  # hooks belong to the front end, not the saved game
+                memo[id(v)] = v
+        return memo
+
+    def snapshot(self):
+        import copy
+
+        return copy.deepcopy((self.world, self.view, self.player, self.frames), self._shared())
+
+    def restore(self, snap) -> None:
+        import copy
+
+        self.world, self.view, self.player, self.frames = copy.deepcopy(snap, self._shared())
+
     @property
     def player_dead(self) -> bool:
         return self.player.aistate >= 2 or self.player.state == "dead"
