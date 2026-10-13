@@ -114,18 +114,18 @@ l_caller case 39).
 |---|---|---|
 | AND, XOR, NOT, DELAY and PULSE gates | `logic.and_ai`, `xor_ai`, `not_ai`, `delay_ai`, `pulse_ai` | `code`: `data/original/lisp/gates.lsp:4-162`; `observed`: truth-table tests |
 | SENSOR turns on inside its (xvel, yvel) box and off outside its (xacel, yacel) box, or after `hp` ticks; `unoffable` sensors stay on | `logic.sensor_ai` | `code`: `abuse/src/sensor.c` (compiled C; the Lisp version at `switch.lsp:166-183` is commented out) |
-| A new SENSOR gets `aitype` 1, which sets its boxes to 50x50 (on) and 100x100 (off) | `logic.sensor_cons`, `sensor_ct` | `code`: `switch.lsp:162-198`; `abuse/src/objects.c:1564-1592` (`change_aitype` runs the type-change function) |
+| A new SENSOR gets `aitype` 1, which sets its boxes to 50x50 (on) and 100x100 (off) | `logic.sensor_cons`, `sensor_ct` | `code`: `switch.lsp:137-140, 186-198`; `abuse/src/objects.c:1564-1592` (`change_aitype` runs the type-change function) |
 | SWITCH toggles when the player is within 20x30 and presses the action key; the key must be released before it can toggle again | `logic.switcher_ai` | `code`: `switch.lsp:4-26`; `observed`: `test_switch_toggles_with_the_action_key_and_needs_a_release` |
 | SWITCH_ONCE draws a random number, from a leftover debug `(print (random 1000))` | `logic.switch_once_ai` | `code`: `switch.lsp:29-39` |
 | Switches, switch doors, consoles and TP_DOORs move to the front of the object list on load (`lower`) | `logic.lower_reload` | `code`: `switch.lsp:41`, `clisp.c` case 240, `level.c:2548` |
 | DEATH_SENSOR turns on when its linked object dies | `logic.death_sen_ai` | `code`: `switch.lsp:284-291` |
-| SWITCH_DIMMER fades the light or ambient level when signalled | `logic.switch_dim_ai` | `code`: `data/original/lisp/light.lsp:4-60` |
+| SWITCH_DIMMER fades the light or ambient level when signalled | `logic.switch_dim_ai` | `code`: `data/original/lisp/light.lsp:4-62, 82-90` |
 | AMBIENT_SOUND repeats a sound every `xvel + random(xacel+1)` ticks while activated, drawing from the random table | `logic.amb_sound_ai` | `code`: `sfx.lsp:230-244` |
 | Exit: touching NEXT_LEVEL and pressing the action key ends the level | `logic.next_level_ai` | `code`: `people.lsp:915-923`; `observed`: `test_exit_needs_touch_and_action_key` |
 | NEXT_LEVEL_TOP shifts the random table by 80 every tick it is active | `logic.next_level_top_ai` | `code`: `people.lsp:932-937`; `observed`: test |
 | A RESTART_POSITION console saves when touched with the action key; health is 100 in the save unless the difficulty is extreme | `logic.restart_ai` | `code`: `people.lsp:873-904`. **Deviation:** the original's save-slot dialog is replaced by one in-memory slot |
 | SWITCH_DOOR and TRAP_DOOR open while signalled and close (pushing the player out) when not | `world_objects.general_sdoor_ai`, `push_char` | `code`: `doors.lsp:32-62`, `common.lsp:15-23` |
-| FORCE_FIELD pushes the player back 35 px while activated, and draws a random number every tick | `world_objects.ff_ai` | `code`: `doors.lsp:72-99` |
+| FORCE_FIELD pushes the player back 35 px while activated, and draws a random number every tick | `world_objects.ff_ai` | `code`: `doors.lsp:79-108` |
 | Hidden walls take damage only while activated, show cracks in proportion to damage, and explode (radius 50, 60 damage; big walls 110, 120) at 0 HP or when signalled | `world_objects.hwall_ai`, `big_wall_ai`, `hwall_damage` | `code`: `doors.lsp:130-166`; `observed`: test |
 | TELE2 teleports the player to its linked destination after its 15-frame animation; the player cannot be hurt meanwhile (`is_teleporting`) | `world_objects.tp2_ai` | `code`: `duong.lsp:231-266`, `people.lsp:330` |
 | TP_DOOR opens when the player is near; down at the door moves the player to the linked door | `world_objects.tpd_ai` | `code`: `teleport.lsp:36-58` |
@@ -136,7 +136,7 @@ l_caller case 39).
 | `ant_congestion` compares x with the other ant's y (a typo in the original) | `enemies._ant_congestion` | `code`: `abuse/src/ant.c:45` |
 | Ant HP by aitype: 15, 50, 25, 35, 35, 20; ants are not hurt by ants or ant bullets, nor while hanging | `enemies.ant_ct`, `ant_damage` | `code`: `ant.lsp:398-449`; `observed`: tests |
 | A dying ant usually drops its aitype's ammo; with chance 1/(2, 5, 8 or 20, by difficulty) it drops nothing, unless a 1-in-4 roll gives the next ammo type | `enemies.ant_damage` | `code`: `ant.lsp:416-424`, `guns.lsp:19-27` |
-| ANT_CRACK releases `create_total` ants once triggered (player within 50x70, or a signal) | `enemies.crack_ai` | `code`: `ant.lsp:524-559` |
+| ANT_CRACK releases `create_total` ants once triggered (player within 50x70, or a signal) | `enemies.crack_ai` | `code`: `ant.lsp:524-570` |
 | SPRAY_GUN unfolds when activated and the player is within 450x400; it sweeps 270°→350° in 10° steps every 4 ticks, firing `fire_object` of its aitype; it is only hurt while unfolded and is never pushed | `enemies.spray_gun_ai`, `guner_damage` | `code`: `guns.lsp:196-306`, `weapons.lsp:300-317` |
 | HEALTH gives 20 (scaled by difficulty) unless health is full, then disappears | `enemies.hp_up` | `code`: `powerup.lsp:9-15`; `observed`: difficulty tests |
 | Ammo icons fall to the floor, then give their `start_hp` as ammo. A weapon you did not have is selected at once (`change_on_pickup`) | `enemies.weapon_icon_ai`, `giver` | `code`: `weapons.lsp:161-237`, `options.lsp`; `observed`: test |
