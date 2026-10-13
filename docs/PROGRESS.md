@@ -11,7 +11,7 @@ record.
 | 1. Scaffold, data, format readers | `feat/scaffold-data` | #1 | reviewed (`docs/reviews/PR-1.md`), awaiting merge |
 | 2. Engine core | `feat/engine-core` | #2 | reviewed (`docs/reviews/PR-2.md`), fixes in, awaiting merge |
 | 3. Every Level 1 object | `feat/level01-objects` | #3 | reviewed (`docs/reviews/PR-3.md`), fixes in, awaiting merge |
-| 4. Playable game (pygame, modern rendering) | `feat/game-app` | #4 | done; no separate review yet |
+| 4. Playable game (pygame, modern rendering) | `feat/game-app` | #4 | reviewed (`docs/reviews/PR-4.md`); fixes landed on `feat/remastered` |
 | 5. Player interface, baselines, runner, traces | `feat/player-interface` | #5 | reviewed (`docs/reviews/PR-5.md`); fixes landed on `feat/remastered` |
 | 6+7. Model player, providers, memory conditions, `abuse-eval`, live-eval workflow | `feat/model-player` | #6 | reviewed (`docs/reviews/PR-6.md`), all fixes in |
 | 8. Remastered mode | `feat/remastered` (on top of #6) | #7 | reviewed (`docs/reviews/PR-7.md`), all fixes in; also carries PR #5's fixes |
@@ -75,7 +75,8 @@ evaluation harness.
 
 ## Next steps
 
-1. Review PR #4 (the playable game), the only milestone without a review record.
+1. Every milestone PR (#1–#7) now has an independent review record with all findings resolved.
+   The remaining work is the human-owned items below.
 2. **Live comparison (human-gated).**
    - The owner sets up Vertex: `gcloud auth application-default login`, `GOOGLE_CLOUD_PROJECT`,
      `GOOGLE_CLOUD_LOCATION`, and `COURSE_MODEL` (a Gemini ID).

@@ -39,6 +39,11 @@
 ## Afterwards
 
 - Copy the notes into `docs/playtests/P<n>-<date>.md` from the template.
+- Score the trace with the same measure as the agents:
+  `uv run abuse-replay --human-trace playtests/raw/session-<id>.jsonl`. It replays the session
+  through the engine, checks every recorded state hash, and prints for each game the ticks,
+  deaths, console saves, whether the player reached the exit, and progress. Unlike an agent, a
+  human may die and restart, so compare with care.
 - Keep raw traces local. Commit a trace only with the player's consent, as
   `evidence/traces/human/P<n>-<scenario>.jsonl`, after removing anything personal. A trace holds
   only inputs and the seed.

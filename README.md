@@ -28,9 +28,10 @@ Controls:
 - move: A/D or the arrow keys;
 - jump: W, Up or Space;
 - action (switches, doors, consoles, exit): S or Down;
-- aim: the mouse; fire: the left button;
-- weapons: 1–4, Q/E or the mouse wheel;
-- pause: Esc;
+- aim: the mouse; fire: the left button; special: the right button or Shift;
+- weapons: 1–4, the original Ctrl/Home (previous) and Insert/PageUp (next), Q/E, the mouse wheel,
+  or the middle button;
+- pause: Esc; after a death, Space restarts from the last console;
 - Remastered: dash F, quick restart R, ghost G.
 
 Gamepads work too.
@@ -61,7 +62,7 @@ comparison. The model ID is never in the code: it comes from `COURSE_MODEL`.
 | Rule and source map | `docs/rule-source-map.md` |
 | Configuration record | `agent-config.json` (course-1, checked by `tests/test_agent_config.py`), `eval/configs/*.toml`, and each run's `config.json` |
 | Reusable skill | `.claude/skills/port-classic-rule/SKILL.md`, `.claude/skills/agent-eval/SKILL.md` |
-| Implementation and review evidence | One stacked PR per milestone (#1–#8). Independent review records are in `docs/reviews/PR-<n>.md`, with the reviewer brief in `.claude/agents/rules-reviewer.md` |
+| Implementation and review evidence | One stacked PR per milestone (#1–#8). Independent review records for #1–#7 are in `docs/reviews/PR-<n>.md`, with the reviewer brief in `.claude/agents/rules-reviewer.md` |
 | Meaningful CI tests | `.github/workflows/ci.yml` (Python 3.11 and 3.12). It covers: format readers, differential tests against compiled original C, engine and object rules, the player boundary, invalid actions, budgets, determinism, mocked providers using the real SDK error types, the eval harness, Remastered isolation, replay |
 | Repeated live comparison | `eval/configs/live.toml` through `abuse-eval --live` (or `.github/workflows/live-eval.yml`), reported to `docs/evaluation-report.md`. **Not run yet:** it needs the student's Vertex setup and approval of the estimate. The offline comparison is in `evidence/reports/offline-baselines.md` |
 | Episode traces | `evidence/traces/`. Every run writes `runs/<run>/traces/` |
@@ -70,7 +71,7 @@ comparison. The model ID is never in the code: it comes from `COURSE_MODEL`.
 | Invalid-action handling | `docs/action-interface.md` |
 | Budgets | `docs/budgets.md` |
 | One-page agent-team log | `docs/agent-team-log.md` (for the student to check) |
-| Peer playtest notes | `docs/playtests/protocol.md` and `template.md`. **TODO (student):** run the sessions; agents do not write the notes |
+| Peer playtest notes | `docs/playtests/protocol.md` and `template.md`. `--playtest` records a replayable trace, and `abuse-replay --human-trace` scores it with the agents' progress measure. **TODO (student):** run the sessions; agents do not write the notes |
 | Recorded demonstration | Generated: `evidence/video/scripted-level01-cp3-s0.mp4`. Narrated: `docs/demo.md` scripts it. **TODO (student):** record it |
 | Human responsibility | `docs/human-responsibility.md` |
 
