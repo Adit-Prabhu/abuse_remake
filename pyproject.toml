@@ -18,6 +18,7 @@ model = [
 ]
 
 [project.scripts]
+abuse-remake = "abuse_remake.game.app:main"
 abuse-data = "abuse_remake.formats.cli:main"
 
 [dependency-groups]
