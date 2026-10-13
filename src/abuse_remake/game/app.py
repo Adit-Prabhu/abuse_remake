@@ -36,7 +36,7 @@ MAX_CATCHUP = 4 * TICK  # after a stall, run at most 4 owed ticks instead of all
 
 def parse_args(argv=None):
     p = argparse.ArgumentParser(prog="abuse-remake", description="Abuse (1996), Level 1, rebuilt")
-    p.add_argument("--mode", choices=("classic", "remastered"), default=None,
+    p.add_argument("--mode", choices=("classic", "remastered", "neon"), default=None,
                    help="default: remastered, or classic with --playtest (playtests are the human reference)")
     p.add_argument("--difficulty", choices=DIFFICULTIES, default="hard")
     p.add_argument("--seed", type=int, default=None, help="random table start (default: from the clock)")
@@ -45,11 +45,16 @@ def parse_args(argv=None):
     p.add_argument("--no-audio", action="store_true")
     p.add_argument("--record", type=Path, help="write this session's inputs as a replayable trace")
     p.add_argument("--playtest", action="store_true", help="record into playtests/raw/ with a session id")
-    p.add_argument("--horde", action="store_true", help="Remastered's Horde arena: survive waves of ants")
+    p.add_argument("--horde", action="store_true", help="Horde arena for Remastered or Neon Protocol")
+    p.add_argument("--tutorial", action="store_true", help="Neon Protocol's safe playable tutorial")
     p.add_argument("--skip-title", action="store_true")
     p.add_argument("--frames", type=int, default=0, help="run N display frames with scripted input, then exit")
     p.add_argument("--screenshot", type=Path, help="save the last frame (with --frames)")
     args = p.parse_args(argv)
+    if args.tutorial and (args.mode in ("classic", "remastered") or args.horde):
+        p.error("--tutorial requires Neon Protocol and cannot be combined with --horde")
+    if args.tutorial:
+        args.mode = "neon"
     if args.horde and args.mode == "classic":
         p.error("--horde is a Remastered rule set; it cannot run with --mode classic")
     if args.mode is None:
@@ -63,6 +68,7 @@ class App:
 
         self.pg = pygame
         self.args = args
+        self.next_mode = None
         if args.frames:
             os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
             os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
@@ -262,6 +268,14 @@ class App:
 
     def on_key(self, key) -> bool:
         pg = self.pg
+        if self.state == "controls":
+            if key in (pg.K_ESCAPE, pg.K_F1, pg.K_c):
+                self.state = self.help_return
+            return True
+        if key == pg.K_F1 or (key == pg.K_c and self.state in ("title", "paused")):
+            self.help_return = self.state
+            self.state = "controls"
+            return True
         if self.state == "title":
             if key in (pg.K_RETURN, pg.K_SPACE):
                 self.state = "play"
@@ -282,6 +296,9 @@ class App:
                 self.args.difficulty = DIFFICULTIES[(i + 1) % len(DIFFICULTIES)]
                 self.new_game()
             elif key == pg.K_ESCAPE:
+                return False
+            elif key == pg.K_n:
+                self.next_mode = "neon"
                 return False
         elif self.state == "play":
             if key == pg.K_ESCAPE:
@@ -443,10 +460,14 @@ class App:
             self.hud.center(self.screen, ["ABUSE", "Level 1 — reconstructed",
                                           f"Mode: {self.args.mode} (M)    Difficulty: {self.args.difficulty} (D)"
                                           + ("    HORDE (H)" if self.horde else "    Horde: off (H)"),
-                                          "Enter to start    Esc to quit"],
+                                          "Enter start    C controls    N Neon Protocol    Esc quit"],
                             "Original game © 1996 Crack dot Com (public-domain code and shareware data)")
         elif self.state == "paused":
-            self.hud.center(self.screen, ["PAUSED", "Esc resume    R restart level    X quit"])
+            self.hud.center(self.screen, ["PAUSED", "Esc resume    C controls    R restart level    X quit"])
+        elif self.state == "controls":
+            from .controls import draw_controls
+
+            draw_controls(self.screen, self.args.mode)
         elif self.state == "dead":
             self.hud.center(self.screen, ["YOU DIED", "Space to restart from the last save"])
         elif self.state == "complete":
@@ -471,7 +492,18 @@ def clock_text(ticks: int) -> str:
 
 def main(argv=None) -> int:
     args = parse_args(argv)
-    return App(args).run()
+    while True:
+        if args.mode == "neon":
+            from .neon_app import NeonApp
+
+            app = NeonApp(args)
+        else:
+            app = App(args)
+        result = app.run()
+        if app.next_mode is None:
+            return result
+        args.mode = app.next_mode
+        args.skip_title, args.horde, args.tutorial = False, False, False
 
 
 if __name__ == "__main__":

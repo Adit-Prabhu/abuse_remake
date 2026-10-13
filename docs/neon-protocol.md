@@ -57,3 +57,28 @@ barriers, relay edge/proximity/security conditions, extraction, shields, piercin
 weapons, ammo refusal, Horde progression, actual tutorial completion, deterministic hashes,
 repeated saves, and Classic agent isolation. These are design tests, not original-game evidence.
 App smoke checks and review records will be added with their milestones.
+
+## Playing
+
+```sh
+uv run abuse-remake --mode neon                    # menu: campaign, Horde, training, manual
+uv run abuse-remake --mode neon --skip-title        # start campaign immediately
+uv run abuse-remake --mode neon --horde --skip-title
+uv run abuse-remake --mode neon --tutorial --skip-title
+```
+
+The old title screen offers **N: Neon Protocol**, and Neon offers **M: Classic/Remastered**.
+Choose cards by click or arrows and Enter. C starts campaign, H Horde, T training; D cycles
+difficulty. Every mode has a controls screen (F1, or C from a legacy title/pause screen).
+Neon also keeps a controls strip visible during play. Training is safe and requires performed
+actions, then Enter starts campaign.
+
+Keyboard/mouse: A/D or arrows move, Space/W/Up jump, mouse aims, left click/J fires,
+S/Down interacts, 1/2/3 select pulse/rail/vortex, Q/E or scroll cycle, F dashes, R restores
+checkpoint, Esc pauses. Release jump/action between presses. Gamepad: left stick movement,
+right stick aim, A jump, B interact, X dash, right trigger fire, bumpers switch weapons.
+From pause, C/F1 opens controls, R restarts the level, T returns to title and X quits.
+
+Neon `--record FILE` uses `neon-trace-1`; `abuse-replay --human-trace FILE` checks it without
+pygame or model calls. It reports Neon counters; it does not compute Classic route progress.
+Checkpoints and restores include all power-ups, weapon charges, projectiles, waves and RNG.

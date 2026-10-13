@@ -78,19 +78,57 @@ class _Session:
         return out
 
 
+class _NeonSession:
+    """Replay the new optional design, without Classic evaluator progress or pygame."""
+
+    def __init__(self, row):
+        from ..engine.neon import NeonGame
+
+        self.game = NeonGame(row["seed"], row["variant"], row.get("difficulty", "hard"))
+        self.level_start = self.game.snapshot()
+        self.checkpoint = self.level_start
+        self.ticks, self.deaths, self.saves = 0, 0, 0
+        self.won = False
+
+    def step(self, row):
+        g = self.game
+        if row.get("dash"):
+            g.request_dash(row["x"])
+        g.step(Inputs(x=row["x"], y=row["y"], b2=row["b2"], pointer_x=row["px"], pointer_y=row["py"]),
+               select=row.get("select"), cycle=row.get("cycle", 0))
+        self.ticks += 1
+        for e in g.events:
+            if e["kind"] == "checkpoint":
+                self.checkpoint = g.snapshot()
+                self.saves += 1
+        self.deaths += int(g.status == "dead")
+        self.won |= g.status == "won"
+
+    def restore(self, to):
+        self.game.restore(self.level_start if to == "level_start" else self.checkpoint)
+        if to == "level_start":
+            self.checkpoint = self.level_start
+
+    def summary(self):
+        return {"rules": "neon", "seed": self.game.seed, "variant": self.game.variant,
+                "ticks": self.ticks, "deaths": self.deaths, "console_saves": self.saves,
+                "reached_exit": self.won, "waves_cleared": self.game.cleared}
+
+
 def replay_human(path: Path) -> dict:
     rows = [json.loads(x) for x in Path(path).read_text().splitlines() if x.strip()]
-    if not rows or rows[0].get("kind") != "header" or rows[0].get("format") != "human-trace-1":
-        raise SystemExit(f"{path}: not a human trace (format human-trace-1)")
+    if (not rows or rows[0].get("kind") != "header"
+            or rows[0].get("format") not in ("human-trace-1", "neon-trace-1")):
+        raise SystemExit(f"{path}: not a human trace (format human-trace-1 or neon-trace-1)")
     games: list[dict] = []
-    session: _Session | None = None
+    session: _Session | _NeonSession | None = None
     checks = mismatches = 0
     for row in rows[1:]:
         kind = row.get("kind")
         if kind == "new_game":
             if session is not None and session.ticks:
                 games.append(session.summary())
-            session = _Session(row)
+            session = _NeonSession(row) if row.get("rules") == "neon" else _Session(row)
         elif session is None:
             continue
         elif kind == "input":

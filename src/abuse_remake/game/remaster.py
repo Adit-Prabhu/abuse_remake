@@ -124,10 +124,19 @@ class GhostPainter:
         key = (id(fig), direction > 0)
         img = self.cache.get(key)
         if img is None:
+            import numpy as np
+
             fwd, back = self.sprites.figure(fig)
             img = (fwd if direction > 0 else back).copy()
-            img.fill((*self.TINT, 255), special_flags=self.pg.BLEND_RGBA_MULT)
-            img.set_alpha(110)
+            # Bake opacity into the silhouette's alpha. Never tint an opaque bounding box,
+            # and keep hidden RGB tinted too so scaled edges cannot acquire black fringes.
+            rgb = self.pg.surfarray.pixels3d(img)
+            rgb[:] = self.TINT
+            del rgb
+            alpha = self.pg.surfarray.pixels_alpha(img)
+            alpha[:] = np.where(alpha > 0, 110, 0)
+            del alpha
+            img.set_alpha(255)
             self.cache[key] = img
         return img
 

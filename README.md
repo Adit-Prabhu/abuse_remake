@@ -10,6 +10,9 @@ project ("AI in Practice: Game Design and Development").
 - **Remastered mode** adds a wider view, lighting and particles, a dash, quick restart, a ghost
   race, an AI spectator and a Horde arena (`docs/remastered.md`). Evaluations always run Classic
   rules.
+- **Neon Protocol** (`--mode neon`) is a separate futuristic campaign and Horde with a new
+  map, robot enemies, energy weapons, power-ups, neon vector art and a playable tutorial.
+  See `docs/neon-protocol.md`; it does not change Classic evaluation.
 - The scope record is `SCOPE.md`. Data provenance and licences are in
   `data/original/PROVENANCE.md`, and `docs/data-lineage.md` shows the data matches the 1995 and
   1996 releases.
@@ -20,11 +23,15 @@ project ("AI in Practice: Game Design and Development").
 uv sync --all-extras
 uv run abuse-remake                         # play (Remastered); --mode classic for the faithful port
 uv run abuse-remake --horde                 # the Horde arena
+uv run abuse-remake --mode neon             # Neon Protocol: campaign / Horde / training menu
+uv run abuse-remake --mode neon --tutorial --skip-title  # learn the controls by playing
 uv run pytest                               # deterministic tests: no network, no model calls
 uv run abuse-data verify                    # check the original data files
 ```
 
 Controls:
+- F1 opens controls in every mode; C also opens them from the Classic/Remastered title or pause.
+- N on the old title opens Neon Protocol; M on Neon's title returns to Classic/Remastered.
 - move: A/D or the arrow keys;
 - jump: W, Up or Space;
 - action (switches, doors, consoles, exit): S or Down;
