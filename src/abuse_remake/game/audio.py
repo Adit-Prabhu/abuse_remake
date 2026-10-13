@@ -95,7 +95,8 @@ PRESETS = {
 }
 for i in range(4):
     PRESETS[f"PLAYER_PAIN{i}"] = (lambda k=i: _tone(180 - 15 * k, 90, 0.18, "square", 0.6) * 0.4)
-    PRESETS[f"PLAYER_DEATH{i}"] = (lambda k=i: _mix(_tone(160 - 10 * k, 40, 0.9, "saw", 1.4), _noise(0.5, 1.0, 0.1, 20 + k) * 0.4) * 0.5)
+    PRESETS[f"PLAYER_DEATH{i}"] = (lambda k=i: _mix(_tone(160 - 10 * k, 40, 0.9, "saw", 1.4),
+                                                   _noise(0.5, 1.0, 0.1, 20 + k) * 0.4) * 0.5)
 for i in range(3):
     PRESETS[f"ASML_DEATH{i}"] = (lambda k=i: _tone(1500 - 200 * k, 300, 0.4, "saw", 1.0, vib=0.1) * 0.35)
     PRESETS[f"ALRG_DEATH{i}"] = (lambda k=i: _tone(700 - 100 * k, 120, 0.6, "saw", 1.2, vib=0.1) * 0.4)
