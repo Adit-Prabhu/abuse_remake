@@ -65,7 +65,7 @@ by the PRs that implement them.
 | A move is cut short one pixel before it crosses a boundary segment; the `inside` flag picks the blocking side | `geometry.setback_intersect` | `code`: `abuse/src/intsect.c:139-233`; `observed`: a differential test against the compiled original, 20,000 cases |
 | Tile collision checks the tiles around the move, with tile-edge points pushed 1 px outward | `TileMap.foreground_intersect` | `code`: `abuse/src/level.c:2584-2665` |
 | Our bounding-box prefilter never changes a result | `TileMap.foreground_intersect` | `observed`: `tests/test_engine_core.py` compares against the unfiltered reference |
-| Character data (states, frames, abilities, flags, ranges, variables) comes from the original `def_char` forms and the helpers that generate them | `engine/chardefs.py` | `code`: `abuse/src/chars.c:275-420` and the cited Lisp lines |
+| Character data (states, frames, abilities, flags, ranges, variables) comes from the original `def_char` forms and the helpers that generate them | `engine/chardefs.py` | `code`: `abuse/src/chars.c:272-420` and the cited Lisp lines |
 | Gravity adds 200/256 to the vertical acceleration each tick, so it builds up over time | `obj.GameObject.tick` | `code`: `abuse/src/objects.c:910-920` |
 | Collision response: land, hit a ceiling or wall, step up slopes, descend small drops | `obj.GameObject.tick` | `code`: `abuse/src/objects.c:936-1095` |
 | Walking and running: right sets `xvel` to `run_top_speed` at once; left only sets `xacel` (the original's asymmetry) | `obj.GameObject.mover` | `code`: `abuse/src/objects.c:1256-1273`; `observed`: `test_running_right_reaches_top_speed_at_once_but_left_accelerates` |
