@@ -52,6 +52,60 @@ by the PRs that implement them.
 | Areas: x, y, w, h, active, ambient, view offsets and speeds (signed) | `AreaController` | `code`: `abuse/src/level.c:2085-2144` |
 | Lights: count, minimum light level, then x, y, shifts, radii and a type byte | `level_file.Light` | `code`: `abuse/src/light.c:1243-1272` |
 
+
+## Engine core: arithmetic, collision and physics
+
+| Rule | Our code | Evidence |
+|---|---|---|
+| Integer division and remainder truncate toward zero, as in C | `engine/cmath.py` `cdiv`, `cmod` | `code`: the C semantics the engine is written in |
+| Fixed-point trig: `sin_table` of 360 entries ×65536; cosine indexes 90 ahead; negative angles index from the end | `cmath.lisp_sin`, `lisp_cos`, `engine/tables.py` | `code`: `abuse/src/trig.c`, `abuse/src/lisp.c:676-688` |
+| `atan2` uses a 1662-entry table and returns 260 (not 270) for steep down-right angles | `cmath.lisp_atan2` | `code`: `abuse/src/lisp.c:690-775`; `observed`: `tests/test_engine_core.py` |
+| Randomness: a fixed 1024-entry table from seed "FUCK"; only the start index (`rand_on`) varies. We set it from the episode seed; the original uses `time() % 1024` | `cmath.JRand` | `code`: `imlib/jrand.c`, `imlib/include/jrand.hpp`; seeding is a course choice |
+| Lisp `+` and `-` truncate fixed-point values to integers; `*` multiplies in fixed point when its first argument is fixed; `/` is integer only; `mod` is C `%` | `behaviors/lispfns.py` | `code`: `abuse/src/lisp.c` cases 8, 9, 28, 29 and 61 |
+| A move is cut short one pixel before it crosses a boundary segment; the `inside` flag picks the blocking side | `geometry.setback_intersect` | `code`: `abuse/src/intsect.c:139-233`; `observed`: a differential test against the compiled original, 20,000 cases |
+| Tile collision checks the tiles around the move, with tile-edge points pushed 1 px outward | `TileMap.foreground_intersect` | `code`: `abuse/src/level.c:2584-2665` |
+| Our bounding-box prefilter never changes a result | `TileMap.foreground_intersect` | `observed`: `tests/test_engine_core.py` compares against the unfiltered reference |
+| Character data (states, frames, abilities, flags, ranges, variables) comes from the original `def_char` forms and the helpers that generate them | `engine/chardefs.py` | `code`: `abuse/src/chars.c:275-420` and the cited Lisp lines |
+| Gravity adds 200/256 to the vertical acceleration each tick, so it builds up over time | `obj.GameObject.tick` | `code`: `abuse/src/objects.c:910-920` |
+| Collision response: land, hit a ceiling or wall, step up slopes, descend small drops | `obj.GameObject.tick` | `code`: `abuse/src/objects.c:936-1095` |
+| Walking and running: right sets `xvel` to `run_top_speed` at once; left only sets `xacel` (the original's asymmetry) | `obj.GameObject.mover` | `code`: `abuse/src/objects.c:1256-1273`; `observed`: `test_running_right_reaches_top_speed_at_once_but_left_accelerates` |
+| Stopping: with no key held, `stop_accel` slows the player; if it is at least the speed, the player stops and turns `stopped` | `mover` | `code`: `abuse/src/objects.c:1294-1323` |
+| Jump: `yvel = jump_yvel`; horizontal speed becomes `jump_top_speed` if moving | `mover` | `code`: `abuse/src/objects.c:1341-1352` |
+| Speed limits per state: walk, run and jump top speeds; no horizontal drift in the air without a key | `mover` | `code`: `abuse/src/objects.c:1401-1419` |
+| Ballistic movement for projectiles; the fractional velocity is added unsigned | `obj.bmove` | `code`: `abuse/src/objects.c:1441-1487` |
+| DARNEL: start_hp 100, walk 3, run 9, jump_yvel −15, jump_top 10, jump_xvel 9, start_accel 8, stop_accel 9, push range 9 | `chardefs` (from the Lisp) | `code`: `data/original/lisp/people.lsp:566-611` |
+| Only objects inside the view plus a quarter of its size (and each object's `range`) run each tick; objects linked to an active object run right after it | `World.activate_for_views`, `add_actives` | `code`: `abuse/src/game.c:1983-1998`, `abuse/src/level.c:176-242` |
+| Per tick: the player moves from its inputs; every other active object runs its AI and is deleted if the AI returns nil; then attack frames are checked against hurtable targets | `World.step`, `check_collisions` | `code`: `abuse/src/level.c:596-760`, `abuse/src/collide.c` |
+| Hit position uses `y1+y1` (a typo in the original) | `World.check_collisions` | `code`: `abuse/src/collide.c` (`hity=((y1+y1)/2+...)`) |
+| Explosions hurt within radius `r`, falling off with an octagonal distance, and push targets | `World.hurt_radius` | `code`: `abuse/src/level.c:2979-3019` |
+| `push_characters` leaves `tvy` uninitialised when the push is upward; we use 0 | `World.push_characters` | `code`: `abuse/src/level.c:2840-2867`; **deviation**: undefined behaviour in the original |
+| The default difficulty is `hard`; `max_hp` is 200 | `world.DEFAULT_DIFFICULTY`, `MAX_HP` | `code`: `abuse/hardness.lsp`, `data/original/lisp/startup.lsp:19-20`, `abuse/src/clisp.c:137-138` |
+
+## Player and weapons
+
+| Rule | Our code | Evidence |
+|---|---|---|
+| The player spawns at START with defaults: ambient 35, aistate 0, no power | `engine/game.py`, `behaviors/player.set_player_defaults` | `code`: `abuse/src/level.c:1814-1830`, `data/original/lisp/people.lsp:101-115`, `level.c:3068-3088` |
+| The top half (gun) is created on the first tick and linked both ways; its type follows the current weapon | `player.cop_mover`, `top_ai` | `code`: `abuse/src/cop.c:613-618`, `:183` |
+| Aiming picks the gun frame (of 24) closest to the pointer angle; the RNG index advances by the aim angle each tick | `player.top_ai` | `code`: `abuse/src/cop.c:125-188` |
+| Shots leave from the gun tip, cut short by walls and blocking objects | `player.player_fire_weapon` | `code`: `abuse/src/cop.c:191-234` |
+| Laser: every 3 ticks using 1 ammo, or every 5 ticks with no ammo (it never runs dry) | `player.laser_ufun` | `code`: `abuse/src/cop.c:238-265`; `observed`: tests |
+| Grenade and firebomb: every 6 ticks, need ammo | `player.top_ufun` | `code`: `abuse/src/cop.c:280-303` |
+| Rocket: every 6 ticks; locks onto the nearest targetable bad guy within 160x130 | `player.player_rocket_ufun` | `code`: `abuse/src/cop.c:358-404`; bad guy list: `data/original/abuse.lsp` |
+| Weapon slots: laser 0, grenade 1, rocket 2, firebomb 3; the first is owned with 0 ammo; ammo is capped at 999; an empty weapon switches to the most powerful one, skipping slot 3 | `engine/view.py` | `code`: `abuse/src/view.c:40-96, 189-262`; `options.lsp` (`switch_to_powerful`) |
+| Damage to the player is scaled by difficulty (easy ½, medium ¾, hard ×1, extreme ×3), with a random flinch and debris on death | `player.bottom_damage` | `code`: `data/original/lisp/people.lsp:328-370` |
+| Health pickups are scaled by difficulty (hard gives half) up to 100 | `player.give_player_health` | `code`: `data/original/lisp/people.lsp:49-66` |
+| Laser bolt: speed ×6/5 per tick, 6-tick life, 5 damage, explodes on walls | `weapons.sgun_ai`, `fire_object` | `code`: `abuse/src/cop.c:888-928`, `data/original/lisp/guns.lsp:34-193` |
+| Grenade: thrown at speed 20 plus the thrower's velocity; explodes on contact or near a bad guy (radius 40, 36 damage) | `weapons.grenade_ai`, `do_explo` | `code`: `data/original/lisp/weapons.lsp:28-39`, `explo.lsp` |
+| Firebomb: burns for up to 20 ticks (radius 60, 40 damage) | `weapons.firebomb_ai` | `code`: `data/original/lisp/weapons.lsp:43-55` |
+| Rocket: accelerates to speed 14 (player) or 10, turns up to 23° per tick toward its target, has 4 HP, explodes (radius 40, 50 damage) | `weapons.rocket_ai` | `code`: `data/original/lisp/weapons.lsp:356-425`, `guns.lsp:83-101` |
+| Smoke and debris restore the random table, so they never change gameplay randomness | `rocket_ai`, `create_dead_parts` | `code`: `weapons.lsp:357-362`, `ant.lsp:348-378` |
+| `frame_panic` is false (single player, full speed) | `weapons.FRAME_PANIC` | `code`: `abuse/src/clisp.c:1971-1977` |
+| Which of two C function arguments with `jrand()` is evaluated first is unspecified; we take left to right | `weapons.sgun_ai` | `assumed`: it changes only where an explosion sprite appears (±3 px) |
+
 ## Open questions
 
 - `assumed`: the fixed 15 Hz tick. See the timing table.
+- `assumed`: the left-to-right argument order for `jrand()` in `sgun_ai` explosions (visual only).
+- `assumed`: the 311x151 play view is the default. `game.c:1835` sets it with F10, and we have not
+  found where the original sets it at start-up.
