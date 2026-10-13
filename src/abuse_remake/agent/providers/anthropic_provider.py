@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import anthropic
 
-from . import ProviderError, ProviderReply, RequestLimits, short
+from . import FATAL_STATUS, ProviderError, ProviderReply, RequestLimits, short
 
 
 class AnthropicProvider:
@@ -38,9 +38,14 @@ class AnthropicProvider:
         except anthropic.RateLimitError as exc:
             raise ProviderError("rate_limit", short(exc)) from exc
         except anthropic.APIStatusError as exc:
-            raise ProviderError("api_error", f"HTTP {exc.status_code}: {short(exc)}") from exc
+            category = "auth" if exc.status_code in FATAL_STATUS else "api_error"
+            raise ProviderError(category, f"HTTP {exc.status_code}: {short(exc)}") from exc
         except anthropic.APIConnectionError as exc:
             raise ProviderError("connection", short(exc)) from exc
+        except anthropic.AnthropicError as exc:  # e.g. a 200 response that fails validation, identity errors
+            raise ProviderError("api_error", short(exc)) from exc
+        except TypeError as exc:  # the SDK raises this when it finds no credentials at all
+            raise ProviderError("auth", short(exc)) from exc
         usage = resp.usage
         inp = int(usage.input_tokens or 0) + int(getattr(usage, "cache_read_input_tokens", 0) or 0) \
             + int(getattr(usage, "cache_creation_input_tokens", 0) or 0)

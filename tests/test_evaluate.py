@@ -8,8 +8,9 @@ from pathlib import Path
 
 import pytest
 
+from abuse_remake.agent import evaluate
 from abuse_remake.agent.evaluate import cost, estimate, load_config, plan, run, write_report
-from abuse_remake.agent.stats import mean_ci, paired_diff
+from abuse_remake.agent.stats import cluster_paired_diff, mean_ci, paired_diff, wilson
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -66,7 +67,12 @@ def test_live_episodes_respect_the_episode_and_run_token_caps(tmp_path):
     assert rows[0]["model"] == "stub" and rows[0]["model_calls"] == 5
 
 
-def test_estimate_and_cost_make_no_calls():
+def test_estimate_and_cost_make_no_calls(monkeypatch):
+    def boom(*a, **k):
+        raise AssertionError("estimate must not start a player")
+
+    monkeypatch.setattr(evaluate, "make_player", boom)
+    monkeypatch.setattr(evaluate, "run_episode", boom)
     cfg = load_config(ROOT / "eval/configs/live.toml")
     est = estimate(cfg)
     assert est["live_episodes"] == 60 and est["requests_max"] == 60 * 200
@@ -77,7 +83,17 @@ def test_estimate_and_cost_make_no_calls():
 
 
 def test_bootstrap_statistics():
-    assert mean_ci([0.5, 0.5, 0.5]) == (0.5, 0.5, 0.5)
+    assert mean_ci([0.5, 0.5, 0.5]) == (0.5, 0.5, 0.5)  # a deterministic player: zero width, and said so
+    m, lo, hi = mean_ci([0.7])
+    assert m == 0.7 and lo != lo and hi != hi  # one episode: no interval
+    rate, lo, hi = wilson(0, 5)
+    assert rate == 0.0 and lo == 0.0 and 0.4 < hi < 0.45  # 0/5 is not "0 [0, 0]"
+    assert wilson(5, 5)[1] < 0.6 and wilson(0, 0)[0] != wilson(0, 0)[0]
+    a = {("s1", i): 1.0 for i in range(5)} | {("s2", i): 0.0 for i in range(5)}
+    b = {k: 0.5 for k in a}
+    n, k, d, lo, hi = cluster_paired_diff(a, b)
+    assert (n, k, d) == (10, 2, 0.0) and lo <= -0.4 and hi >= 0.4  # two scenarios disagree: a wide interval
+    assert paired_diff(a, b)[2] > -0.4  # the naive per-pair interval is far narrower
     m, lo, hi = mean_ci([0.0, 1.0] * 20)
     assert m == 0.5 and 0.3 < lo < 0.5 < hi < 0.7
     assert mean_ci([1.0, 2.0, 3.0]) == mean_ci([1.0, 2.0, 3.0])  # fixed resampling seed
@@ -92,3 +108,32 @@ def test_configs_load_and_live_players_are_marked():
             assert p.get("live", False) == (p["player"] == "model")
             assert "--model" not in p.get("args", [])  # the model comes from COURSE_MODEL at run time
     json.dumps(load_config(ROOT / "eval/configs/live.toml"))
+
+
+def test_crashed_episodes_are_their_own_category_and_runs_can_be_split_and_resumed(tmp_path):
+    cfg_path = tmp_path / "cfg.toml"
+    cfg_path.write_text(textwrap.dedent("""
+        name = "split"
+        scenarios = ["level01-cp1"]
+        seeds = [0, 1]
+        [budgets]
+        max_decisions = 4
+        [[players]]
+        label = "scripted"
+        player = "scripted"
+        [[players]]
+        label = "broken"
+        player = "no-such-player"
+    """))
+    cfg = load_config(cfg_path)
+    out = tmp_path / "out"
+    rows = run(cfg, out, live=False, log=None, only={"broken"})
+    assert [r["label"] for r in rows] == ["broken", "broken"]
+    assert all(r["crashed"] and not r["ran"] and r["reason"].startswith("crashed:") for r in rows)
+    report = write_report(out)
+    assert "## Episodes that crashed" in report and "not in this run" in report
+    assert "crashed" in report.split("### Per-seed progress")[1]
+    rows = run(cfg, out, live=False, log=None, resume=True)  # finishes the plan; crashed ones are retried
+    assert sorted((r["label"], r["ran"]) for r in rows) == [("broken", False), ("broken", False),
+                                                            ("scripted", True), ("scripted", True)]
+    assert len((out / "results.partial.jsonl").read_text().splitlines()) == 6  # every result appended as it came

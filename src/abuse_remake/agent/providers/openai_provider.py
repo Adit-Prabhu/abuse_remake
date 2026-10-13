@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import openai
 
-from . import ProviderError, ProviderReply, RequestLimits, short
+from . import FATAL_STATUS, ProviderConfigError, ProviderError, ProviderReply, RequestLimits, short
 
 
 class OpenAIProvider:
@@ -18,7 +18,12 @@ class OpenAIProvider:
     def __init__(self, model: str, limits: RequestLimits, client=None):
         self.model = model
         self.limits = limits
-        self.client = client or openai.OpenAI(timeout=limits.timeout_s, max_retries=0)
+        if client is None:
+            try:
+                client = openai.OpenAI(timeout=limits.timeout_s, max_retries=0)
+            except openai.OpenAIError as exc:  # no OPENAI_API_KEY: report it before the episode starts
+                raise ProviderConfigError(f"OpenAI client: {short(exc)}") from exc
+        self.client = client
 
     def request(self, system: str, prompt: str, schema: dict) -> dict:
         req = {"model": self.model, "max_completion_tokens": self.limits.max_output_tokens,
@@ -37,9 +42,12 @@ class OpenAIProvider:
         except openai.RateLimitError as exc:
             raise ProviderError("rate_limit", short(exc)) from exc
         except openai.APIStatusError as exc:
-            raise ProviderError("api_error", f"HTTP {exc.status_code}: {short(exc)}") from exc
+            category = "auth" if exc.status_code in FATAL_STATUS else "api_error"
+            raise ProviderError(category, f"HTTP {exc.status_code}: {short(exc)}") from exc
         except openai.APIConnectionError as exc:
             raise ProviderError("connection", short(exc)) from exc
+        except openai.OpenAIError as exc:  # e.g. a 200 response that fails validation
+            raise ProviderError("api_error", short(exc)) from exc
         usage = resp.usage
         inp = int(getattr(usage, "prompt_tokens", 0) or 0)
         out = int(getattr(usage, "completion_tokens", 0) or 0)

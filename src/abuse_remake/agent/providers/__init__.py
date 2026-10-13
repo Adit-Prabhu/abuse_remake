@@ -10,8 +10,11 @@ Every adapter makes exactly one request per decision:
   ID is returned with every reply so the runner can record it.
 
 A failed request raises ``ProviderError`` with a category (``timeout``, ``rate_limit``,
-``api_error``, ``connection``, ``refusal``, ``truncated``, ``empty``). The player turns it
-into a refused decision. Nothing is retried and no fixture is substituted.
+``api_error``, ``connection``, ``refusal``, ``truncated``, ``empty``, ``auth``). The player turns
+it into a refused decision. Nothing is retried and no fixture is substituted. An ``auth`` error
+(missing or rejected credentials, no permission, unknown model) is marked fatal: every later
+request would fail the same way, so the runner ends the episode with its own reason rather than
+spend the rest of the budget on refusals.
 
 Each SDK is imported only by its own adapter module, and only when that provider is chosen,
 so the game and the baselines never need the ``model`` extra.
@@ -51,6 +54,10 @@ class ProviderError(Exception):
         self.category = category
         self.input_tokens = input_tokens
         self.output_tokens = output_tokens
+        self.fatal = category == "auth"
+
+
+FATAL_STATUS = (401, 403, 404)  # bad or missing credentials, no permission, unknown model
 
 
 class ProviderConfigError(RuntimeError):

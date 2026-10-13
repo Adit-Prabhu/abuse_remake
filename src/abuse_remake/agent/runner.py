@@ -24,7 +24,7 @@ from pathlib import Path
 from .. import __version__
 from .interface import PLAYER_ID, SCENARIOS, AbuseEpisode, Budgets
 from .progress import ProgressTracker
-from .protocol import InProcessPlayer, ProcessPlayer
+from .protocol import InProcessPlayer, ProcessPlayer, player_env
 
 BUILTIN = {
     "random": [sys.executable, "-m", "abuse_remake.agent.players.baselines", "random"],
@@ -59,7 +59,9 @@ def make_player(spec: str, isolation: str = "process", player_args: list[str] | 
         command = shlex.split(spec[4:])
     else:
         command = BUILTIN[spec] + (player_args or [])
-    return ProcessPlayer(command, decision_timeout=decision_timeout)
+    # only the model player gets its provider's credential variables; every other player gets a
+    # minimal environment (agent/protocol.py)
+    return ProcessPlayer(command, decision_timeout=decision_timeout, env=player_env(spec == "model"))
 
 
 def budget_stop(budgets: Budgets, usage: dict, wall_s: float) -> str | None:
@@ -71,6 +73,18 @@ def budget_stop(budgets: Budgets, usage: dict, wall_s: float) -> str | None:
     if budgets.max_wall_s and wall_s >= budgets.max_wall_s:
         return "wall-clock budget exhausted"
     return None
+
+
+def add_usage(usage: dict, meta: dict) -> None:
+    usage["input_tokens"] += int(meta.get("input_tokens") or 0)
+    usage["output_tokens"] += int(meta.get("output_tokens") or 0)
+    usage["model_calls"] += int(meta.get("calls") or 0)
+    usage["model_errors"] += int(meta.get("errors") or 0)
+    if meta.get("latency_s") is not None:
+        usage["latency_s"].append(float(meta["latency_s"]))
+    cat = meta.get("error_category")
+    if cat:
+        usage["error_categories"][cat] = usage["error_categories"].get(cat, 0) + 1
 
 
 def run_episode(player, scenario: str, seed: int, difficulty: str = "hard", budgets: Budgets | None = None,
@@ -91,20 +105,18 @@ def run_episode(player, scenario: str, seed: int, difficulty: str = "hard", budg
                   "budgets": asdict(budgets)})
     obs = ep.observe(PLAYER_ID)
     tracker = ProgressTracker(obs["player"]["x"], obs["player"]["y"])
-    usage = {"input_tokens": 0, "output_tokens": 0, "model_calls": 0, "model_errors": 0, "latency_s": []}
-    model_id = provider = memory = None
+    usage = {"input_tokens": 0, "output_tokens": 0, "model_calls": 0, "model_errors": 0, "latency_s": [],
+             "error_categories": {}}
+    model_id = provider = memory = fatal_error = None
     while ep.outcome()["status"] == "ongoing":
         legal = ep.legal_actions(PLAYER_ID)
         reply = player.decide(obs, legal)
         action = reply.get("action")
         meta = reply.get("meta") or {}
+        for late in reply.get("late_meta") or []:  # answers that missed their deadline still cost tokens
+            add_usage(usage, late)
         if meta:
-            usage["input_tokens"] += int(meta.get("input_tokens") or 0)
-            usage["output_tokens"] += int(meta.get("output_tokens") or 0)
-            usage["model_calls"] += int(meta.get("calls") or 0)
-            usage["model_errors"] += int(meta.get("errors") or 0)
-            if meta.get("latency_s") is not None:
-                usage["latency_s"].append(float(meta["latency_s"]))
+            add_usage(usage, meta)
             model_id = meta.get("model") or model_id
             provider = meta.get("provider") or provider
             memory = meta.get("memory") or memory
@@ -124,17 +136,24 @@ def run_episode(player, scenario: str, seed: int, difficulty: str = "hard", budg
                 row["observation"] = obs
             trace.write(json.dumps(row) + "\n")
         stop = budget_stop(budgets, usage, time.time() - started)
+        if meta.get("budget_exhausted"):
+            stop = stop or "token budget exhausted"
+        if reply.get("fatal") or meta.get("fatal"):  # e.g. rejected credentials: every later request would fail
+            fatal_error = str(reply.get("error") or "")[:200]
+            stop = stop or "player failed"
         if stop:
             ep.stop(stop)
-    out = ep.outcome()
+    episode_outcome = ep.outcome()
+    out = dict(episode_outcome)
     out["progress"] = round(tracker.value(out["reason"] == "reached the exit"), 4)
     lat = sorted(usage.pop("latency_s"))
     usage["latency_p50_s"] = round(lat[len(lat) // 2], 3) if lat else None
     usage["latency_p95_s"] = round(lat[min(len(lat) - 1, int(len(lat) * 0.95))], 3) if lat else None
     out.update(usage)
     out.update({"scenario": scenario, "seed": seed, "difficulty": difficulty, "label": label,
-                "model": model_id, "provider": provider, "memory": memory, "wall_s": round(time.time() - started, 2)})
-    player.end(out)
+                "model": model_id, "provider": provider, "memory": memory, "wall_s": round(time.time() - started, 2),
+                "fatal_error": fatal_error})
+    player.end(episode_outcome)  # the episode's own outcome only: progress is evaluator-only
     if trace is not None:
         trace.write(json.dumps({"kind": "outcome", **out}) + "\n")
         trace.close()

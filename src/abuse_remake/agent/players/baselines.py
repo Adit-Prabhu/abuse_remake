@@ -100,7 +100,10 @@ class ScriptedPlayer:
             return {"action": action, "note": why}
 
         def can_attack(o):
-            limit = 3 if o["kind"] == "wall_block" else 6
+            # Walls show cracks when hit, so an attack that leaves a wall unchanged is wasted: give up
+            # after 3. Enemies show no damage, so "unchanged" says nothing about them; the generous
+            # limit only stops the player shooting forever at one it cannot reach.
+            limit = 3 if o["kind"] == "wall_block" else 20
             return f"attack {o['id']}" in legal_set and self.attacks.get(o["id"], 0) < limit
 
         # 1. fight

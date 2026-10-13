@@ -1,10 +1,21 @@
 name: Live evaluation
 
-# Manual only, and only on the default branch: live runs call a paid model.
-# Before the first run the repository owner sets up (Settings > Secrets and variables > Actions):
-#   variables: GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION, GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_SERVICE_ACCOUNT
-#   (Workload Identity Federation, so no key file is stored). The model ID is a run input and is
-#   recorded in the report; nothing in the code names a billable model.
+# Manual only: live runs call a paid model. The model ID is a run input and is recorded in the
+# report; nothing in the code names a billable model.
+#
+# Owner setup before the first run (Settings > Secrets and variables > Actions, and Environments):
+#   1. Variables: GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION, GCP_WORKLOAD_IDENTITY_PROVIDER,
+#      GCP_SERVICE_ACCOUNT. Workload Identity Federation means no key file is stored.
+#   2. An environment named `live-eval` with required reviewers and "Deployment branches: main
+#      only". The `if:` below only stops runs of this file's own copy, so the environment
+#      protection is the real control.
+#   3. On the Google side, restrict the WIF provider with an attribute condition, for example
+#      `assertion.repository == "<owner>/abuse_remake" && assertion.ref == "refs/heads/main"`,
+#      so only main can obtain cloud credentials.
+#
+# One model player over 4 scenarios x 5 seeds x 200 decisions takes about two hours. Run one
+# memory condition per dispatch (`only`) to stay inside the 6-hour job limit. Each run's
+# results.partial.jsonl is written as episodes finish, so a stopped job keeps what it finished.
 
 on:
   workflow_dispatch:
@@ -18,24 +29,49 @@ on:
         description: Model ID for COURSE_MODEL (recorded in the report)
         type: string
         required: true
+      only:
+        description: Player labels to run
+        type: choice
+        options: [all, 'scripted,random,model-M0', model-M1, model-M2]
+        default: all
       jobs:
         description: Parallel offline (baseline) episodes
-        type: string
+        type: choice
+        options: ['1', '2', '4']
         default: '4'
 
 permissions:
   contents: read
-  id-token: write  # Workload Identity Federation to Google Cloud
 
 concurrency:
   group: live-eval
   cancel-in-progress: false
 
 jobs:
-  live:
+  checks:
+    name: Deterministic tests (no network, no cloud credentials)
     if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SDL_VIDEODRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+      - run: uv sync --frozen --all-extras
+      - run: uv run --frozen pytest -q
+
+  live:
+    needs: checks
+    runs-on: ubuntu-latest
+    environment: live-eval
     timeout-minutes: 360
+    permissions:
+      contents: read
+      id-token: write  # Workload Identity Federation to Google Cloud
     env:
       SDL_VIDEODRIVER: dummy
       SDL_AUDIODRIVER: dummy
@@ -43,30 +79,32 @@ jobs:
       COURSE_MODEL: ${{ inputs.model }}
       GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
       GOOGLE_CLOUD_LOCATION: ${{ vars.GOOGLE_CLOUD_LOCATION }}
+      EVAL_CONFIG: ${{ inputs.config }}
+      EVAL_ONLY: ${{ inputs.only }}
+      EVAL_JOBS: ${{ inputs.jobs }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: '3.12'
       - run: uv sync --frozen --all-extras
-      - name: Deterministic tests first (no network)
-        run: uv run --frozen pytest -q
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
       - name: Token and cost estimate (no calls)
-        run: uv run --frozen abuse-eval estimate --config eval/configs/${{ inputs.config }}.toml
+        run: uv run --frozen abuse-eval estimate --config "eval/configs/${EVAL_CONFIG}.toml"
       - name: Live comparison
-        run: >
-          uv run --frozen abuse-eval run --config eval/configs/${{ inputs.config }}.toml --live
-          --jobs ${{ inputs.jobs }} --out runs/${{ inputs.config }}-${{ github.run_id }}
+        run: |
+          case "$EVAL_JOBS" in 1|2|4) ;; *) echo "bad jobs value"; exit 1 ;; esac
+          only=()
+          if [ "$EVAL_ONLY" != "all" ]; then only=(--only "$EVAL_ONLY"); fi
+          uv run --frozen abuse-eval run --config "eval/configs/${EVAL_CONFIG}.toml" --live \
+            --jobs "$EVAL_JOBS" "${only[@]}" --out "runs/${EVAL_CONFIG}-${GITHUB_RUN_ID}"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: ${{ inputs.config }}-${{ github.run_id }}
-          path: |
-            runs/
-            !runs/**/gha-creds-*.json
+          path: runs/
           if-no-files-found: warn
           retention-days: 90
