@@ -38,14 +38,15 @@ Each decision the player gets two things, as plain JSON (`agent/observation.py`,
 | Enemy health, AI state, timers, links, internal variables, the random table and its position | perfect prediction of enemies and logic | only the fields listed above are copied |
 | Engine type names and object UIDs | a key into the level file | public kinds and labels given in order of first sight |
 | The level file, `docs/rule-source-map.md`, the original Lisp | the whole map and every rule | players run as separate processes that get only JSON (`agent/protocol.py`) |
-| The evaluator's progress measure and the route to the exit | the answer | computed in `agent/progress.py` on the runner side |
-| Credentials | | model players read their own SDK credentials from the environment; nothing passes them through the game |
+| The evaluator's progress measure and the route to the exit | the answer | computed in `agent/progress.py` on the runner side; the end-of-episode message carries only the episode's own outcome (`test_players_get_the_episode_outcome_without_evaluator_data`) |
+| Credentials | | player processes get a minimal environment (`protocol.BASE_ENV`). Only the model player also gets the variables its provider's SDK reads (`MODEL_ENV_PREFIXES`), and those never enter prompts, observations or traces (`test_player_processes_get_no_credentials_unless_they_are_the_model_player`) |
 
 ## How it is enforced
 
 - **Process isolation.** By default every player is a child process speaking JSON lines
-  (`agent/protocol.py`). It holds no reference into the game. The in-process mode for fast tests
-  passes JSON copies (`InProcessPlayer`).
+  (`agent/protocol.py`). It holds no reference into the game and gets a minimal environment. The
+  in-process mode for fast tests passes JSON copies (`InProcessPlayer`). Process isolation is a
+  boundary on what the runner hands over; it is not a security sandbox against a hostile program.
 - **Copies, not views.** `observe()` returns a detached JSON copy; a player that edits it
   changes nothing (`test_in_process_player_gets_copies`).
 - **One builder.** `legal_actions()` and the motor skills use the same visibility filter as the
@@ -60,8 +61,9 @@ Each decision the player gets two things, as plain JSON (`agent/observation.py`,
 ## The model player's prior knowledge
 
 The system prompt (`agent/prompts.py`) holds only manual-level knowledge: the goal, the controls
-as actions, what each kind of object is, and the weapons. It also holds the same priors the
-scripted baseline's rules contain, so neither player starts with more: head right first, shoot
+as actions, what each kind of object is (as the screen shows it), and the weapons. It also
+holds the same priors the scripted baseline's rules contain, so neither player starts with more:
+head right first, shoot
 breakable walls, try switches, heal when hurt, deal with threats first. It contains no map
 knowledge: nothing about where the exit, switches or secrets are
 (`test_system_prompt_has_no_map_knowledge`).

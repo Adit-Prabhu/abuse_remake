@@ -34,7 +34,7 @@
     "run": {},
     "prices": {}
   },
-  "git": "1d11bb16f88857a56447ebcbf0489be2f09cac05",
+  "git": "b0a58f8180fe0504f07e593ed9900fe7c9bc282b",
   "version": "0.1.0",
   "python": "3.12.0",
   "packages": {
@@ -45,7 +45,8 @@
     "openai": "2.54.0"
   },
   "live": false,
-  "started": "2026-10-13T09:50:47+00:00",
+  "only": null,
+  "started": "2026-10-13T10:12:54+00:00",
   "course_model": null,
   "budgets": {
     "level01": {

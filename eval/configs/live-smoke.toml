@@ -23,5 +23,5 @@ player = "scripted"
 [[players]]
 label = "model-M1"
 player = "model"
-args = ["--provider", "vertex", "--memory", "M1", "--timeout", "20", "--max-output-tokens", "1024"]
+args = ["--provider", "vertex", "--memory", "M1", "--timeout", "20", "--max-output-tokens", "2048"]
 live = true

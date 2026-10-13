@@ -192,8 +192,17 @@ def _log(log, r: dict, i: int, n: int) -> None:
 
 
 # --- estimating ------------------------------------------------------------------------------
-def estimate(cfg: dict, max_output_tokens_per_request: int = 1024) -> dict:
+def _arg(args: list[str], flag: str, default: int) -> int:
+    try:
+        return int(args[args.index(flag) + 1])
+    except (ValueError, IndexError):
+        return default
+
+
+def estimate(cfg: dict, max_output_tokens_per_request: int | None = None) -> dict:
     live_jobs = [j for j in plan(cfg) if j["live"]]
+    if max_output_tokens_per_request is None:  # what the live players will actually ask for
+        max_output_tokens_per_request = max([_arg(j["args"], "--max-output-tokens", 1024) for j in live_jobs] or [1024])
     dec = int(cfg["budgets"].get("max_decisions", 600))
     ep_in = dec * EST_INPUT_TOKENS_PER_DECISION
     ep_out_worst = dec * max_output_tokens_per_request
@@ -440,7 +449,8 @@ def main(argv=None) -> int:
     r.add_argument("--resume", action="store_true", help="with --out: skip episodes that already ran there")
     e = sub.add_parser("estimate", help="token and cost estimate for the live players; makes no calls")
     e.add_argument("--config", type=Path, required=True)
-    e.add_argument("--max-output-tokens", type=int, default=1024, help="per request, as given to the player")
+    e.add_argument("--max-output-tokens", type=int, default=None,
+                   help="per request (default: what the live players' args say)")
     rep = sub.add_parser("report", help="rebuild report.md from a run directory")
     rep.add_argument("run_dir", type=Path)
     rep.add_argument("--report-to", type=Path, default=None)

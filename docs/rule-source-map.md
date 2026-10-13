@@ -12,6 +12,8 @@ The labels follow the course convention:
 | `manual` | Stated in the original manual or release notes. |
 | `observed` | Seen by running the original (data or compiled original code); the method is named. Tests of our own port are cited as checks, not as evidence. |
 | `assumed` | Not yet backed by evidence. Each one is listed under "Open questions". |
+| course choice | Not a rule of the game: a decision about the evaluation harness or episode, made for the course and labelled so it is never mistaken for fidelity. |
+| course rule | A requirement the course sets (for example, no automatic paid retries). |
 
 For the Lisp's relation to the 1996 retail release, see `docs/data-lineage.md`.
 

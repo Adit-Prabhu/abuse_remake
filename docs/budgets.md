@@ -8,12 +8,13 @@ own episode ending, so it is never confused with a death or a timeout.
 | Ticks per episode | 9000 for the full level, 2700 for a checkpoint segment (`scope.py`) | the episode | ends as `tick limit` |
 | Decisions per episode | 600 (`Budgets.max_decisions`); the live comparison uses 200 for every player | the episode | ends as `decision budget exhausted`. Refused actions count too |
 | Ticks per action | 15 (`Budgets.max_action_ticks`) | the episode's controllers | the action ends and the next decision starts |
-| Input / output tokens per episode | none offline; 600k / 150k in `eval/configs/live.toml` | the runner, from the usage the player reports | ends as `token budget exhausted`. The model player also stops calling once its share is used up |
+| Input / output tokens per episode | none offline; 600k / 150k in `eval/configs/live.toml` | the runner, from the usage the player reports; the model player gets the same caps in its start message | ends as `token budget exhausted`. If the player reaches a cap first, it stops calling and reports it, and the runner ends the episode the same way |
 | Wall-clock time per episode | none offline; 3600 s in the live config | the runner | ends as `wall-clock budget exhausted` |
-| Time per decision | 90 s (`--decision-timeout`); 60 s in the live configs | the runner's protocol client | the decision is refused (`no reply within ... s`) |
-| Time per model request | 20 s (`--timeout`), one attempt | the provider adapter (SDK timeout; SDK retries off) | the decision is refused with category `timeout` |
-| Output tokens per model request | 1024 (`--max-output-tokens`) | the provider | the decision is refused with category `truncated`; its tokens still count |
-| Tokens per run | 30M input / 4M output in the live config | `abuse-eval` | later live episodes are listed as `not run: run token budget exhausted` |
+| Time per decision | 90 s (`--decision-timeout`); 60 s in the live configs | the runner's protocol client | the decision is refused (`no reply within ... s`). Requests carry ids: a reply that arrives later is dropped, never used for the next decision, and its tokens still count |
+| Time per model request | 20 s (`--timeout`), one attempt | the provider adapter (SDK timeout; SDK retries off; the Vertex SDK's automatic continuation off, so one decision is one request) | the decision is refused with category `timeout` |
+| Output tokens per model request | 1024 (`--max-output-tokens`); 2048 in the live configs | the provider | the decision is refused with category `truncated`; its tokens still count. On models that think, thinking tokens count against this cap: set `--thinking-budget` (Gemini) or `--effort low` (Claude, OpenAI) to leave room |
+| Tokens per run | 30M input / 4M output in the live config | `abuse-eval`, checked before each live episode starts | later live episodes are listed as `not run: run token budget exhausted`. A run can pass the cap by at most one episode's own token budget |
+| Working credentials | | the provider adapter | a rejected or missing credential (HTTP 401/403/404, no credentials found) is fatal: the episode ends as `player failed` after that one refused decision, instead of spending its budget on refusals |
 
 ## Notes
 

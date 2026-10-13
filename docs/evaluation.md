@@ -52,8 +52,11 @@ The model player's options (after `--`):
 | `--effort low` | optional: Anthropic `output_config.effort`, OpenAI `reasoning_effort` |
 | `--thinking-budget N` | optional: the Gemini thinking budget |
 
-`abuse-agent` refuses to start a model player when the model, the SDK or the Vertex project is
-missing, so a misconfigured run cannot turn into a run of refused decisions.
+Before an episode starts, `abuse-agent` and `abuse-eval --live` check the model player's
+setup: the model ID, the SDK, the Vertex project, and that the client can be built (this reads
+the SDK's credentials but sends no request). Credentials that are present but rejected show up
+on the first request; that error is fatal, and the runner ends the episode as `player failed`
+after one refused decision, so a misconfigured run cannot spend its budget on refusals.
 
 ## The repeated comparison
 
@@ -84,8 +87,9 @@ set the repository variables listed at the top of the workflow.
 - The game is paused while a player decides.
 - The progress measure is computed on the runner side and never shown to players.
 - The config is committed before a run, and the run records it.
-- Every planned episode is reported, including deaths, budget stops, crashes and episodes not
-  run. Live players run only with `--live`, and no fixture ever stands in for them.
+- Every planned episode is reported, including deaths, budget stops, player failures, crashes
+  (their own section, with their partial traces) and episodes not run. Live players run only
+  with `--live`, and no fixture ever stands in for them.
 
 ## Metrics
 
@@ -99,16 +103,39 @@ set the repository variables listed at the top of the workflow.
 | model calls, errors, tokens, latency p50 | from the model player's per-decision reports |
 | cost | tokens times the dated prices in the config, when they are filled in |
 
-The report gives means with percentile-bootstrap 95% CIs (10,000 resamples, fixed seed). It
-also gives paired per-seed differences against the scripted baseline, and a table for the
-memory/history comparison.
+The report gives:
+- success as wins / n with a Wilson 95% interval;
+- other figures as means with percentile-bootstrap 95% intervals (10,000 resamples, fixed seed),
+  and no interval for a single episode. A player that does the same on every seed gets a
+  zero-width interval: the interval covers seeds, not other ways the player could have played;
+- paired differences against the scripted baseline per scenario (seeds resampled), and pooled
+  with a cluster bootstrap (scenarios resampled, then seeds within them), because seeds of one
+  scenario are not independent;
+- failed model requests apart from illegal choices, with their categories;
+- a table for the memory/history comparison.
+
+### Splitting a long live run
+
+One model player over 4 scenarios × 5 seeds × 200 decisions makes up to 4,000 requests, about two
+hours at 2 s each. Results are appended to `results.partial.jsonl` as episodes finish, so a
+stopped run keeps what it finished. To split a run:
+
+```sh
+abuse-eval run --config eval/configs/live.toml --live --out runs/live-1 --only scripted,random,model-M0
+abuse-eval run --config eval/configs/live.toml --live --out runs/live-1 --only model-M1 --resume
+abuse-eval run --config eval/configs/live.toml --live --out runs/live-1 --resume   # the rest; then one report
+```
 
 ## Evidence so far
 
-- The offline baseline run: `evidence/reports/offline-baselines.md`, with its results, config and three
-  traces in `evidence/traces/offline-v1/`.
-- Over 20 paired episodes, the scripted baseline beats random: random's progress minus
-  scripted's is −0.219 [−0.329, −0.124].
+- The offline baseline run: `evidence/reports/offline-baselines.md`, with its results, config and
+  three traces in `evidence/traces/offline-v2/`.
+- The scripted baseline beats random in every scenario. Random's progress minus scripted's is
+  −0.218 pooled, with a cluster-bootstrap 95% interval of [−0.439, −0.029]. The interval is wide
+  because the gap differs a lot between scenarios: −0.025 on `level01-cp1` against −0.531 on
+  `level01-cp3`.
+- The scripted baseline is deterministic in practice: on `level01` it reaches 0.163 on every
+  seed, so its interval there has zero width.
 - The live comparison has not been run yet. It needs the owner's Vertex setup and approval of
   the estimated cost.
 
