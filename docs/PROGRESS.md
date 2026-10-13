@@ -9,8 +9,8 @@ record.
 | Milestone | Branch | PR | State |
 |---|---|---|---|
 | 1. Scaffold, data, format readers | `feat/scaffold-data` | #1 | review done (`docs/reviews/PR-1.md`), CI green, awaiting merge |
-| 2. Engine core | `feat/engine-core` (on top of #1) | not yet opened | in progress (see below) |
-| 3. Every Level 1 object | `feat/level01-objects` | | not started |
+| 2. Engine core | `feat/engine-core` (on top of #1) | #2 | done; independent review running |
+| 3. Every Level 1 object | `feat/level01-objects` (on top of #2) | #3 | done: all 44 types ported, strict load passes, tests green |
 | 4. Playable game (pygame, modern rendering) | `feat/game-app` | | not started |
 | 5. Player interface (observe, legal actions, step, outcome) | `feat/player-interface` | | not started |
 | 6. Baselines and evaluation | `feat/baselines-eval` | | not started |
@@ -18,51 +18,36 @@ record.
 | 8. Remastered mode | `feat/remastered` | | not started |
 | 9. Evidence, docs, release | `docs/evidence` | | not started |
 
-## Milestone 2 status
+## Current state (milestones 2 and 3)
 
-Done and pushed:
+The full Level 1 runs in strict mode: every in-scope Lisp or C behaviour has a Python port.
+600 ticks take about 0.08 s headless. Key modules:
 
-- `engine/cmath.py`: C truncating division, narrow-type wraps, `lisp_sin/cos/atan2`, and the
-  original random table (`JRand`; the episode seed sets `rand_on`).
-- `engine/tables.py`, generated from `trig.c` (the atan table's last entry is an implicit
-  zero).
-- `engine/geometry.py`: `setback_intersect` and `foreground_intersect`, with a prefilter.
-  `foreground_intersect_reference` exists so tests can prove the prefilter changes nothing.
-- `engine/chardefs.py`: 152 character types parsed from the original `def_char` forms;
-  every frame resolves.
-- `engine/obj.py`: `GameObject`, a port of `objects.c` (tick, mover, try_move, float_tick,
-  bmove, states, damage).
-- `engine/world.py`: object list, active set, `step`, collisions, `hurt_radius`, finders,
-  platform and push helpers.
+- `engine/` (pure Python): `cmath`, `tables`, `geometry`, `chardefs`, `obj`, `world`, `view`,
+  `game`.
+- `engine/behaviors/`:
+  - `player.py`: cop.c and people.lsp;
+  - `weapons.py`: guns.lsp, weapons.lsp, explo.lsp, debris;
+  - `logic.py`: gates, switches, sensors, dimmers, ambient sound, exit, consoles;
+  - `world_objects.py`: doors, force field, walls, teleporters, platforms, boulder;
+  - `enemies.py`: ants (ant.c), the crack, the spray gun, pickups.
+- Tests:
+  - `tests/test_engine_core.py`: includes the differential test against compiled
+    `intsect.c`;
+  - `tests/test_level01_objects.py`.
 
-Next steps for milestone 2:
+Next: milestone 4, the playable pygame app (`src/abuse_remake/game/`). Plan:
 
-1. `engine/view.py`: the `View` class. A port of `view.c`:
-   - view rectangle 311x151 (`game.c` `make_screen_size(311,160)`);
-   - `shift_down` 15, `no_x*` scroll ranges 0, ambient 32;
-   - weapons start at -1, with `weapons[0] = 0`;
-   - `add_ammo` is capped at 999; when the current weapon empties it switches to the most
-     powerful weapon, skipping index 3 (`switch_to_powerful` is true);
-   - `next_weapon` / `last_weapon` / number keys;
-   - `configure_for_area`; `apply_pending_weapon_change`;
-   - `has_weapon` = god or the weapon is not -1.
-2. `engine/behaviors/`: a registry of Lisp function name → Python callable.
-   - Player: `cop_mover`, `top_ai`, `laser_ufun`, `top_ufun`, `player_rocket_ufun`,
-     `bottom_damage`, `cop_ufun`, all from `cop.c` and `people.lsp`.
-   - Weapons: `fire_object` (`guns.lsp:34`), `sgun_ai` (C), `grenade_ai`, `firebomb_ai`,
-     `rocket_ai`, explosions (`exp_ai`, `explo_light`, `do_explo`).
-   - Setting up a player: create DARNEL at START (`add_object_after`); `cop_mover` creates the
-     `MGUN_TOP` top half.
-3. `engine/game.py`: a `Game` facade that loads the level, creates the player view, holds the
-   difficulty and seed, and offers `step(inputs)`.
-4. Tests:
-   - physics goldens (run speed, jump arc, stop);
-   - a differential test of `setback_intersect` against the compiled original `intsect.c`
-     (add `tests/c_reference/intsect.c` built from the original verbatim);
-   - prefilter equivalence;
-   - determinism (same seed and inputs give the same state hash).
-5. Add rows to `docs/rule-source-map.md`, run an independent review (save it as
-   `docs/reviews/PR-2.md`), then open PR #2.
+- render with the original palette and sprites, at a 311x151 logical view scaled up;
+- 60 fps interpolation between 15 Hz ticks; lighting from the level lights and the view's
+  ambient level; particles for the `panim`/explosion events;
+- HUD: health, weapons and ammo;
+- input: keyboard and mouse, mapped to `Inputs`;
+- a restart from the in-memory save on death (set `world.globals["save_hook"]` to snapshot);
+- `--record` writes human traces;
+- CC0 audio mapped from the sound event names.
+
+Then milestone 5, the player interface (`agent/`).
 
 ## Facts established from the source (cite these in the map)
 
