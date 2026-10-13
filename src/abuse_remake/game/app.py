@@ -9,8 +9,9 @@ a ghost race against your best finished run.
 Controls (original defaults, plus modern ones):
   move A/D or arrows; jump W, Up or Space; action (switches, doors, consoles, exit) S or Down
   aim with the mouse; fire left button (or J); special right button (or Shift)
-  weapons 1-4, Q/E or the mouse wheel; pause Esc; gamepad: left stick move, right stick aim,
-  A jump, B action, right trigger fire, bumpers switch weapon
+  weapons 1-4, Ctrl/Home and Insert/PageUp (the original keys),
+  Q/E, the mouse wheel or the middle button; pause Esc; gamepad: left stick move, right stick
+  aim, A jump, B action, right trigger fire, bumpers switch weapon
   Remastered only: dash F (gamepad X), quick restart at the last console R, ghost on/off G
 """
 
@@ -30,6 +31,7 @@ from ..engine.view import VIEW_H, VIEW_W, Inputs
 from ..engine.world import DIFFICULTIES
 
 TICK = 1.0 / 15.0
+MAX_CATCHUP = 4 * TICK  # after a stall, run at most 4 owed ticks instead of all of them
 
 
 def parse_args(argv=None):
@@ -83,7 +85,7 @@ class App:
         from .sprites import SpriteCache
 
         self.sprites = SpriteCache()
-        self.audio = Audio(enabled=not args.no_audio and not args.frames)
+        self.audio = Audio(enabled=not args.no_audio and not args.frames, modern=args.mode == "remastered")
         self.hud = Hud()
         self.particles = Particles()
         self.seed = args.seed if args.seed is not None else int(time.time()) % 1024
@@ -91,8 +93,11 @@ class App:
         self.joystick = None
         self.clock = pygame.time.Clock()
         self.state = "play" if (args.skip_title or args.frames) else "title"
-        self.trace = None
+        self.trace = getattr(self, "trace", None)  # one trace per session, kept across title toggles
+        self.joy_rest: list[float] = []
         self.ghost_painter = None
+        if self.trace is None:
+            self._open_trace()
         self.new_game()
 
     # --- game lifecycle ---
@@ -116,7 +121,9 @@ class App:
         self.ghost_rec = GhostRecorder() if self.modern and not self.horde else None
         self.ghost = load_ghost(self.args.difficulty) if self.modern and not self.horde else None
         self.show_ghost = True
-        self._open_trace()
+        self._write({"kind": "new_game", "seed": self.seed, "difficulty": self.args.difficulty,
+                     "mode": self.args.mode, "horde": self.horde,
+                     "rules": "remastered" if self.modern else "classic"})
 
     def _open_trace(self):
         path = self.args.record
@@ -127,22 +134,42 @@ class App:
             return
         path.parent.mkdir(parents=True, exist_ok=True)
         self.trace = open(path, "w")  # noqa: SIM115 - closed on exit
-        self.trace.write(json.dumps({"kind": "header", "game": "abuse_remake", "level": "level01",
-                                     "seed": self.seed, "difficulty": self.args.difficulty,
-                                     "mode": self.args.mode, "horde": self.horde, "player": "human",
-                                     "rules": "remastered" if self.modern else "classic"}) + "\n")
+        self._write({"kind": "header", "game": "abuse_remake", "level": "level01", "player": "human",
+                     "format": "human-trace-1"})
+
+    def _write(self, row: dict) -> None:
+        """Human traces (game/human_replay.py replays them): a header, then for each game a
+        new_game row, one input row per tick, and restore and check rows."""
+        if self.trace is not None:
+            self.trace.write(json.dumps(row) + "\n")
+
+    def _check(self, why: str) -> None:
+        self._write({"kind": "check", "why": why, "frames": self.game.frames, "state_hash": self.game.state_hash()})
 
     def _on_console_save(self, console):
         # restart_ai calls this with the player's health already set for the save
         self.checkpoint = self.game.snapshot()
         self.hud.say("Station secured!")
 
+    def _restore(self, which: str) -> None:
+        """Back to the level start or the last console save, as the original's restart_player
+        reloads the level or the save (people.lsp:503-521)."""
+        self._check(f"before restore to {which}")
+        snap = self.level_start if which == "level_start" else self.checkpoint
+        self.game.restore(snap)
+        if which == "level_start":
+            self.checkpoint = self.level_start  # a restarted level has no console save yet
+        self._rebind()
+        self._write({"kind": "restore", "to": which})
+
     # --- input ---
     def read_inputs(self) -> Inputs:
         pg = self.pg
         keys = pg.key.get_pressed()
         mb = pg.mouse.get_pressed(3)
-        x = (1 if keys[pg.K_d] or keys[pg.K_RIGHT] else 0) - (1 if keys[pg.K_a] or keys[pg.K_LEFT] else 0)
+        left = keys[pg.K_a] or keys[pg.K_LEFT]
+        right = keys[pg.K_d] or keys[pg.K_RIGHT]
+        x = -1 if left else (1 if right else 0)  # both held: left wins, as get_local_input does
         up = keys[pg.K_w] or keys[pg.K_UP] or keys[pg.K_SPACE]
         down = keys[pg.K_s] or keys[pg.K_DOWN]
         y = -1 if up else (1 if down else 0)
@@ -152,7 +179,13 @@ class App:
         px, py = self.screen_to_game(mx, my)
         if self.joystick is not None:
             j = self.joystick
-            ax = j.get_axis(0)
+
+            def axis(i: int) -> float:  # deflection from the resting value measured at connection,
+                if i >= j.get_numaxes():  # so a trigger that rests at -1 reads as 0
+                    return 0.0
+                return j.get_axis(i) - (self.joy_rest[i] if i < len(self.joy_rest) else 0.0)
+
+            ax = axis(0)
             if abs(ax) > 0.35:
                 x = 1 if ax > 0 else -1
             if j.get_numbuttons() > 0 and j.get_button(0):
@@ -160,17 +193,20 @@ class App:
             if j.get_numbuttons() > 1 and j.get_button(1):
                 y = 1
             if j.get_numaxes() > 4:
-                rx, ry = j.get_axis(2), j.get_axis(3)
+                rx, ry = axis(2), axis(3)
                 if math.hypot(rx, ry) > 0.3:
                     p = self.game.player
                     px, py = p.x + int(rx * 120), p.y - 20 + int(ry * 120)
-                if j.get_numaxes() > 5 and j.get_axis(5) > 0.3:
+                if axis(5) > 0.3:
                     fire = True
         return Inputs(x=x, y=y, b1=int(special), b2=int(fire), pointer_x=px, pointer_y=py)
 
     def screen_to_game(self, sx, sy):
-        xoff, yoff = self.renderer.camera(1.0)
-        return int(sx / self.scale + xoff), int(sy / self.scale + yoff)
+        """The level point under the mouse, through the camera that was drawn last and the real
+        window scale (a fullscreen mode can differ from the requested scale)."""
+        xoff, yoff = self.renderer.last_cam
+        sw, sh = self.screen.get_size()
+        return int(sx * self.view_w / sw + xoff), int(sy * self.view_h / sh + yoff)
 
     def scripted_inputs(self, tick) -> Inputs:
         p = self.game.player
@@ -190,6 +226,11 @@ class App:
                     running = False
                 elif ev.type == pg.JOYDEVICEADDED and self.joystick is None:
                     self.joystick = pg.joystick.Joystick(ev.device_index)
+                    self.joy_rest = [self.joystick.get_axis(i) for i in range(self.joystick.get_numaxes())]
+                elif ev.type == pg.JOYDEVICEREMOVED:
+                    self.joystick, self.joy_rest = None, []
+                elif ev.type == pg.MOUSEBUTTONDOWN and ev.button == 2 and self.state == "play":
+                    self.pending_weapon = WeaponCommand(cycle=-1)  # middle button: previous weapon
                 elif ev.type == pg.KEYDOWN:
                     running = self.on_key(ev.key) and running
                 elif ev.type == pg.MOUSEWHEEL and self.state == "play":
@@ -207,13 +248,14 @@ class App:
         if self.args.screenshot:
             pg.image.save(self.screen, str(self.args.screenshot))
         if self.trace:
+            self._check("session end")
             self.trace.close()
         pg.quit()
         return 0
 
     def advance(self, dt: float, frame_no: int = 0) -> None:
         """Run the 15 Hz ticks that ``dt`` seconds of display time owe, and none after the end."""
-        self.acc += dt
+        self.acc = min(self.acc + dt, MAX_CATCHUP)
         while self.acc >= TICK and self.state == "play":
             self.acc -= TICK
             self.tick(frame_no)
@@ -250,13 +292,16 @@ class App:
                 self.pending_weapon = WeaponCommand(cycle=-1)
             elif key == pg.K_e:
                 self.pending_weapon = WeaponCommand(cycle=1)
+            elif key in (pg.K_LCTRL, pg.K_RCTRL, pg.K_HOME):  # the original's previous weapon
+                self.pending_weapon = WeaponCommand(cycle=-1)
+            elif key in (pg.K_INSERT, pg.K_PAGEUP):  # and next weapon (view.c:606-612)
+                self.pending_weapon = WeaponCommand(cycle=1)
             elif key == pg.K_l:
                 self.renderer.lighting = not self.renderer.lighting
             elif self.modern and key == pg.K_f:
                 self.pending_dash = True
             elif self.modern and key == pg.K_r:
-                self.game.restore(self.checkpoint)  # quick restart at the last console
-                self._rebind()
+                self._restore("checkpoint")  # quick restart at the last console
                 self.hud.say("Back to the last console")
             elif self.modern and key == pg.K_g:
                 self.show_ghost = not self.show_ghost
@@ -264,15 +309,13 @@ class App:
             if key == pg.K_ESCAPE:
                 self.state = "play"
             elif key == pg.K_r:
-                self.game.restore(self.level_start)
-                self._rebind()
+                self._restore("level_start")
                 self.state = "play"
             elif key == pg.K_x:
                 return False
         elif self.state == "dead":
-            if key in (pg.K_SPACE, pg.K_RETURN):
-                self.game.restore(self.checkpoint)  # the original reloads the last save
-                self._rebind()
+            if key == pg.K_SPACE:  # the original waits for space (cop.c:668-674)
+                self._restore("checkpoint")
                 self.state = "play"
         elif self.state in ("complete", "horde_over"):
             if key in (pg.K_RETURN, pg.K_SPACE, pg.K_ESCAPE):
@@ -300,19 +343,21 @@ class App:
 
     def _rebind(self):
         self.renderer.game = self.game
+        self.renderer.reset_camera()
         self.game.world.globals["save_hook"] = self._on_console_save
         self.particles.items.clear()
 
     def tick(self, frame_no):
         inp = self.scripted_inputs(self.stats["ticks"]) if self.args.frames else self.read_inputs()
         weapon, self.pending_weapon = self.pending_weapon, None
-        dashed = False
+        dash_asked = False
         if self.pending_dash and self.game.remastered is not None:
             self.pending_dash = False
-            dashed = self.game.remastered.request_dash(inp.x)
-            self.stats["dashes"] += int(dashed)
+            dash_asked = True  # recorded as asked; the replay gets the same answer from the engine
+            self.stats["dashes"] += int(self.game.remastered.request_dash(inp.x))
         hp_before = self.game.player.hp
         self.game.step(inp, weapon)
+        self.renderer.note_tick()
         self.stats["ticks"] += 1
         if self.ghost_rec is not None:
             self.ghost_rec.capture(self.game)
@@ -338,13 +383,13 @@ class App:
             self.particles.on_events(w.events)
         self.audio.play_events(w.events, self.game.player.x, self.game.player.y)
         if self.trace:
-            rec = {"tick": self.stats["ticks"], "x": inp.x, "y": inp.y, "b1": inp.b1, "b2": inp.b2,
-                   "px": inp.pointer_x, "py": inp.pointer_y}
+            rec = {"kind": "input", "tick": self.stats["ticks"], "x": inp.x, "y": inp.y, "b1": inp.b1,
+                   "b2": inp.b2, "px": inp.pointer_x, "py": inp.pointer_y}
             if weapon is not None:
                 rec["weapon"] = {"select": weapon.select, "cycle": weapon.cycle}
-            if dashed:
+            if dash_asked:
                 rec["dash"] = 1
-            self.trace.write(json.dumps(rec) + "\n")
+            self._write(rec)
         if self.horde and self.game.horde.state["over"]:
             from .remaster import record_horde
 
@@ -354,8 +399,10 @@ class App:
         elif self.game.player.aistate >= 3:
             self.stats["deaths"] += 1
             self.state = "dead"
+            self._check("died")
         if w.globals.get("level_complete"):
             self.state = "complete"
+            self._check("level complete")
             if self.modern:
                 from .remaster import record_finish
 

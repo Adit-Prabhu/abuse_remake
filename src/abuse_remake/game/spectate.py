@@ -119,6 +119,7 @@ class Spectator:
 
     # --- drawing ---------------------------------------------------------------------------
     def on_tick(self) -> None:
+        self.renderer.note_tick()
         for k in range(1, FPS_PER_TICK + 1):
             self.frame(k / FPS_PER_TICK)
 
@@ -287,6 +288,7 @@ class Spectator:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="abuse-replay", description="Watch an Abuse player, or replay a trace")
     ap.add_argument("--trace", type=Path, help="replay this abuse-agent trace")
+    ap.add_argument("--human-trace", type=Path, help="replay a human session trace (no window) and score it")
     ap.add_argument("--player", default=None, help="random | scripted | model | cmd:<command> (watch live)")
     ap.add_argument("--scenario", default="level01", choices=sorted(SCENARIOS))
     ap.add_argument("--seed", type=int, default=0)
@@ -303,8 +305,14 @@ def main(argv=None) -> int:
     ap.add_argument("--max-frames", type=int, default=0)
     ap.add_argument("player_args", nargs="*", help="extra arguments for the player program (after --)")
     a = ap.parse_args(argv)
+    if a.human_trace is not None:
+        from .human_replay import replay_human
+
+        result = replay_human(a.human_trace)
+        print(json.dumps(result, indent=2))
+        return 1 if result["mismatches"] or not result["checks"] else 0
     if (a.trace is None) == (a.player is None):
-        ap.error("give exactly one of --trace or --player")
+        ap.error("give exactly one of --trace, --human-trace or --player")
     if a.trace is not None:
         player = TracePlayer(a.trace)
         h = player.header
