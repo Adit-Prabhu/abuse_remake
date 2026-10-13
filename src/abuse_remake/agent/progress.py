@@ -2,8 +2,10 @@
 
 This uses privileged knowledge (the whole map and the teleporter links) and lives on the runner
 side. Players never receive it. Progress is ``1 - d_best / d_start``, where ``d`` is the A*
-cost to the exit over the full tile graph plus teleporter links. Doors are ignored, which makes
-``d`` optimistic. A win counts as 1.0.
+cost to the exit over the full tile graph plus teleporter links, sampled on every tick. Doors,
+hidden walls and force fields are ignored and teleporters always work, which makes ``d``
+optimistic; lifts are not modelled, which makes it pessimistic where a lift is the only way.
+A win counts as 1.0.
 """
 
 from __future__ import annotations

@@ -28,12 +28,13 @@ An action is one string from `legal_actions()`. Matching ignores case and extra 
 | `goto <ID>` | the object is on screen and is a pickup, interactive object, door, wall or enemy | walk toward it along the automap | up to 15 |
 | `use <ID>` | a switch, console, teleporter, lift or the exit is on screen | walk to it and press the action key (down) | up to 15 |
 | `attack <ID>` | an alien, turret, boulder, wall block or nest is on screen | face it, aim at its middle and fire | up to 12 |
-| `weapon <name>` | a weapon you own other than the current one, with ammo (the laser is always allowed) | select it | 1 |
+| `weapon <name>` | a weapon you own other than the current one, with ammo (the laser is always allowed) | press its number key; the laser can have no ammo, so press Ctrl until it is selected, as the original allows (`view.c` `last_weapon`) | 1 (laser: one per Ctrl press) |
 
 Each controller turns the action into the original controls: left, right, up, down, fire and the
 aim point (`input.lsp`, `view.c:586-617`). Controllers are deterministic and the same for every
 player. An action ends early when the player is hurt, or when a new threat comes into view
-(except during `attack`), so a player can react. Every accepted action takes at least one tick,
+(except during `attack`), so a player can react (`test_an_action_stops_when_the_player_is_hurt`,
+`test_a_new_threat_stops_an_action_except_attack`). Every accepted action takes at least one tick,
 so no player can stop the clock. The per-action cap is `Budgets.max_action_ticks` (15).
 
 ## Invalid actions

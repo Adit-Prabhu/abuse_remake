@@ -120,10 +120,14 @@ def run_episode(player, scenario: str, seed: int, difficulty: str = "hard", budg
                                 "difficulty": difficulty, "budgets": asdict(budgets), "version": __version__,
                                 "git": git_sha(), "python": platform.python_version(),
                                 "config": config or {}}) + "\n")
-    player.start({"player_id": PLAYER_ID, "scenario": scenario, "seed": seed, "difficulty": difficulty,
+    # No seed: it is the random table's start position (engine/cmath.py JRand), so it stays
+    # on the runner side.
+    player.start({"player_id": PLAYER_ID, "scenario": scenario, "difficulty": difficulty,
                   "budgets": asdict(budgets)})
     obs = ep.observe(PLAYER_ID)
     tracker = ProgressTracker(obs["player"]["x"], obs["player"]["y"])
+    game = ep._game  # runner side: progress is sampled on every tick, not only between decisions
+    ep.on_tick = lambda: tracker.update(game.player.x, game.player.y)
     usage = new_usage()
     model_id = provider = memory = fatal_error = None
     while ep.outcome()["status"] == "ongoing":
