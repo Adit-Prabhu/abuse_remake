@@ -10,9 +10,12 @@ refused and counted there. A failed request (timeout, rate limit, refusal, trunc
 returned as a decision with no action, so it is refused and counted too. Nothing is repaired,
 retried or substituted.
 
-Token budgets (``max_input_tokens`` and ``max_output_tokens`` from the runner's budgets, or the
-command line) are checked before each request. Once one is used up the player stops calling
-the model and the runner ends the episode as "token budget exhausted".
+Token budgets (``max_input_tokens`` and ``max_output_tokens``) come from the runner's budgets in
+the start message, so the player and the runner use the same caps. The player checks them
+before each request; once one is used up it makes no more requests and says so
+(``budget_exhausted``), and the runner ends the episode as "token budget exhausted". A fatal
+provider error (rejected or missing credentials) is passed on the same way, and the runner ends
+the episode as "player failed".
 """
 
 from __future__ import annotations
@@ -30,11 +33,9 @@ from ..providers import PROVIDERS, ProviderError, RequestLimits, make_provider
 
 
 class ModelPlayer:
-    def __init__(self, provider, memory: str = "M1", max_input_tokens: int = 0, max_output_tokens: int = 0,
-                 log=None):
+    def __init__(self, provider, memory: str = "M1", log=None):
         self.provider = provider
         self.condition = memory
-        self.default_caps = (max_input_tokens, max_output_tokens)
         self.log = log
         self.memory = Memory(memory)
         self.system = system_prompt(self.memory.keeps_notes)
@@ -47,14 +48,14 @@ class ModelPlayer:
         limits = RequestLimits(timeout_s=a.timeout, max_output_tokens=a.max_output_tokens, effort=a.effort,
                                thinking_budget=a.thinking_budget)
         provider = make_provider(a.provider, a.model, limits, client)
-        return cls(provider, a.memory, a.max_input_tokens_episode, a.max_output_tokens_episode, log=sys.stderr)
+        return cls(provider, a.memory, log=sys.stderr)
 
     # --- protocol --------------------------------------------------------------------------
     def start(self, info: dict) -> None:
         self.memory = Memory(self.condition)
         budgets = info.get("budgets") or {}
-        self.max_in = self.default_caps[0] or int(budgets.get("max_input_tokens") or 0)
-        self.max_out = self.default_caps[1] or int(budgets.get("max_output_tokens") or 0)
+        self.max_in = int(budgets.get("max_input_tokens") or 0)
+        self.max_out = int(budgets.get("max_output_tokens") or 0)
         self.used_in = self.used_out = self.calls = self.errors = 0
 
     def end(self, outcome: dict) -> None:
@@ -86,8 +87,9 @@ class ModelPlayer:
         self.memory.observe(obs)
         if not self.budget_left():
             self.memory.record(obs["tick"], None)
-            return {"action": None, "error": "token budget exhausted",
-                    "meta": self._meta(calls=0, errors=0, category="budget")}
+            meta = self._meta(calls=0, errors=0, category="budget")
+            meta["budget_exhausted"] = True
+            return {"action": None, "error": "token budget exhausted", "meta": meta}
         prompt = render_turn(obs, legal, self.memory.render())
         t0 = time.monotonic()
         try:
@@ -99,8 +101,10 @@ class ModelPlayer:
             self.used_in += exc.input_tokens
             self.used_out += exc.output_tokens
             self.memory.record(obs["tick"], None)
-            return {"action": None, "error": f"model request failed: {exc}",
-                    "meta": self._meta(1, 1, exc.input_tokens, exc.output_tokens, latency, exc.category)}
+            meta = self._meta(1, 1, exc.input_tokens, exc.output_tokens, latency, exc.category)
+            if exc.fatal:
+                meta["fatal"] = True
+            return {"action": None, "error": f"model request failed: {exc}", "meta": meta}
         latency = time.monotonic() - t0
         self.calls += 1
         self.used_in += reply.input_tokens
@@ -134,8 +138,6 @@ def parser() -> argparse.ArgumentParser:
     ap.add_argument("--max-output-tokens", type=int, default=1024, help="output cap per request")
     ap.add_argument("--effort", default=None, help="Anthropic effort / OpenAI reasoning effort (optional)")
     ap.add_argument("--thinking-budget", type=int, default=None, help="Gemini thinking budget (optional)")
-    ap.add_argument("--max-input-tokens-episode", type=int, default=0, help="0 = use the runner's budget")
-    ap.add_argument("--max-output-tokens-episode", type=int, default=0, help="0 = use the runner's budget")
     return ap
 
 
@@ -144,7 +146,9 @@ SDK_MODULE = {"vertex": "google.genai", "anthropic": "anthropic", "openai": "ope
 
 def check_config(argv: list[str]) -> str | None:
     """A problem that would make every request fail, found before the episode starts, or None.
-    Checks settings only; it never reads or tests credentials."""
+    It builds the provider client exactly as the player will (the SDK reads its own credentials
+    from the environment) but sends no request, so rejected credentials still show up only on
+    the first request; the runner then ends the episode as "player failed"."""
     import importlib.util
     import os
 
@@ -162,6 +166,10 @@ def check_config(argv: list[str]) -> str | None:
         return f"the {a.provider} SDK is not installed: run `uv sync --extra model`"
     if a.provider == "vertex" and not os.environ.get("GOOGLE_CLOUD_PROJECT", "").strip():
         return "set GOOGLE_CLOUD_PROJECT (and GOOGLE_CLOUD_LOCATION) for Vertex AI"
+    try:  # build the client as the player will; this sends no request
+        ModelPlayer.from_args(argv)
+    except Exception as exc:  # noqa: BLE001 - any failure here would fail every request
+        return f"the {a.provider} client could not be set up: {type(exc).__name__}: {exc}"[:300]
     return None
 
 

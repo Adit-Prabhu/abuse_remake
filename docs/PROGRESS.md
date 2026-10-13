@@ -13,8 +13,8 @@ record.
 | 3. Every Level 1 object | `feat/level01-objects` | #3 | reviewed (`docs/reviews/PR-3.md`), fixes in, awaiting merge |
 | 4. Playable game (pygame, modern rendering) | `feat/game-app` | #4 | done; no separate review yet |
 | 5. Player interface, baselines, runner, traces | `feat/player-interface` | #5 | done; no separate review yet |
-| 6+7. Model player, providers, memory conditions, `abuse-eval`, live-eval workflow | `feat/model-player` | #6 | done; review pending |
-| 8. Remastered mode | `feat/remastered` | | not started |
+| 6+7. Model player, providers, memory conditions, `abuse-eval`, live-eval workflow | `feat/model-player` | #6 | reviewed (`docs/reviews/PR-6.md`), all fixes in |
+| 8. Remastered mode | `feat/remastered` (on top of #6) | | built: dash, quick restart, stats and best time, ghost race, AI spectator and `abuse-replay` (MP4), Horde; PR to open after #6's fixes are merged in |
 | 9. Evidence, docs, release | `docs/evidence` | | not started |
 
 Milestones 6 and 7 share one branch: the live comparison needs both the model player and the
@@ -52,10 +52,20 @@ evaluation harness.
   −0.219 [−0.329, −0.124]), plus three traces.
 - Measured: a turn prompt is about 2.8k characters plus a 2.8k-character system prompt, about
   1,800 tokens per decision with M2.
+- After the PR #6 review:
+  - one decision is one request (Vertex continuation is off);
+  - players get a minimal environment and never the evaluator's progress;
+  - late replies are dropped by request id;
+  - fatal credential errors end an episode as `player failed`;
+  - results are written as they finish, and `--only`/`--resume` split long live runs;
+  - success uses Wilson intervals and pooled pairs a cluster bootstrap;
+  - failed requests are reported apart from illegal choices.
+  See `docs/reviews/PR-6.md`.
 
 ## Next steps
 
-1. Independent review of PR #6, recorded in `docs/reviews/PR-6.md`. Then reviews for PRs #4 and #5.
+1. Merge `feat/model-player` into `feat/remastered`, open its PR, and review it. Then reviews
+   for PRs #4 and #5, which have none yet.
 2. **Live comparison (human-gated).**
    - The owner sets up Vertex: `gcloud auth application-default login`, `GOOGLE_CLOUD_PROJECT`,
      `GOOGLE_CLOUD_LOCATION`, and `COURSE_MODEL` (a Gemini ID).

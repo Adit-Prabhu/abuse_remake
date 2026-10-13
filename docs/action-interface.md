@@ -62,8 +62,10 @@ Nothing is repaired or guessed, and no other action is substituted.
 | A model answer whose `action` is not a string | the value, unchanged | `action must be a string` |
 | A model reply that is not JSON | `None`; the raw text is kept in the trace | `action must be a string`, with player error `model reply is not a JSON object` |
 | A failed request (timeout, rate limit, refusal, truncation, empty answer) | `None` | `action must be a string`, with the player error and its category |
+| A rejected or missing credential | `None`, once | as above, category `auth`; the runner then ends the episode as `player failed` |
 | A player process whose reply is not a JSON object (even a bare `wait`) | `None`; the raw text is kept in the trace | `action must be a string`, with player error `reply is not a JSON object` |
-| A player process that is late or has ended | `None` | as above, with the runner's error |
+| A player process that is late | `None`; its late reply is dropped when it comes | as above, with the runner's error |
+| A player process that has ended | `None`, once | as above; the runner then ends the episode as `player failed` |
 
 The trace keeps the episode's reason (`error`) and the player's own error (`player_error`)
 apart, along with the raw reply, so every refusal can be audited.

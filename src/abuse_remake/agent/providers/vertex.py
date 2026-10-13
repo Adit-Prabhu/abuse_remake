@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import os
 
-from . import ProviderConfigError, ProviderError, ProviderReply, RequestLimits, short
+from . import FATAL_STATUS, ProviderConfigError, ProviderError, ProviderReply, RequestLimits, short
 
 REFUSAL_FINISH = {"SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "SPII", "RECITATION", "IMAGE_SAFETY"}
 
@@ -36,7 +36,10 @@ class VertexProvider:
 
     def config(self, system: str, schema: dict) -> dict:
         cfg = {"system_instruction": system, "response_mime_type": "application/json",
-               "response_json_schema": schema, "max_output_tokens": self.limits.max_output_tokens}
+               "response_json_schema": schema, "max_output_tokens": self.limits.max_output_tokens,
+               # the SDK would otherwise send follow-up requests on finish_reason CONTINUATION,
+               # each billed: one decision must be one request
+               "automatic_continuation": False}
         if self.limits.thinking_budget is not None:
             cfg["thinking_config"] = {"thinking_budget": self.limits.thinking_budget}
         return cfg
@@ -56,14 +59,15 @@ class VertexProvider:
             raise ProviderError("refusal", f"prompt blocked: {_name(feedback.block_reason)}", inp, out)
         cands = getattr(resp, "candidates", None) or []
         finish = _name(getattr(cands[0], "finish_reason", None)) if cands else ""
-        if finish == "MAX_TOKENS":
+        if finish in ("MAX_TOKENS", "CONTINUATION"):
             raise ProviderError("truncated", f"hit max_output_tokens={self.limits.max_output_tokens}", inp, out)
         if finish in REFUSAL_FINISH:
             raise ProviderError("refusal", f"finish_reason {finish}", inp, out)
         text = getattr(resp, "text", None) or ""
         if not text.strip():
             raise ProviderError("empty", f"no text (finish_reason {finish or 'none'})", inp, out)
-        return ProviderReply(text=text, input_tokens=inp, output_tokens=out, model=self.model, stop=finish or None)
+        model = getattr(resp, "model_version", None) or self.model  # the version that answered
+        return ProviderReply(text=text, input_tokens=inp, output_tokens=out, model=model, stop=finish or None)
 
 
 def _name(value) -> str:
@@ -81,19 +85,32 @@ def _classify(exc: BaseException) -> str:
             return "rate_limit"
         if code in (408, 504):
             return "timeout"
+        if code in FATAL_STATUS:
+            return "auth"
         return "api_error"
-    if isinstance(exc, _timeout_types()):
-        return "timeout"
-    if isinstance(exc, ConnectionError | OSError):
+    if isinstance(exc, _types("TimeoutException", "Timeout")) or isinstance(exc, TimeoutError):
+        return "timeout"  # checked first: requests.Timeout is also a ConnectionError
+    if isinstance(exc, _types("TransportError", "ConnectionError")) or isinstance(exc, ConnectionError):
         return "connection"
+    if _is_auth_error(exc):
+        return "auth"
     return "api_error"
 
 
-def _timeout_types() -> tuple[type[BaseException], ...]:
-    types_: list[type[BaseException]] = [TimeoutError]
-    for mod in ("httpx", "httpx2"):  # google-genai sends requests through either
+def _types(httpx_name: str, requests_name: str) -> tuple[type[BaseException], ...]:
+    """Exception classes from the HTTP libraries google-genai may use (httpx, httpx2, requests)."""
+    found: list[type[BaseException]] = []
+    for mod, name in (("httpx", httpx_name), ("httpx2", httpx_name), ("requests.exceptions", requests_name)):
         try:
-            types_.append(__import__(mod).TimeoutException)
+            found.append(getattr(__import__(mod, fromlist=[name]), name))
         except (ImportError, AttributeError):
             pass
-    return tuple(types_)
+    return tuple(found)
+
+
+def _is_auth_error(exc: BaseException) -> bool:
+    try:
+        from google.auth import exceptions as gauth
+    except ImportError:
+        return False
+    return isinstance(exc, gauth.GoogleAuthError)  # no or bad Application Default Credentials

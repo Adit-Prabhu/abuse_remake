@@ -34,7 +34,7 @@ from pathlib import Path
 from .. import __version__
 from .interface import SCENARIOS, Budgets
 from .runner import git_sha, make_player, run_episode
-from .stats import mean_ci, paired_diff, percentile
+from .stats import cluster_paired_diff, mean_ci, paired_diff, percentile, wilson
 
 EST_INPUT_TOKENS_PER_DECISION = 1800  # measured prompt sizes: ~700 system + ~700-1100 per turn (M2 most)
 
@@ -84,6 +84,20 @@ def versions() -> dict:
 
 
 # --- running ---------------------------------------------------------------------------------
+def _trace_usage(trace: Path) -> tuple[int, int]:
+    """Tokens recorded in a trace, for an episode that crashed before reporting its own totals."""
+    inp = out = 0
+    try:
+        for line in trace.read_text().splitlines():
+            row = json.loads(line)
+            if row.get("kind") == "step":
+                inp += int((row.get("meta") or {}).get("input_tokens") or 0)
+                out += int((row.get("meta") or {}).get("output_tokens") or 0)
+    except (OSError, ValueError):
+        pass
+    return inp, out
+
+
 def _run_one(cfg: dict, job: dict, out_dir: str) -> dict:
     trace = Path(out_dir) / "traces" / job["label"] / f"{job['scenario']}-s{job['seed']}.jsonl"
     budgets = budgets_for(cfg, job["scenario"])
@@ -92,51 +106,78 @@ def _run_one(cfg: dict, job: dict, out_dir: str) -> dict:
         out = run_episode(player, job["scenario"], job["seed"], cfg["difficulty"], budgets, trace,
                           label=job["label"], config={"eval": cfg["name"], "player": job})
         out["ran"] = True
-    except Exception as exc:  # noqa: BLE001 - a crashed episode is reported, not dropped
-        out = {"ran": False, "reason": f"runner error: {type(exc).__name__}: {exc}"[:300]}
+    except Exception as exc:  # noqa: BLE001 - a crashed episode is reported as crashed, not dropped
+        inp, outp = _trace_usage(trace)
+        out = {"ran": False, "crashed": True, "reason": f"crashed: {type(exc).__name__}: {exc}"[:300],
+               "input_tokens": inp, "output_tokens": outp}
     out.update({"label": job["label"], "scenario": job["scenario"], "seed": job["seed"], "live": job["live"],
                 "trace": str(trace.relative_to(out_dir)) if trace.exists() else None})
     return out
 
 
-def run(cfg: dict, out_dir: Path, live: bool, jobs: int = 1, log=sys.stderr) -> list[dict]:
+def _key(r: dict) -> tuple:
+    return r["label"], r["scenario"], r["seed"]
+
+
+def run(cfg: dict, out_dir: Path, live: bool, jobs: int = 1, log=sys.stderr, only: set[str] | None = None,
+        resume: bool = False) -> list[dict]:
+    """Run the plan, appending each result to ``results.partial.jsonl`` as soon as it is known, so a
+    run that is stopped part-way loses no finished episode. ``only`` limits the run to some player
+    labels (to split a long live comparison); ``resume`` skips episodes that already ran."""
     out_dir.mkdir(parents=True, exist_ok=True)
-    jobs_list = plan(cfg)
+    jobs_list = [j for j in plan(cfg) if only is None or j["label"] in only]
+    partial = out_dir / "results.partial.jsonl"
+    done: dict[tuple, dict] = {}
+    if resume and partial.exists():
+        for line in partial.read_text().splitlines():
+            r = json.loads(line)
+            if r.get("ran"):
+                done[_key(r)] = r
     resolved_model = os.environ.get("COURSE_MODEL", "").strip() or None
     record = {"config": cfg, "git": git_sha(), "version": __version__, "python": platform.python_version(),
-              "platform": platform.platform(), "packages": versions(), "live": live,
+              "packages": versions(), "live": live, "only": sorted(only) if only else None,
               "started": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
               "course_model": resolved_model if live else None,
               "budgets": {s: asdict(budgets_for(cfg, s)) for s in cfg["scenarios"]}}
     (out_dir / "config.json").write_text(json.dumps(record, indent=2))
-    results: list[dict] = []
-    offline = [j for j in jobs_list if not j["live"]]
-    online = [j for j in jobs_list if j["live"]]
+    results: list[dict] = list(done.values())
+    sink = partial.open("a" if resume else "w")
+
+    def keep(r: dict) -> None:
+        results.append(r)
+        sink.write(json.dumps(r) + "\n")
+        sink.flush()
+        _log(log, r, len(results), len(jobs_list))
+
+    todo = [j for j in jobs_list if _key(j) not in done]
+    offline = [j for j in todo if not j["live"]]
+    online = [j for j in todo if j["live"]]
     if jobs > 1 and len(offline) > 1:
         with cf.ProcessPoolExecutor(max_workers=jobs) as pool:
-            futs = [pool.submit(_run_one, cfg, j, str(out_dir)) for j in offline]
-            for f in cf.as_completed(futs):
-                results.append(f.result())
-                _log(log, results[-1], len(results), len(jobs_list))
+            for f in cf.as_completed([pool.submit(_run_one, cfg, j, str(out_dir)) for j in offline]):
+                keep(f.result())
     else:
         for j in offline:
-            results.append(_run_one(cfg, j, str(out_dir)))
-            _log(log, results[-1], len(results), len(jobs_list))
+            keep(_run_one(cfg, j, str(out_dir)))
     cap_in = int(cfg["run"].get("max_input_tokens", 0))
     cap_out = int(cfg["run"].get("max_output_tokens", 0))
-    used_in = used_out = 0
-    for j in online:  # live episodes run one at a time so the run-level caps hold exactly
+    used_in = sum(int(r.get("input_tokens") or 0) for r in results if r.get("live"))
+    used_out = sum(int(r.get("output_tokens") or 0) for r in results if r.get("live"))
+    # Live episodes run one at a time. The run-level caps are checked before each one starts, so a
+    # run can pass a cap by at most one episode's own token budget.
+    for j in online:
         if not live:
-            results.append({**j, "ran": False, "reason": "not run: live player and --live not given"})
+            keep({**j, "ran": False, "reason": "not run: live player and --live not given"})
         elif (cap_in and used_in >= cap_in) or (cap_out and used_out >= cap_out):
-            results.append({**j, "ran": False, "reason": "not run: run token budget exhausted"})
+            keep({**j, "ran": False, "reason": "not run: run token budget exhausted"})
         else:
-            results.append(_run_one(cfg, j, str(out_dir)))
-            used_in += int(results[-1].get("input_tokens") or 0)
-            used_out += int(results[-1].get("output_tokens") or 0)
-        _log(log, results[-1], len(results), len(jobs_list))
-    order = {(j["label"], j["scenario"], j["seed"]): i for i, j in enumerate(jobs_list)}
-    results.sort(key=lambda r: order[(r["label"], r["scenario"], r["seed"])])
+            r = _run_one(cfg, j, str(out_dir))
+            used_in += int(r.get("input_tokens") or 0)
+            used_out += int(r.get("output_tokens") or 0)
+            keep(r)
+    sink.close()
+    order = {_key(j): i for i, j in enumerate(jobs_list)}
+    results.sort(key=lambda r: order[_key(r)])
     with (out_dir / "results.jsonl").open("w") as f:
         for r in results:
             f.write(json.dumps(r) + "\n")
@@ -151,8 +192,17 @@ def _log(log, r: dict, i: int, n: int) -> None:
 
 
 # --- estimating ------------------------------------------------------------------------------
-def estimate(cfg: dict, max_output_tokens_per_request: int = 1024) -> dict:
+def _arg(args: list[str], flag: str, default: int) -> int:
+    try:
+        return int(args[args.index(flag) + 1])
+    except (ValueError, IndexError):
+        return default
+
+
+def estimate(cfg: dict, max_output_tokens_per_request: int | None = None) -> dict:
     live_jobs = [j for j in plan(cfg) if j["live"]]
+    if max_output_tokens_per_request is None:  # what the live players will actually ask for
+        max_output_tokens_per_request = max([_arg(j["args"], "--max-output-tokens", 1024) for j in live_jobs] or [1024])
     dec = int(cfg["budgets"].get("max_decisions", 600))
     ep_in = dec * EST_INPUT_TOKENS_PER_DECISION
     ep_out_worst = dec * max_output_tokens_per_request
@@ -180,13 +230,19 @@ def cost(cfg: dict, inp: int, out: int) -> float | None:
 
 # --- reporting -------------------------------------------------------------------------------
 def _fmt_ci(m: float, lo: float, hi: float, digits: int = 3) -> str:
-    if m != m:  # NaN
+    if m != m:  # NaN: nothing ran
         return "n/a"
+    if lo != lo:  # one episode: no interval
+        return f"{m:.{digits}f} [n/a]"
     return f"{m:.{digits}f} [{lo:.{digits}f}, {hi:.{digits}f}]"
 
 
 def _num(x: float) -> str:
     return "-" if x != x else f"{x:.0f}"
+
+
+def _rate(num: int, den: int) -> str:
+    return "n/a" if not den else f"{num / den:.3f}"
 
 
 def summarize(rows: list[dict], cfg: dict) -> dict:
@@ -196,25 +252,28 @@ def summarize(rows: list[dict], cfg: dict) -> dict:
         for scen in cfg["scenarios"] + ["all"]:
             rs = [r for r in ran if r["label"] == label and (scen == "all" or r["scenario"] == scen)]
             planned = [r for r in rows if r["label"] == label and (scen == "all" or r["scenario"] == scen)]
-            lat = []
+            lat = [r["latency_p50_s"] for r in rs if r.get("latency_p50_s") is not None]
+            cats: dict = {}
             for r in rs:
-                if r.get("latency_p50_s") is not None:
-                    lat.append(r["latency_p50_s"])
-            dec = sum(r["decisions"] for r in rs)
+                for k, n in (r.get("error_categories") or {}).items():
+                    cats[k] = cats.get(k, 0) + n
             out[(label, scen)] = {
                 "planned": len(planned), "n": len(rs),
-                "success": mean_ci([float(r["score"]) for r in rs]),
+                "success": wilson(sum(int(r["score"]) for r in rs), len(rs)),
+                "wins": sum(int(r["score"]) for r in rs),
                 "progress": mean_ci([r["progress"] for r in rs]),
                 "deaths": sum(r["reason"] == "player died" for r in rs),
                 "kills": mean_ci([r["kills"] for r in rs]),
                 "damage": mean_ci([r["damage_taken"] for r in rs]),
-                "invalid_rate": (sum(r["invalid_actions"] for r in rs) / dec) if dec else float("nan"),
+                "decisions_total": sum(r["decisions"] for r in rs),
+                "invalid": sum(r["invalid_actions"] for r in rs),
                 "decisions": mean_ci([r["decisions"] for r in rs]),
                 "ticks": mean_ci([r["ticks"] for r in rs]),
                 "calls": sum(int(r.get("model_calls") or 0) for r in rs),
                 "errors": sum(int(r.get("model_errors") or 0) for r in rs),
-                "input_tokens": sum(int(r.get("input_tokens") or 0) for r in rs),
-                "output_tokens": sum(int(r.get("output_tokens") or 0) for r in rs),
+                "error_categories": cats,
+                "input_tokens": sum(int(r.get("input_tokens") or 0) for r in planned),
+                "output_tokens": sum(int(r.get("output_tokens") or 0) for r in planned),
                 "latency_p50": percentile(lat, 50),
                 "reasons": _count(r["reason"] for r in planned),
             }
@@ -226,6 +285,17 @@ def _count(items) -> dict:
     for i in items:
         c[i] = c.get(i, 0) + 1
     return c
+
+
+def _status_cell(r: dict | None) -> str:
+    if r is None:
+        return "not in this run"
+    if r.get("crashed"):
+        return "crashed"
+    if not r.get("ran"):
+        return "not run"
+    tag = " (won)" if r["score"] else " (died)" if r["reason"] == "player died" else ""
+    return f"{r['progress']:.3f}{tag}"
 
 
 def render_report(rows: list[dict], record: dict) -> str:
@@ -240,85 +310,104 @@ def render_report(rows: list[dict], record: dict) -> str:
         f"Generated by `abuse-eval` from `results.jsonl`. Git `{record['git'][:12]}`, version {record['version']}, "
         f"Python {record['python']}, started {record['started']} (UTC).",
         f"Live model calls: {'yes' if record['live'] else 'no'}"
-        + (f"; model `{record['course_model']}`" if record.get("course_model") else "") + ".",
+        + (f"; requested model `{record['course_model']}`" if record.get("course_model") else "") + "."
+        + (f" Players in this run: {', '.join(record['only'])}." if record.get("only") else ""),
         "",
         f"Scenarios: {', '.join(cfg['scenarios'])}. Seeds: {', '.join(str(x) for x in cfg['seeds'])}. "
         f"Difficulty: {cfg['difficulty']}. Players run in {cfg['isolation']} isolation.",
-        f"Budgets per episode: {budgets.max_decisions} decisions, the scenario's tick limit, at most "
-        f"{budgets.max_action_ticks} ticks per action"
+        f"Budgets per episode, the same for every player: {budgets.max_decisions} decisions, the scenario's tick "
+        f"limit, at most {budgets.max_action_ticks} ticks per action"
         + (f", {budgets.max_input_tokens} input tokens" if budgets.max_input_tokens else "")
         + (f", {budgets.max_output_tokens} output tokens" if budgets.max_output_tokens else "")
         + (f", {budgets.max_wall_s:.0f} s" if budgets.max_wall_s else "") + ".",
         "",
-        "Means with percentile-bootstrap 95% CIs over episodes. Progress is the evaluator-only distance "
-        "measure (1 = reached the exit). Every planned episode is counted in *planned*; *n* is the "
-        "number that ran.",
+        "How to read the tables:",
+        "- *planned* counts every episode in the plan; *n* is the number that ran.",
+        "- *success* is wins / n with a Wilson 95% interval.",
+        "- Other figures are means over episodes with a percentile-bootstrap 95% interval (`[n/a]` with one "
+        "episode). A player that does the same thing on every seed gets a zero-width interval: the "
+        "interval covers seeds, not other ways the player could have played.",
+        "- *progress* is the evaluator-only distance measure (1 = reached the exit).",
+        "- *invalid* is refused actions per decision. *failed requests* is the part of that which came from "
+        "model requests that failed (timeouts, rate limits, truncation, refusals), not from illegal choices.",
         "",
         "## Players",
         "",
-        "| label | player | args | live |",
-        "|---|---|---|---|",
+        "| label | player | args | live | models that answered |",
+        "|---|---|---|---|---|",
     ]
     for p in cfg["players"]:
+        models = sorted({r.get("model") for r in rows if r["label"] == p["label"] and r.get("model")})
         lines.append(f"| {p['label']} | {p['player']} | `{' '.join(p.get('args', [])) or '-'}` | "
-                     f"{'yes' if p.get('live') else 'no'} |")
+                     f"{'yes' if p.get('live') else 'no'} | {', '.join(f'`{m}`' for m in models) or '-'} |")
     for scen in cfg["scenarios"] + ["all"]:
         title = "All scenarios pooled" if scen == "all" else f"Scenario `{scen}`"
         lines += ["", f"## {title}", "",
-                  "| player | planned | n | success | progress | deaths | kills | damage taken | invalid rate "
-                  "| decisions | ticks | model calls (errors) | tokens in / out | latency p50 s | cost USD |",
-                  "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+                  "| player | planned | n | success | progress | deaths | kills | damage taken | invalid "
+                  "| failed requests | decisions | ticks | model calls | tokens in / out | latency p50 s | cost USD |",
+                  "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
         for label in labels:
             v = s[(label, scen)]
-            c = cost(cfg, v["input_tokens"], v["output_tokens"]) if v["calls"] else None
-            inv = "n/a" if v["invalid_rate"] != v["invalid_rate"] else f"{v['invalid_rate']:.3f}"
+            c = cost(cfg, v["input_tokens"], v["output_tokens"]) if v["input_tokens"] or v["output_tokens"] else None
             lat = "-" if v["latency_p50"] is None else f"{v['latency_p50']:.2f}"
+            _, slo, shi = v["success"]
+            succ = "n/a" if not v["n"] else f"{v['wins']}/{v['n']} [{slo:.2f}, {shi:.2f}]"
             lines.append(
-                f"| {label} | {v['planned']} | {v['n']} | {_fmt_ci(*v['success'], 2)} | {_fmt_ci(*v['progress'])} "
-                f"| {v['deaths']} | {_fmt_ci(*v['kills'], 1)} | {_fmt_ci(*v['damage'], 0)} | {inv} "
-                f"| {_num(v['decisions'][0])} | {_num(v['ticks'][0])} | {v['calls']} ({v['errors']}) "
+                f"| {label} | {v['planned']} | {v['n']} | {succ} | {_fmt_ci(*v['progress'])} "
+                f"| {v['deaths']} | {_fmt_ci(*v['kills'], 1)} | {_fmt_ci(*v['damage'], 0)} "
+                f"| {_rate(v['invalid'], v['decisions_total'])} | {_rate(v['errors'], v['decisions_total'])} "
+                f"| {_num(v['decisions'][0])} | {_num(v['ticks'][0])} | {v['calls']} "
                 f"| {v['input_tokens']} / {v['output_tokens']} | {lat} | {'-' if c is None else c} |")
         lines += ["", "Episode endings: " + "; ".join(
             f"{label}: " + ", ".join(f"{k} x{n}" for k, n in s[(label, scen)]["reasons"].items())
             for label in labels)]
+        cats = [f"{label}: " + ", ".join(f"{k} x{n}" for k, n in sorted(s[(label, scen)]["error_categories"].items()))
+                for label in labels if s[(label, scen)]["error_categories"]]
+        if cats:
+            lines.append("Failed requests by category: " + "; ".join(cats))
     ran = [r for r in rows if r.get("ran")]
-    lines += ["", "## Paired comparison (same scenario and seed)", "",
-              f"Mean difference in progress against `{ref}`, with a bootstrap 95% CI over the pairs.", "",
-              "| player | pairs | progress minus reference |", "|---|---|---|"]
     by = {label: {(r["scenario"], r["seed"]): r["progress"] for r in ran if r["label"] == label} for label in labels}
+    lines += ["", "## Paired comparison (same scenario and seed)", "",
+              f"Mean difference in progress against `{ref}`. Per scenario, the interval resamples seeds. Pooled, it "
+              "resamples scenarios and then seeds within them, because seeds of one scenario are not independent.",
+              "", "| player | scenario | pairs | progress minus reference |", "|---|---|---|---|"]
     for label in labels:
         if label == ref:
             continue
-        n, m, lo, hi = paired_diff(by[label], by.get(ref, {}))
-        lines.append(f"| {label} | {n} | {_fmt_ci(m, lo, hi)} |")
+        for scen in cfg["scenarios"]:
+            a = {k: v for k, v in by[label].items() if k[0] == scen}
+            n, m, lo, hi = paired_diff(a, by.get(ref, {}))
+            lines.append(f"| {label} | {scen} | {n} | {_fmt_ci(m, lo, hi)} |")
+        n, k, m, lo, hi = cluster_paired_diff(by[label], by.get(ref, {}))
+        lines.append(f"| {label} | **pooled** ({k} scenarios) | {n} | {_fmt_ci(m, lo, hi)} |")
     lines += ["", "### Per-seed progress", "", "| scenario | seed | " + " | ".join(labels) + " |",
               "|---|---|" + "---|" * len(labels)]
+    index = {(r["label"], r["scenario"], r["seed"]): r for r in rows}
     for scen in cfg["scenarios"]:
         for seed in cfg["seeds"]:
-            cells = []
-            for label in labels:
-                r = next((x for x in rows if x["label"] == label and x["scenario"] == scen and x["seed"] == seed), None)
-                if r is None or not r.get("ran"):
-                    cells.append("not run")
-                else:
-                    tag = " (won)" if r["score"] else " (died)" if r["reason"] == "player died" else ""
-                    cells.append(f"{r['progress']:.3f}{tag}")
+            cells = [_status_cell(index.get((label, scen, seed))) for label in labels]
             lines.append(f"| {scen} | {seed} | " + " | ".join(cells) + " |")
     mem = sorted({r.get("memory") for r in ran if r.get("memory")})
     if mem:
         lines += ["", "## Memory and history comparison", "",
                   "M0: current observation only. M1: plus the last 8 turns. M2: plus the model's notes and an "
                   "automap summary built from past observations.", "",
-                  "| memory | episodes | progress | invalid rate | input tokens per decision |",
-                  "|---|---|---|---|---|"]
+                  "| memory | episodes | progress | invalid | failed requests | input tokens per decision |",
+                  "|---|---|---|---|---|---|"]
         for m_ in mem:
             rs = [r for r in ran if r.get("memory") == m_]
             dec = sum(r["decisions"] for r in rs)
-            inv = sum(r["invalid_actions"] for r in rs) / dec if dec else float("nan")
             tpd = sum(int(r.get("input_tokens") or 0) for r in rs) / dec if dec else float("nan")
-            lines.append(f"| {m_} | {len(rs)} | {_fmt_ci(*mean_ci([r['progress'] for r in rs]))} | {inv:.3f} "
-                         f"| {tpd:.0f} |")
-    not_run = [r for r in rows if not r.get("ran")]
+            lines.append(f"| {m_} | {len(rs)} | {_fmt_ci(*mean_ci([r['progress'] for r in rs]))} "
+                         f"| {_rate(sum(r['invalid_actions'] for r in rs), dec)} "
+                         f"| {_rate(sum(int(r.get('model_errors') or 0) for r in rs), dec)} | {_num(tpd)} |")
+    crashed = [r for r in rows if r.get("crashed")]
+    if crashed:
+        lines += ["", "## Episodes that crashed", "",
+                  "These started and have a partial trace, but did not finish. Tokens they used still count above.", ""]
+        for r in crashed:
+            lines.append(f"- {r['label']} {r['scenario']} seed {r['seed']}: {r['reason']}")
+    not_run = [r for r in rows if not r.get("ran") and not r.get("crashed")]
     if not_run:
         lines += ["", "## Episodes not run", ""]
         for reason, n in _count(r["reason"] for r in not_run).items():
@@ -334,7 +423,10 @@ def render_report(rows: list[dict], record: dict) -> str:
 
 
 def write_report(out_dir: Path, report_to: Path | None = None) -> str:
-    rows = [json.loads(line) for line in (out_dir / "results.jsonl").read_text().splitlines() if line.strip()]
+    src = out_dir / "results.jsonl"
+    if not src.exists():  # a run that was stopped part-way
+        src = out_dir / "results.partial.jsonl"
+    rows = [json.loads(line) for line in src.read_text().splitlines() if line.strip()]
     record = json.loads((out_dir / "config.json").read_text())
     text = render_report(rows, record)
     (out_dir / "report.md").write_text(text)
@@ -353,9 +445,12 @@ def main(argv=None) -> int:
     r.add_argument("--live", action="store_true", help="also run players marked live (model calls cost money)")
     r.add_argument("--jobs", type=int, default=1, help="parallel offline episodes")
     r.add_argument("--report-to", type=Path, default=None)
+    r.add_argument("--only", default=None, help="comma-separated player labels to run (splits a long live run)")
+    r.add_argument("--resume", action="store_true", help="with --out: skip episodes that already ran there")
     e = sub.add_parser("estimate", help="token and cost estimate for the live players; makes no calls")
     e.add_argument("--config", type=Path, required=True)
-    e.add_argument("--max-output-tokens", type=int, default=1024, help="per request, as given to the player")
+    e.add_argument("--max-output-tokens", type=int, default=None,
+                   help="per request (default: what the live players' args say)")
     rep = sub.add_parser("report", help="rebuild report.md from a run directory")
     rep.add_argument("run_dir", type=Path)
     rep.add_argument("--report-to", type=Path, default=None)
@@ -378,7 +473,12 @@ def main(argv=None) -> int:
                 return 2
     stamp = dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%SZ")
     out_dir = a.out or Path("runs") / f"{cfg['name']}-{stamp}"
-    run(cfg, out_dir, a.live, a.jobs)
+    only = {x.strip() for x in a.only.split(",")} if a.only else None
+    if only and not only <= {p["label"] for p in cfg["players"]}:
+        print(f"abuse-eval: unknown labels in --only: {sorted(only - {p['label'] for p in cfg['players']})}",
+              file=sys.stderr)
+        return 2
+    run(cfg, out_dir, a.live, a.jobs, only=only, resume=a.resume)
     write_report(out_dir, a.report_to)
     print(out_dir / "report.md")
     return 0

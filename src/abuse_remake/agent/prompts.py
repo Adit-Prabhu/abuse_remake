@@ -35,13 +35,13 @@ Actions (reply with exactly one string from LEGAL ACTIONS):
 Actions stop early when you are hurt or a new threat appears, so you can react.
 
 Object kinds:
-- alien: an ant-like enemy that runs, pounces and spits; dangerous up close. "hanging" aliens
-  wait on the ceiling and drop when you come near.
+- alien: an ant-like enemy that runs, pounces and spits; dangerous up close. Some hang from
+  the ceiling ("hanging").
 - turret: a gun in a wall or ceiling; "folded" while inactive. boulder: a rolling hazard you can
   shoot. rock: falling debris. nest: a crack in the wall that aliens come out of.
 - projectile: an enemy shot.
 - health, ammo_laser, ammo_grenade, ammo_rocket, ammo_firebomb: pickups (walk into them).
-- switch (on/off): may open doors or turn off force fields somewhere else. door: opens and
+- switch (on/off): pressing it may change something elsewhere in the level. door: opens and
   closes. force_field: blocks the way while it is shown. wall_block: a breakable wall; shoot it.
 - teleporter, door_teleporter: move you somewhere else when used. console: a save point.
   lift: a moving platform. exit: ends the level when used.

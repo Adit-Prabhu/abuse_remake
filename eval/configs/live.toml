@@ -33,20 +33,23 @@ player = "random"
 label = "scripted"
 player = "scripted"
 
+# The model players differ only in --memory. Thinking tokens count against --max-output-tokens on
+# models that think; for such a model add a thinking cap to all three (Gemini: "--thinking-budget",
+# "<n>"), or truncated answers will show up as failed requests in the report.
 [[players]]
 label = "model-M0"
 player = "model"
-args = ["--provider", "vertex", "--memory", "M0", "--timeout", "20", "--max-output-tokens", "1024"]
+args = ["--provider", "vertex", "--memory", "M0", "--timeout", "20", "--max-output-tokens", "2048"]
 live = true
 
 [[players]]
 label = "model-M1"
 player = "model"
-args = ["--provider", "vertex", "--memory", "M1", "--timeout", "20", "--max-output-tokens", "1024"]
+args = ["--provider", "vertex", "--memory", "M1", "--timeout", "20", "--max-output-tokens", "2048"]
 live = true
 
 [[players]]
 label = "model-M2"
 player = "model"
-args = ["--provider", "vertex", "--memory", "M2", "--timeout", "20", "--max-output-tokens", "1024"]
+args = ["--provider", "vertex", "--memory", "M2", "--timeout", "20", "--max-output-tokens", "2048"]
 live = true
