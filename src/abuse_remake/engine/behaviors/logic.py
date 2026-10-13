@@ -247,7 +247,7 @@ def sensor_ai(o) -> bool:
 
 @lisp("sensor_cons")
 def sensor_cons(o) -> None:
-    o.set_aitype(1)
+    o.change_aitype(1)  # (set_aitype 1) runs sensor_ct: on box 50x50, off box 100x100
     o.add_hp(-10)
 
 

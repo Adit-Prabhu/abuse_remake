@@ -211,7 +211,7 @@ def rocket_ai(o) -> bool:
 def exp_ai(o) -> bool:
     if o.aitype == 0:
         return o.next_picture()
-    o.set_aitype(o.aitype - 1)
+    o.change_aitype(o.aitype - 1)
     return True
 
 
@@ -286,7 +286,7 @@ def create_dead_parts(o, array: str, part_num: int, ptype: int) -> None:
     saved = rng.rand_on
     for k, extra_frames in ((0, 0), (1, 0), (2, 1), (2, 2), (2, 3)):
         p = o.world.spawn(names[part_num + k], o.x, o.y)
-        p.set_aitype(ptype)
+        p.change_aitype(ptype)
         for _ in range(extra_frames):
             p.next_picture()
         p.xvel = d * random(p, 10)
