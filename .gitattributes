@@ -1,0 +1,2 @@
+*.spe binary
+*.lsp text eol=lf

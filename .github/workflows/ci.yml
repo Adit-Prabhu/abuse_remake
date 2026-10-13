@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  deterministic:
+    name: Deterministic checks (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12']
+    env:
+      SDL_VIDEODRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+      PYGAME_HIDE_SUPPORT_PROMPT: '1'
+      ABUSE_REQUIRE_C_REFERENCE: '1'  # differential tests against the original C must run
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - run: uv sync --frozen
+      - name: Lint
+        run: uv run --frozen ruff check src tests scripts
+      - name: Original data checksums
+        run: uv run --frozen abuse-data verify
+      - name: Tests (no network, no model calls)
+        run: uv run --frozen pytest -v
