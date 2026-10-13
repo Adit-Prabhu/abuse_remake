@@ -98,7 +98,7 @@ class RasterArt:
         key = (group, index, facing < 0, scale)
         if key not in self.frame_cache:
             image = frames[index]
-            native_left = group.startswith(("courier", "stalker"))
+            native_left = group.startswith(("courier", "stalker")) or group == "sentry"
             if group.startswith("courier"):
                 image = image.copy()
                 # Free mouse aim replaces the run frame's horizontal gun. Feet/body shading stay intact.
@@ -161,7 +161,7 @@ class RasterArt:
     def environment(self, game, camera):
         cx, cy = camera
         top_tile, face_tile = self.tech_top, self.tech_face
-        for index, (x, y, w, _h) in enumerate(game.platforms):
+        for index, (x, y, w, height) in enumerate(game.platforms):
             sx, sy = round(x - cx), round(y - cy)
             if sx > WORLD_W or sx + w < 0:
                 continue
@@ -170,17 +170,17 @@ class RasterArt:
             shadow.fill((2, 6, 15, 100))
             self.scene.blit(shadow, (max(-15, sx) + 7, sy + 9))
             left, right = max(-16, sx), min(WORLD_W + 16, sx + w)
-            self._tile_rect(top_tile, pg.Rect(left, sy, right - left, 16))
-            self._tile_rect(face_tile, pg.Rect(left, sy + 16, right - left, 16))
-            self._tile_rect(face_tile, pg.Rect(left, sy + 32, right - left, 9))
+            top = pg.transform.scale(top_tile, (16, 6))
+            self._tile_rect(top, pg.Rect(left, sy, right - left, 6))
+            self._tile_rect(face_tile, pg.Rect(left, sy + 6, right - left, min(32, height - 6)))
             pg.draw.line(self.scene, (104, 151, 165), (sx, sy), (sx + w, sy))
             if index == 0:
-                self._tile_rect(self.vent_tile, pg.Rect(0, sy + 42, WORLD_W, WORLD_H - sy - 42))
+                self._tile_rect(self.vent_tile, pg.Rect(0, sy + 38, WORLD_W, max(0, WORLD_H - sy - 38)))
             else:
                 for support_x in (sx + 18, sx + w - 24):
-                    pg.draw.polygon(self.scene, (14, 38, 50), [(support_x, sy + 38), (support_x + 8, sy + 38),
-                                                             (support_x + 22, sy + 54), (support_x + 16, sy + 54)])
-                    pg.draw.line(self.scene, (49, 83, 96), (support_x + 2, sy + 40), (support_x + 20, sy + 53))
+                    # Dark rear braces are decoration, visibly separate from the solid deck.
+                    pg.draw.line(self.scene, (26, 49, 60), (support_x, sy + height + 2),
+                                 (support_x + 14, sy + height + 13), 2)
         for i, (x, _y, w, _h) in enumerate(game.doors):
             sx, bottom = int(x - cx), int(FLOOR - cy)
             if not -60 < sx < WORLD_W + 60:

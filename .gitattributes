@@ -1,2 +1,6 @@
 *.spe binary
 *.lsp text eol=lf
+# Vendored artwork/licence files must retain the exact bytes in the provenance manifest.
+assets/neon/** -text
+# Keep upstream CRLF/spacing byte-for-byte; these are third-party licence documents.
+assets/neon/**/public-license.txt -diff

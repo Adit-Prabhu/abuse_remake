@@ -214,3 +214,29 @@ def test_neon_uses_shaded_animated_assets_with_transparent_silhouettes():
         assert np.any(alpha == 0) and np.any(alpha == 255)
         assert len(np.unique(colors, axis=0)) >= 5  # five-color palettes include dark/midtone/highlight clusters
     pygame.quit()
+
+
+def test_sentry_muzzle_faces_the_same_direction_as_its_shield():
+    import numpy as np
+
+    app = make_app()
+    art = app.renderer.art
+    source = art.animations["sentry"][0]
+    assert np.array_equal(pygame.surfarray.array3d(art.frame("sentry", 0, -1)),
+                          pygame.surfarray.array3d(source))
+    assert np.array_equal(pygame.surfarray.array_alpha(art.frame("sentry", 0, 1)),
+                          pygame.surfarray.array_alpha(pygame.transform.flip(source, True, False)))
+    pygame.quit()
+
+
+def test_floating_platform_material_matches_authoritative_collision_height(monkeypatch):
+    app = make_app()
+    game, art = app.game, app.renderer.art
+    painted = []
+    monkeypatch.setattr(art, "_tile_rect", lambda image, rect: painted.append(rect.copy()))
+    art.environment(game, (0, 235))
+    x, y, width, height = game.platforms[1]
+    rects = [r for r in painted if r.x == x and r.width == width]
+    assert rects and min(r.y for r in rects) == y - 235
+    assert max(r.bottom for r in rects) == y - 235 + height
+    pygame.quit()

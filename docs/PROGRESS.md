@@ -14,7 +14,7 @@ are now merged (confirmed against GitHub); the historical table below records th
 |---|---|---|---|
 | Simulation | `feat/neon-engine` (#9) | `main` | Pushed; independent review found five issues, all fixed with failing regression tests |
 | Playable presentation/tutorial | `feat/neon-playable` (#10) | `feat/neon-engine` | Pushed; independent review found two trace lifecycle issues, fixed with failed-before-fix regressions |
-| Art revision/validation/release | `feat/neon-validation` | `feat/neon-playable` | Shaded industrial revision tested: 242 tests, lint and checksums pass; fresh review and packaged-build checks underway |
+| Art revision/validation/release | `feat/neon-validation` (#11) | `feat/neon-playable` | Pushed; both final reviews resolved; 244 local tests pass; standalone Classic/Neon campaign/Horde/training smoke checks pass |
 
 Merge ownership remains with the student. These branches will be pushed as milestones finish;
 no live model calls are needed. Development uses `.claude/skills/port-classic-rule/SKILL.md`,
@@ -29,6 +29,22 @@ The new renderer reads assets through `paths.assets_root`; release bundles must 
 `assets/neon` as well as original data. World view is 640×360 with a 960×540 HUD; mouse
 mapping uses world size. The first two PRs describe the earlier milestone snapshots; the
 third PR replaces prototype wireframes with artist sprites and textured industrial scenery.
+
+Final validation: required-C suite 244 passed; Ruff src/tests/scripts passes; original-data
+checksums and all 101 artist-asset hashes match. `scripts/neon_evidence.py` generates actual
+screenshots and a developer-controller trace: Hard campaign seed 7 wins at 533 ticks, all
+three relays/11 enemies, four replay hash checks with zero mismatches. Five Hard seeds
+complete using normal controls in the tests. These are development checks, not human results.
+
+A macOS PyInstaller standalone executable was built under `/private/tmp/neon-bundle/dist/`
+with original data and Neon assets included. It was run from `/private/tmp` in Classic and
+all three Neon variants, writing screenshots successfully. Executable tests needed sandbox
+escalation because PyInstaller's process semaphore is denied inside the sandbox. No tag or
+release was pushed; the release workflow will exercise these modes on each supported OS.
+
+Independent reviews: `docs/reviews/PR-9.md`, `PR-10.md`, `PR-11.md`. Final review follow-ups
+report no unresolved findings. CI originally caught licence CRLF normalization against the
+manifest; `.gitattributes` now preserves those upstream bytes. Final CI rerun is pending push.
 
 ## Branches and PRs (stacked; the student merges in order, agents never merge)
 
