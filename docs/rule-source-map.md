@@ -14,6 +14,7 @@ The labels follow the course convention:
 | `assumed` | Not yet backed by evidence. Each one is listed under "Open questions". |
 | course choice | Not a rule of the game: a decision about the evaluation harness or episode, made for the course and labelled so it is never mistaken for fidelity. |
 | course rule | A requirement the course sets (for example, no automatic paid retries). |
+| remastered design | A new rule that exists only in Remastered mode. It is not a claim about the original. |
 
 For the Lisp's relation to the 1996 retail release, see `docs/data-lineage.md`.
 
@@ -158,9 +159,35 @@ made for the course and labelled as one. Details are in `docs/action-interface.m
 | Actions are strings from `legal_actions()`. Each runs a deterministic controller that emits the original controls for 1 to 15 ticks and stops early when the player is hurt or a new threat comes into view | `interface.AbuseEpisode._execute` | course choice. Controls are `code`: `input.lsp`, `view.c:586-617` |
 | Navigation skills plan only over tiles the player has seen (the automap) | `agent/nav.py` | course choice modelled on `abuse/src/automap.c` |
 | A refused action changes nothing, takes no ticks, counts as invalid and spends one decision; the reason goes back in `last_result` | `interface.AbuseEpisode.step`, `_refuse` | course choice. Checked by `test_invalid_actions_are_refused_counted_and_change_nothing` |
-| Every accepted action takes at least one tick | `interface.AbuseEpisode._execute` | course choice, so a player cannot stall the clock |
-| Progress (`1 - d_best / d_start` over the full map, doors ignored) is computed by the runner and never shown to players | `agent/progress.py` | course choice |
+| Every accepted action takes at least one tick, and none runs past the per-action cap or the tick limit | `interface.AbuseEpisode._execute` | course choice, so a player cannot stall the clock. Checked by `test_every_accepted_action_takes_at_least_one_tick`, `test_every_action_is_capped_at_max_action_ticks`, `test_tick_limit_ends_the_episode` |
+| `weapon <name>` presses the original keys: a number key for a weapon with ammo, Ctrl (one press per tick) to reach the laser | `interface.AbuseEpisode._execute` | course choice; the keys are `code`: `abuse/src/view.c:590-603` and `last_weapon`. Checked by `test_switching_to_the_laser_uses_the_original_keys_and_takes_effect_at_once` |
+| Progress (`1 - d_best / d_start`, sampled every tick) is computed by the runner and never shown to players. `d` is the A* cost over the full map. It is optimistic: doors, hidden walls and force fields are ignored, and teleporters always work. It is pessimistic in one way: lifts are not modelled | `agent/progress.py`, `runner.run_episode` | course choice. Checked by `test_progress_is_zero_at_the_start_one_at_the_exit_and_uses_teleporters` |
 | Token and wall-clock budgets are enforced by the runner from the usage the player reports; a model request is one attempt with a 20 s timeout | `agent/runner.py` `budget_stop`, `agent/providers/` | course rule (no automatic paid retries) |
+
+## Front end (presentation; nothing here changes a rule)
+
+| Behaviour | Our code | Evidence |
+|---|---|---|
+| Light levels start at the ambient level (clamped 0..63). Each light adds `(outer - r2) * mul_div >> 16` with octagonal distance and the light's shifts, capped at 63. A type-9 rectangle sets the level to its inner radius | `game/lighting.py` `light_levels` | `code`: `abuse/src/light.c:695-740` (`calc_light_value`), `:134` (`mul_div`), `:835-842` (`min_light_level`). Checked by `test_light_levels_follow_light_c`. We compute per pixel; the original uses 4x4 patches |
+| Classic darkens each 8-bit colour channel by `63 - level` | `game/render.py` `_apply_lighting` | `code`: `abuse/src/light.c:230-245` (`white_light`), palette in 8 bits (`imlib/port/dos4gw/video.c:483`). The original then snaps to the nearest palette colour; we do not. Checked by `test_classic_darkening_subtracts_from_each_channel` |
+| Sound volume: dropped below 15; silent beyond 500 px (octagonal distance from the player); full within 100 px; then `(400 - (d - 100)) * sfx_volume / 400 - (127 - vol)` | `game/audio.py` `original_volume` | `code`: `abuse/src/game.c:134-166` (`play_sound`), `view.c:264-278` (`x_center` is the focus). Checked by `test_sound_volume_follows_game_play_sound`. Classic has no stereo pan; Remastered adds pan |
+| Classic draws only the active objects | `game/render.py` `render` | `code`: `abuse/src/level.c:792-804` (`first_active`). Checked by `test_classic_draws_only_active_objects` |
+| The camera and positions are interpolated between ticks, at 60 fps | `game/render.py` `note_tick`, `camera` | course choice (presentation). The original had an equivalent development switch, off by default: `abuse/src/dev.c:26`, `game.c:1573-1576`. Checked by `test_the_camera_is_interpolated_between_ticks` |
+| On death, space restarts from the last console save, or from the level start if there was none. Restarting the level from the pause menu forgets the old run's save | `game/app.py` `_restore` | `code`: `abuse/src/cop.c:668-674`, `data/original/lisp/people.lsp:503-521`. Checked by `test_restarting_the_level_forgets_the_old_runs_console` and `test_restores_can_be_repeated_any_number_of_times`. One difference: the original keeps the world running while the player lies dead; we pause it |
+| Controls: left wins when both directions are held. Ctrl/Home select the previous weapon, Insert/PageUp the next, and the middle button the previous. Down is the action key; the left button fires; the right button is special | `game/app.py` `read_inputs`, `on_key`, `run` | `code`: `data/original/lisp/input.lsp:42-43, 82, 89-91`, `abuse/src/view.c:606-612`, `clisp.c:891-895`. Checked by `test_input_mapping_left_wins_and_the_aim_follows_the_drawn_camera` and `test_original_weapon_keys` |
+| After a stall, the app runs at most 4 owed ticks | `game/app.py` `MAX_CATCHUP` | course choice. The original ran one frame per loop with no catch-up. Checked by `test_a_long_stall_runs_only_a_few_ticks` |
+| Human sessions are recorded as replayable traces, checked by state hashes and scored with the evaluator's progress | `game/app.py` `_write`, `game/human_replay.py` | course choice. Checked by `test_human_trace_round_trip_with_a_save_restarts_and_a_level_restart` |
+
+## Remastered mode (new rules, not in the original)
+
+These rules exist only with `--mode remastered`. Classic mode, the fidelity tests and every
+evaluation run without them (`test_classic_games_and_agent_episodes_never_build_remastered_rules`,
+`test_remastered_without_a_dash_plays_exactly_like_classic`). Details are in `docs/remastered.md`.
+
+| Rule | Our code | Evidence |
+|---|---|---|
+| Dash: 4 ticks at +13 px per tick with feet and head collision (the top half moves with it), 7 ticks without damage, an 18-tick cooldown; a teleport or death cancels it | `engine/remastered.py`; the damage check is in `player.bottom_damage` behind `player_iframes`, which Classic never sets | remastered design, not the original. Checked by the dash tests in `tests/test_remastered.py`, including a run where the player is hurt in both modes with identical results |
+| Horde: the arena is the longest flat floor with headroom in Level 1 (x 1680-2400). Ants start in `run_jump` with aistate 6, the state a crack releases them in. Waves are 2 + 2n ants, one every 18 ticks, with a 45-tick start and 90-tick breaks; aitype 0 until wave 3, then a mix. Ants spawn 30 px above the floor at the arena's ends, at the front of the object list, moving at 12 px per tick. After wave n, 2 + n//2 drops: health, then ammo. The player starts with 100 laser rounds and 6 grenades | `engine/horde.py` | remastered design. Only the release state follows `code`: `ant.lsp:524-551` (`crack_ai`). A crack instead adds the ant after itself, moving at 20 px per tick, with the crack's aitype. Checked by `test_horde_waves_drops_and_the_end` |
 
 ## Open questions
 

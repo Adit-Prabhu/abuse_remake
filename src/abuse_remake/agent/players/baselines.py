@@ -18,6 +18,8 @@ the ``goto``, ``use`` and ``explore`` skills providing the search part.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import random
 import sys
 
@@ -27,15 +29,22 @@ THREAT_KINDS = {"alien", "turret", "boulder"}
 
 
 class RandomPlayer:
-    """Uniform choice among the legal actions: the floor every player should beat."""
+    """Uniform choice among the legal actions: the floor every player should beat.
 
-    def __init__(self, seed: int = 0):
-        self.rng = random.Random(seed)
+    Players never get the episode seed (it is the random table's position), so the random
+    player seeds itself from its first observation. Its choices then vary with what it sees."""
+
+    def __init__(self, seed: int | None = None):
+        self.fixed_seed = seed
+        self.rng: random.Random | None = None if seed is None else random.Random(seed)
 
     def start(self, info: dict) -> None:
-        self.rng = random.Random(info.get("seed", 0))
+        self.rng = None if self.fixed_seed is None else random.Random(self.fixed_seed)
 
     def decide(self, observation: dict, legal_actions: list[str]) -> dict:
+        if self.rng is None:
+            digest = hashlib.sha256(json.dumps(observation, sort_keys=True).encode()).digest()
+            self.rng = random.Random(int.from_bytes(digest[:8], "big"))
         return {"action": self.rng.choice(legal_actions) if legal_actions else "wait"}
 
     def end(self, outcome: dict) -> None:

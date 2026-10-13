@@ -2,10 +2,18 @@
 
 Draw order follows the original (abuse/src/game.c ``draw_map``): background tiles with
 parallax (``bg_scroll_rate``: offset * xmul / xdiv), then foreground tiles, then objects in
-object-list order (``add_front`` objects sit at the end, so they draw last). Each object's draw
-function decides how it looks (``dev_draw`` objects are invisible in play). Positions are
-interpolated between the last two 15 Hz ticks, the "interpolated frames" the original authors
-wished for.
+object-list order (``add_front`` objects sit at the end, so they draw last). The original's
+second foreground pass, for "above" tiles drawn over objects (game.c:977-1010), is not needed:
+Level 1 has none. Each object's draw function decides how it looks (``dev_draw`` objects are
+invisible in play). Classic draws only the active objects, as the original draws from
+``first_active`` (level.c:792-804); Remastered's wider view also shows the inactive ones near
+its edges, standing still.
+
+Interpolation: the camera and the positions of active objects are blended between the last two
+15 Hz ticks. The renderer keeps its own camera position per tick (``note_tick``), because the
+view's ``last_last`` position is overwritten by the second scroll update every tick. The
+original had a similar development switch, ``interpolate_draw``, off by default
+(dev.c:26, game.c:1573-1576).
 """
 
 from __future__ import annotations
@@ -16,10 +24,9 @@ import numpy as np
 import pygame
 
 from ..engine.behaviors.lispfns import activated
-from ..engine.cmath import cdiv
 from ..engine.view import VIEW_H, VIEW_W
 from ..formats.tiles import BACK_H, BACK_W, FORE_H, FORE_W
-from .lighting import light_map
+from .lighting import flash_map, light_levels
 from .sprites import SpriteCache
 
 INVISIBLE_DRAW = {"dev_draw", "sensor_draw", "fb_draw"}
@@ -39,21 +46,37 @@ class Renderer:
         self.flashes: list[list] = []  # dynamic lights: [x, y, radius, strength, ttl]
         self.lighting = True
         self.modern = True
+        self.cam_prev: tuple[float, float] | None = None
+        self.cam_cur: tuple[float, float] | None = None
+        self.last_cam: tuple[float, float] = (0.0, 0.0)
 
     @property
     def world(self):
         return self.game.world
 
-    def camera(self, alpha: float) -> tuple[float, float]:
+    def camera_target(self) -> tuple[float, float]:
+        """Where the view is after the latest tick (view.c xoff/yoff), centring a wider modern
+        view on the same point the classic view centres on."""
         v = self.game.view
-        prev_x = v.last_last_x - cdiv(v.cx2 - v.cx1 + 1, 2) + v.shift_right + v.pan_x
-        prev_y = v.last_last_y - cdiv(v.cy2 - v.cy1 + 1, 2) - v.shift_down + v.pan_y
-        cur_x, cur_y = v.xoff(), v.yoff()
-        # center a wider modern view on the same point the classic view centres on
-        extra_x = (self.w - VIEW_W) / 2
-        extra_y = (self.h - VIEW_H) / 2
-        return (max(0.0, _lerp(max(0, prev_x), cur_x, alpha) - extra_x),
-                max(0.0, _lerp(max(0, prev_y), cur_y, alpha) - extra_y))
+        return (max(0.0, v.xoff() - (self.w - VIEW_W) / 2), max(0.0, v.yoff() - (self.h - VIEW_H) / 2))
+
+    def note_tick(self) -> None:
+        """Call after every game tick."""
+        cur = self.camera_target()
+        prev = self.cam_cur if self.cam_cur is not None else cur
+        if abs(cur[0] - prev[0]) > 160 or abs(cur[1] - prev[1]) > 160:
+            prev = cur  # a teleport or restart: cut, do not sweep
+        self.cam_prev, self.cam_cur = prev, cur
+
+    def reset_camera(self) -> None:
+        """Call after the game is replaced (new game, restore)."""
+        self.cam_prev = self.cam_cur = self.camera_target()
+
+    def camera(self, alpha: float) -> tuple[float, float]:
+        if self.cam_cur is None:
+            self.reset_camera()
+        (px, py), (cx, cy) = self.cam_prev, self.cam_cur
+        return _lerp(px, cx, alpha), _lerp(py, cy, alpha)
 
     def note_events(self, events) -> None:
         for e in events:
@@ -66,11 +89,16 @@ class Renderer:
         surf = self.surface
         w = self.world
         xoff, yoff = self.camera(alpha)
+        self.last_cam = (xoff, yoff)
         surf.fill((0, 0, 0))
         self._draw_background(surf, xoff, yoff)
         self._draw_foreground(surf, xoff, yoff)
+        active = {id(o) for o in w.active}
         for o in w.objects:
-            self._draw_object(surf, o, xoff, yoff, alpha)
+            if id(o) in active:
+                self._draw_object(surf, o, xoff, yoff, alpha)
+            elif self.modern:
+                self._draw_object(surf, o, xoff, yoff, 1.0)  # inactive: it stands still
         if self.lighting:
             self._apply_lighting(surf, xoff, yoff)
         return surf
@@ -190,17 +218,22 @@ class Renderer:
     # --- light ---
     def _apply_lighting(self, surf, xoff, yoff):
         v = self.game.view
-        extra = [(f[0], f[1], f[2], f[3]) for f in self.flashes] if self.modern else ()
-        lm = light_map(self.world.lights, v.ambient, xoff, yoff, self.w, self.h, extra)
-        if lm.min() >= 0.999:
-            self._age_flashes()
-            return
-        rgb = pygame.surfarray.pixels3d(surf)
-        factor = lm.T[..., None]
+        lv = light_levels(self.world.lights, v.ambient, xoff, yoff, self.w, self.h)
         if self.modern:
-            factor = np.sqrt(factor)  # gentler falloff than the original's palette steps
-        rgb[...] = (rgb * factor).astype(np.uint8)
-        del rgb
+            extra = [(f[0], f[1], f[2], f[3]) for f in self.flashes]
+            factor = np.sqrt(lv.astype(np.float32) / 63.0)  # a gentler, modern curve
+            if extra:
+                np.maximum(factor, flash_map(extra, xoff, yoff, self.w, self.h), out=factor)
+            if factor.min() < 0.999:
+                rgb = pygame.surfarray.pixels3d(surf)
+                rgb[...] = (rgb * factor.T[..., None]).astype(np.uint8)
+                del rgb
+        elif lv.min() < 63:
+            # Classic: white_light takes 63 - level off each 8-bit channel (light.c:230-245)
+            rgb = pygame.surfarray.pixels3d(surf)
+            dark = (63 - lv).T[..., None]
+            rgb[...] = np.clip(rgb.astype(np.int16) - dark, 0, 255).astype(np.uint8)
+            del rgb
         self._age_flashes()
 
     def _age_flashes(self):

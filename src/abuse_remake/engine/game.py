@@ -51,7 +51,11 @@ class WeaponCommand:
 
 class Game:
     def __init__(self, seed: int = 0, difficulty: str = DEFAULT_DIFFICULTY, level: str = LEVEL,
-                 strict: bool = True, object_filter=None):
+                 strict: bool = True, object_filter=None, remastered: bool = False, horde: bool = False):
+        if horde:  # Remastered's Horde arena: the map without the level's objects
+            from .horde import keep_for_horde
+
+            remastered, object_filter = True, keep_for_horde
         lf = _level(level)
         if object_filter is not None:
             lf = _filtered(lf, object_filter)
@@ -69,6 +73,16 @@ class Game:
         self.player = player
         self.seed = seed
         self.frames = 0
+        self.remastered = None
+        if remastered:  # rule changes for --mode remastered only; Classic never builds this
+            from .remastered import Remastered
+
+            self.remastered = Remastered(self)
+        self.horde = None
+        if horde:
+            from .horde import Horde
+
+            self.horde = Horde(self)
 
     def step(self, inputs: Inputs | None = None, weapon: WeaponCommand | None = None) -> None:
         if weapon is not None:
@@ -79,7 +93,13 @@ class Game:
             elif weapon.cycle > 0:
                 self.view.next_weapon()
         self.view.set_input(inputs or Inputs(pointer_x=self.player.x + 100, pointer_y=self.player.y - 20))
+        if self.remastered is not None:
+            self.remastered.before_step()
         self.world.step()
+        if self.remastered is not None:
+            self.remastered.after_step()
+        if self.horde is not None:
+            self.horde.after_step()
         self.frames += 1
 
     # --- save and restore (the human game's restart; see SCOPE.md) ---
@@ -96,15 +116,30 @@ class Game:
                 memo[id(v)] = v
         return memo
 
+    def _hooks(self) -> dict:
+        return {k: v for k, v in self.world.globals.items() if callable(v)}
+
     def snapshot(self):
+        """A deep copy of the game state. Front-end hooks (callables in ``world.globals``, such
+        as the app's ``save_hook``) are left out of the copy, so restoring a snapshot any number
+        of times never copies the front end itself."""
         import copy
 
-        return copy.deepcopy((self.world, self.view, self.player, self.frames), self._shared())
+        hooks = self._hooks()
+        for k in hooks:
+            del self.world.globals[k]
+        try:
+            return copy.deepcopy((self.world, self.view, self.player, self.frames), self._shared())
+        finally:
+            self.world.globals.update(hooks)
 
     def restore(self, snap) -> None:
+        """Replace the state with a copy of ``snap``; the live game's hooks stay bound."""
         import copy
 
+        hooks = self._hooks()
         self.world, self.view, self.player, self.frames = copy.deepcopy(snap, self._shared())
+        self.world.globals.update(hooks)
 
     @property
     def player_dead(self) -> bool:

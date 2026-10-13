@@ -2,8 +2,9 @@
 
 A player uses ``observe``, ``legal_actions`` and ``step``. The runner uses ``reset`` and
 ``outcome`` and holds the episode. Players normally run in a separate process
-(``agent/protocol.py``) and receive only JSON, so they cannot reach the World object, the
-level files, the rule map, the random table or credentials.
+(``agent/protocol.py``) and receive only JSON: no engine object, no seed and no credentials
+pass to them. Process isolation is not a sandbox, though: a hostile program on the same machine
+could read the repository itself (``docs/information-boundary.md``).
 
 Actions (docs/action-interface.md) are strings taken from ``legal_actions()``:
 
@@ -14,16 +15,20 @@ Actions (docs/action-interface.md) are strings taken from ``legal_actions()``:
     goto <ID>                 walk to a visible object using the automap (<= 15 ticks)
     use <ID>                  walk to a switch, console, teleporter, lift or the exit and press down
     attack <ID>               aim at a visible target and fire (<= 12 ticks)
-    weapon <name>             switch weapon (1 tick)
+    weapon <name>             switch weapon: a number key, or for the laser Ctrl until it is
+                              selected (one press per tick)
 
 Each action runs a deterministic controller that turns it into the original's inputs (left,
-right, up, down, fire, aim) for up to 15 ticks. It stops early when the player is hurt or a
-new threat appears, so the agent can react. Every player gets exactly the same controllers.
+right, up, down, fire, aim, weapon keys) for up to 15 ticks. It stops early when the player is
+hurt, or (except during ``attack``) when a new threat appears, so the agent can react. Every
+player gets exactly the same controllers. Labels (``E3``) are given only at decision time, so
+nothing seen only in the middle of an action uses one up.
 
 Invalid actions: anything not in ``legal_actions()`` (unparsable, unknown, a target not on
 screen, a weapon without ammo, or a reply that is not a string) is refused. The game does not
 advance, the refusal is counted, one decision is spent, and the reason goes back in
-``last_result``. Nothing is repaired and nothing is substituted.
+``last_result``. Matching ignores case and repeated spaces; beyond that nothing is repaired and
+nothing is substituted.
 """
 
 from __future__ import annotations
@@ -84,6 +89,7 @@ class AbuseEpisode:
         self.scenario = SCENARIOS[scenario]
         self.difficulty = difficulty
         self.budgets = budgets or Budgets(max_ticks=self.scenario.max_ticks)
+        self.on_tick = None  # runner side only (the spectator draws each tick); players never see it
         self.reset(seed)
 
     # --- runner operations -------------------------------------------------------------
@@ -160,6 +166,7 @@ class AbuseEpisode:
                     "observation": self.observe(player_id)}
         legal = self.legal_actions(player_id)  # computed before this decision is counted
         self.decisions += 1
+        self._pending_events = []  # events are those since the last decision, refused or not
         if not isinstance(action, str):
             return self._refuse(f"<not text: {type(action).__name__}>", "action must be a string")
         action = " ".join(action.strip().lower().split())
@@ -168,7 +175,6 @@ class AbuseEpisode:
             reason = "not in legal_actions" if action else "empty action"
             return self._refuse(action, reason)
         canonical = legal_lc[action]
-        self._pending_events = []
         ticks = self._execute(canonical)
         self._last_result = {"accepted": True, "action": canonical, "error": None, "ticks": ticks}
         return {"accepted": True, "error": None, "ticks": ticks, "observation": self.observe(player_id)}
@@ -197,10 +203,20 @@ class AbuseEpisode:
         self._known.reveal(*view_rect(self._game))
 
     def _visible(self) -> dict:
+        """What is on screen now, for the controllers. Labels come from a scratch copy: only an
+        observation gives out new labels, so an object seen mid-action uses none up."""
         x0, y0, w, h = view_rect(self._game)
         from .observation import visible_objects
 
-        return {o["id"]: o for o in visible_objects(self._game, self._ids, x0, y0, w, h)}
+        return {o["id"]: o for o in visible_objects(self._game, copy.deepcopy(self._ids), x0, y0, w, h)}
+
+    def _note_events(self, events) -> None:
+        """Keep the events the player could see or hear: judged against the view at the tick they
+        happened, not at the next decision."""
+        from .observation import event_on_screen
+
+        rect = view_rect(self._game)
+        self._pending_events.extend(e for e in events if event_on_screen(e, *rect))
 
     def _tick(self, inputs: Inputs, weapon: WeaponCommand | None = None) -> None:
         g = self._game
@@ -208,8 +224,10 @@ class AbuseEpisode:
         g.step(inputs, weapon)
         self.ticks += 1
         self._reveal()
+        if self.on_tick is not None:
+            self.on_tick()
+        self._note_events(g.world.events)
         for e in g.world.events:
-            self._pending_events.append(e)
             k = e.kind
             if k == "enemy_killed":
                 self.counters["kills"] += 1
@@ -221,7 +239,7 @@ class AbuseEpisode:
                 self.counters["checkpoints"] += 1
             elif k == "teleported":
                 self.counters["teleports"] += 1
-            elif k == "sound" and e.data["name"] == "ZAP_SND":
+            elif k == "shot" and e.data.get("by_player"):  # the player's own shots, not the ants'
                 self.counters["shots_fired"] += 1
         self.counters["damage_taken"] += max(0, hp - g.player.hp)
 
@@ -238,10 +256,16 @@ class AbuseEpisode:
         visible_before = {k for k, o in self._visible().items() if o["kind"] in THREATS}
         if verb == "weapon":
             idx = WEAPON_NAMES.index(arg)
-            px, py = self._aim_forward()
-            self._tick(Inputs(pointer_x=px, pointer_y=py), WeaponCommand(select=idx) if idx else WeaponCommand(cycle=0))
-            if idx == 0:
-                self._game.view.pending_weapon = 0
+            v = self._game.view
+            # A number key selects a weapon with ammo (view.c:590-603). The laser can have no
+            # ammo, so it is reached the original way: Ctrl steps back one weapon per press and
+            # always stops at the laser (view.c last_weapon). One press per tick.
+            for _ in range(max(1, v.total_weapons)):
+                px, py = self._aim_forward()
+                self._tick(Inputs(pointer_x=px, pointer_y=py),
+                           WeaponCommand(select=idx) if idx else WeaponCommand(cycle=-1))
+                if idx or v.current_weapon == 0 or self._status()[0] != "playing":
+                    break
             return self.ticks - start_ticks
         controller = {"wait": self._c_wait, "move": self._c_move, "jump": self._c_jump,
                       "explore": self._c_explore, "goto": self._c_goto, "use": self._c_use,
@@ -389,4 +413,4 @@ def _check_player(player_id: str) -> None:
         raise ValueError(f"Abuse Level 1 has one player, {PLAYER_ID!r}.")
 
 
-__all__ = ["AbuseEpisode", "Budgets", "SCENARIOS", "PLAYER_ID", "copy"]
+__all__ = ["AbuseEpisode", "Budgets", "SCENARIOS", "PLAYER_ID"]
