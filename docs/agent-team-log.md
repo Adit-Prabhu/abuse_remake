@@ -1,0 +1,71 @@
+# Agent-team log (one page)
+
+> **Owner:** the student. The implementation agent drafted this page from the repo history and the
+> working sessions. **TODO (student):** check every line, correct anything you remember
+> differently, and add your own notes. It describes the work up to 2026-10-13.
+
+## Team
+
+| Role | Who | Permissions | Artifact |
+|---|---|---|---|
+| Executive Producer, Creative Director | the student | owns scope, priorities, acceptance, every merge, the release tag, credentials and spending | `docs/human-responsibility.md` |
+| Implementation agent | Claude Code (Claude Opus 5.5), in this repository | reads and writes the repo, runs tests, commits and pushes feature branches, opens PRs; never merges or tags; asks before touching credentials | `AGENTS.md`, `CLAUDE.md` |
+| Independent reviewer | a fresh read-only Claude agent (`Explore` type) per milestone, briefed with `.claude/agents/rules-reviewer.md` | read-only: git objects, the vendored data, the installed SDKs; no edits, no network or model calls | `docs/reviews/PR-<n>.md` |
+| Reusable skills | used by the implementation agent | its permissions | `.claude/skills/port-classic-rule/`, `.claude/skills/agent-eval/` |
+| Playing agents | random, scripted (rules plus A* search), the model player (Gemini on Vertex by default) | the JSON-lines protocol only, in a separate process | `src/abuse_remake/agent/players/` |
+
+## Human decisions (2026-10-13)
+
+- Chose the classic: Abuse (`historicalsource/abuse`). Asked for a modern-feeling version with
+  more features and the original gameplay pattern, using the freely available assets for
+  personal use.
+- Stopped the agent's first attempt, which started checking credentials and was working inside
+  the course repo. The agent was told to plan first and to work in a separate repo. The agent
+  now asks before touching credentials.
+- Approved the plan, with four choices:
+  - scope: **Level 1 only**;
+  - live provider: **Vertex AI / Gemini**, with all three adapters built;
+  - **a Classic core plus a Remastered mode**;
+  - a **private GitHub repo**.
+- Asked for frequent commits and pushes, in case of usage limits. The work went on across
+  several usage-limit pauses.
+
+## Handoffs
+
+Each milestone is one stacked PR. The agent wrote the change, an independent reviewer read
+it in a fresh context, and the agent fixed or recorded every finding. The student merges.
+
+| PR | Milestone | Review |
+|---|---|---|
+| #1 | Scaffold, public-domain data, format readers | 1 blocking finding (provenance claims not backed by evidence). It led to the data-lineage study (`docs/data-lineage.md`) and the first differential test against compiled original C. `PR-1.md` |
+| #2 | Engine core | No blocking findings. The fixes covered the view size (316x162), Lisp `*` semantics, test strength and citations. `PR-2.md` |
+| #3 | Every Level 1 object | No fidelity bugs. 11 findings on tests, labels and citations, all fixed. `PR-3.md` |
+| #4 | Playable game | Not yet reviewed |
+| #5 | Player interface, baselines, runner | Not yet reviewed |
+| #6 | Model player, providers, memory conditions, `abuse-eval` | 1 blocking finding (the Vertex SDK's automatic continuation could send several billed requests per decision) and 12 should-fix findings, all fixed. `PR-6.md` |
+| #7 | Remastered mode | Review in progress. The first run was cut off by a usage limit and was re-run |
+| #8 | Evidence, docs, release | This PR |
+
+## What went wrong, and what changed
+
+- **Provenance.** The agent first claimed a data lineage it had not verified. The PR #1
+  reviewer flagged it, and the agent did the research and rewrote the provenance from evidence.
+- **Port bugs that test thresholds hid.** Guessed thresholds hid real port bugs. The fix was to
+  pin exact values taken from the original: background tile size, the atan table length, fall
+  speed, `sin(270)`.
+- **Agent-interface bugs found in testing:**
+  - the last decision of every budget was refused;
+  - actions could take zero ticks;
+  - a bare non-JSON `wait` was accepted;
+  - late replies were taken as answers to the next decision;
+  - evaluator progress reached players in the end message;
+  - player processes inherited credentials;
+  - the baseline stopped fighting aliens after six shots.
+  All are fixed and tested.
+
+## AI use
+
+The agent wrote the code, tests and docs. The agent also ran the reviews, as separate
+read-only agents. The student directed the scope and the decisions. No model calls were made
+for play or evaluation up to this point: every result in `evidence/` comes from the
+deterministic baselines.
