@@ -209,8 +209,9 @@ class World:
                skip_constructor: bool = False) -> GameObject:
         """``create`` (objects.c:1136): a new object with defaults and its constructor."""
         ct = self.types[type_name]
-        o = GameObject(self, ct, x, y)
-        o.defaults()
+        o = GameObject(self, ct, 0, 0)
+        o.defaults()  # game_object::game_object runs defaults() before create() sets x and y
+        o.x, o.y, o.last_x, o.last_y = x, y, x, y
         if aitype:
             o.set_aitype(aitype)
         if ct.constructor is not None and not skip_constructor:
