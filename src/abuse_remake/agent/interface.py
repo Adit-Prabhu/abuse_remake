@@ -145,11 +145,11 @@ class AbuseEpisode:
         if self.decisions >= self.budgets.max_decisions:
             return {"accepted": False, "error": "decision budget exhausted", "ticks": 0,
                     "observation": self.observe(player_id)}
+        legal = self.legal_actions(player_id)  # computed before this decision is counted
         self.decisions += 1
         if not isinstance(action, str):
             return self._refuse(f"<not text: {type(action).__name__}>", "action must be a string")
         action = " ".join(action.strip().lower().split())
-        legal = self.legal_actions(player_id)
         legal_lc = {a.lower(): a for a in legal}
         if action not in legal_lc:
             reason = "not in legal_actions" if action else "empty action"
