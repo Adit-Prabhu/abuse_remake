@@ -156,7 +156,10 @@ class NeonGame:
             up -= 1
         while g.at(tx, down + 1) == RAIL:
             down += 1
-        return Elevator(x=tx * 16 - 16, y=ty * 16, top=up * 16, bottom=down * 16, home=ty * 16)
+        # L marks the cell just above the platform, so a platform resting at the bottom of a room
+        # is flush with its floor; the track's top rail is the cell above the top stop
+        return Elevator(x=tx * 16 - 16, y=(ty + 1) * 16, top=(up + 1) * 16, bottom=(down + 1) * 16,
+                        home=(ty + 1) * 16)
 
     def _uid(self) -> int:
         self.next_uid += 1
@@ -322,6 +325,9 @@ class NeonGame:
         if inp is None:
             sx, sy = p.shoulder()
             inp = NeonInput(px=sx + 120 * p.facing, py=sy)
+        else:  # normalise, so any truthy value gives the same hashed state as a bool
+            inp = NeonInput(int(inp.x), int(inp.y), bool(inp.jump), bool(inp.fire), bool(inp.dash),
+                            bool(inp.interact), int(inp.px), int(inp.py))
         if upgrade is not None and self.horde is not None:
             horde_mod.choose(self, upgrade)
         if self.transition:
@@ -344,8 +350,9 @@ class NeonGame:
                 fire(self, p)
             if acts["interact"]:
                 self._interact()
-            if self.upgrades.get("nano") and p.hp < p.max_hp and self.frames % 60 == 0:
-                p.hp += 1
+            nano = self.upgrades.get("nano", 0)
+            if nano and p.hp < p.max_hp and self.frames % (60 // nano) == 0:
+                p.hp += 1  # 1 integrity every 2 s, 1 s, 0.67 s with 1, 2, 3 stacks
         self._update_enemies()
         update_shots(self)
         if any(e.dead for e in self.enemies):
@@ -382,7 +389,8 @@ class NeonGame:
             if e.dead:
                 continue
             dx, dy = abs(e.cx - p.cx), abs(e.cy - p.cy)
-            if (dx < ACTIVE_X and dy < ACTIVE_Y) or (e.alerted and dx < ALERT_RANGE and dy < ALERT_RANGE):
+            if self.horde is not None or (dx < ACTIVE_X and dy < ACTIVE_Y) or \
+                    (e.alerted and dx < ALERT_RANGE and dy < ALERT_RANGE):
                 e.update(self)
                 if e.y > self.height + 64:
                     e.dead = True

@@ -5,8 +5,8 @@ Feel constants (30 ticks a second, velocities in sub-pixels):
 - jump -9.6 px/tick (72 px, four and a half tiles); releasing the key early cuts the rise
   (a short hop); 5 ticks of coyote time after leaving a ledge; a 6-tick jump buffer;
 - the double-jump boots add one air jump of about 60 px;
-- ladders: up/down to climb at 2.5 px/tick, jump to let go;
-- down + jump drops through a one-way ledge, ladder top or elevator;
+- ladders: up/down to climb at 2.5 px/tick (alternating 3 and 2), jump to let go;
+- down + jump drops through a one-way ledge, ladder top or elevator (before any ladder grab);
 - down on the ground crouches (26 px tall instead of 42) and you can crawl through vents;
 - the dash: 8 ticks at 9 px/tick, invulnerable, 30-tick cooldown.
 """
@@ -27,7 +27,6 @@ AIR_ACCEL, AIR_FRICTION = px(0.4), px(0.12)
 JUMP = -px(9.6)
 JUMP_CUT = -px(3.0)
 AIR_JUMP = -px(8.2)
-CLIMB = px(2.5)
 COYOTE, JUMP_BUFFER = 5, 6
 DASH_TICKS, DASH_SPEED, DASH_IFRAMES, DASH_COOLDOWN = 8, px(9), 10, 30
 HURT_IFRAMES, HURT_STUN = 24, 6
@@ -137,9 +136,22 @@ class Player(Body):
             self._start_dash(game, inp)
             acts["dash"] = True
         if self.dash_t:
+            self.riding = -1
             self._dash_tick(game)
             return acts
+        if self.jump_buffer and inp.y > 0 and self.grounded and not self.climbing and not self.stun \
+                and self._on_passable_floor(game):
+            # S + jump on a ledge, ladder top or elevator: drop through (before grabbing the ladder)
+            self.jump_buffer = 0
+            self.drop = 6
+            self.y += 1
+            self.grounded = False
+            acts["drop"] = True
+            game.emit("drop", self.cx, self.bottom)
+            integrate(game, self, GRAVITY)
+            return acts
         if self.climbing or (inp.y != 0 and not self.stun and self._try_grab(game, inp)):
+            self.riding = -1
             self._climb(game, inp, acts)
             return acts
         self._crouch(game, inp)
@@ -212,7 +224,7 @@ class Player(Body):
         if inp.x and not inp.y:
             self.climbing = False
             return
-        dy = inp.y * CLIMB // 256
+        dy = inp.y * (3 if game.frames % 2 else 2)  # 2.5 px/tick on average, the same both ways
         if dy:
             self.drop = 2 if dy > 0 else self.drop
             blocked = step_y(game, self, dy, oneway=dy > 0 and not self.on_ladder(game))

@@ -294,11 +294,12 @@ class Autopilot:
                 if land is not None and abs(land - p.cx) < 48:
                     inp.x = 1 if p.cx >= land else -1  # step out of the splash
         shock = any(s.kind == "shock" and abs(s.x - p.cx) < 70 and (s.vx > 0) == (p.cx > s.x) for s in g.shots)
-        low_beam = w.laser in ("charge", "sweep") and not w.laser_high and (w.laser == "sweep" or w.laser_t < 6)
-        high_beam = w.laser in ("charge", "sweep") and w.laser_high
-        if high_beam:
-            inp.x, inp.y = 0, 1
-        elif (shock or low_beam or w.stomp_wind) and p.grounded and not p.jump_held:
+        beam_near = w.laser == "sweep" and abs(w.sweep_x - p.cx) < 150
+        if beam_near and w.laser_high:
+            inp.x, inp.y = 0, 1  # crouch under the high beam
+        elif beam_near:
+            inp.jump = True  # a full jump over the low beam as it passes
+        elif (shock or w.stomp_wind) and p.grounded and not p.jump_held:
             inp.jump = True
         elif not p.grounded and p.vy < 0:
             inp.jump = True  # hold for height
