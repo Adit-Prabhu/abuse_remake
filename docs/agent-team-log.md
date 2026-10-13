@@ -65,6 +65,15 @@ it in a fresh context, and the agent fixed or recorded every finding. The studen
 
 ## AI use
 
+### Neon Protocol expansion (2026-10-13)
+
+The student requested a radically different futuristic campaign and Horde and approved the
+Neon Protocol plan, including tutorial and visible controls. They asked to preserve staged,
+pushed feature branches and sequential PR merges. Codex implemented the expansion using the
+existing test-first and independent-review workflow. New mechanics are labelled neon design;
+Classic evaluation is unchanged. Merge/acceptance remains student-owned. Validation results
+and fresh review records are recorded with each milestone; no live playing-model calls occur.
+
 The agent wrote the code, tests and docs. The agent also ran the reviews, as separate
 read-only agents. The student directed the scope and the decisions. No model calls were made
 for play or evaluation up to this point: every result in `evidence/` comes from the

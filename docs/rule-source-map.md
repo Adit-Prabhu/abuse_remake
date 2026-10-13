@@ -191,5 +191,23 @@ evaluation run without them (`test_classic_games_and_agent_episodes_never_build_
 
 ## Open questions
 
+## Neon Protocol (new optional design)
+
+These are **neon design** rules approved by the student, not claims about the original C or
+Lisp. The constants, timings, evidence labels and tests are listed in `docs/neon-protocol.md`.
+`--mode neon` selects a separate simulation. Classic/Remastered and every evaluation continue
+to use `engine/game.py`; the agent interface is unchanged.
+
+| Rule | Our code | Evidence |
+|---|---|---|
+| New campaign sectors, relays, barriers, checkpoint refills and extraction | `engine/neon.py`: `NeonGame.__init__`, `_interact`, `relay_secure` | neon design: `docs/neon-protocol.md`, Campaign row; tests require proximity, action edge, security clearance and all relays before extraction |
+| Movement, collision, jump, dash, damage protection and difficulty | `engine/neon.py`: `_move`, `step`, `request_dash`, `hurt_player` | neon design: Movement/Dash/Damage rows; tests check floor landing, barrier collision and cooldown refusal |
+| Pulse, piercing rail, vortex field, sentry shielding and charges | `engine/neon.py`: `_fire`, `_projectiles`, `_fields`, `_hurt_enemy` | neon design: weapon and enemy rows; tests check two-target piercing, wall blocking, area damage, shield direction, invalid weapon selection and exhausted ammo |
+| Four new enemies, temporary power-ups, supply drops and periodic hazards | `engine/neon.py`: `_enemies`, `_pickups`, `hazard_active` | neon design: Enemies/Power-ups/Hazards rows; tests check expiry and shield absorption |
+| Separate escalating Horde arena and seven performed-action tutorial lessons | `engine/neon.py`: `_horde`, `step`, `_interact` | neon design: Horde/Tutorial rows; tests advance waves and finish training through real controls |
+| Seeded 15 Hz simulation, independent state, snapshots and terminal freeze | `engine/neon.py`: `snapshot`, `restore`, `state_hash`, `step` | neon design: deterministic/save tests for all three variants; agent episode test confirms Classic uses its original Game |
+
+## Open questions (Classic)
+
 - `assumed`: the fixed 15 Hz tick. See the timing table.
 - `assumed`: the left-to-right argument order for `jrand()` in `sgun_ai` explosions (visual only).

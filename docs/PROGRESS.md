@@ -4,6 +4,22 @@ This page lets a fresh session (human or agent) pick up the build. Update it wit
 The approved plan is summarised in the "Branches and PRs" table below; `SCOPE.md` is the scope
 record.
 
+## Neon Protocol expansion (2026-10-13)
+
+The student approved the plan in `docs/neon-protocol.md`: separate futuristic campaign AND
+Horde, new combat/art, visible controls, tutorial, and transparency fixes. Earlier PRs #1–#8
+are now merged (confirmed against GitHub); the historical table below records their old handoff.
+
+| Stage | Branch | Base | State |
+|---|---|---|---|
+| Simulation | `feat/neon-engine` | `main` | Engine contracts passing; independent review next |
+| Playable presentation/tutorial | `feat/neon-playable` | `feat/neon-engine` | Planned |
+| Final validation/release support | `feat/neon-validation` | `feat/neon-playable` | Planned |
+
+Merge ownership remains with the student. These branches will be pushed as milestones finish;
+no live model calls are needed. Development uses `.claude/skills/port-classic-rule/SKILL.md`,
+with honest `neon design` evidence labels for new optional rules.
+
 ## Branches and PRs (stacked; the student merges in order, agents never merge)
 
 | Milestone | Branch | PR | State |

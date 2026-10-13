@@ -77,3 +77,10 @@ screen, the ghost race and the Horde arena (`docs/remastered.md`). The AI specta
   2026-10-13 to match the build.)
 - Features that change rules exist only behind `--mode remastered`.
 - Fidelity tests and agent evaluations always run in Classic mode.
+
+## Optional expansion: Neon Protocol (approved 2026-10-13)
+
+The student approved a distinct futuristic **campaign and Horde**, plus a playable tutorial,
+new enemies, weapons, power-ups and presentation. It is selected with `--mode neon` and runs
+in a separate optional simulation; it does not expand the Classic Level 1 fidelity claim or
+the evaluation scenarios. The design and staged PR plan are in `docs/neon-protocol.md`.
