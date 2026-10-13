@@ -239,3 +239,62 @@ def test_replay_renders_a_video(home, tmp_path):
     out = tmp_path / "v.mp4"
     assert main(["--trace", str(_short_trace(tmp_path, 3)), "--headless", "--scale", "1", "--video", str(out)]) == 0
     assert out.stat().st_size > 1000
+
+
+# --- Horde -----------------------------------------------------------------------------------------
+def test_horde_waves_drops_and_the_end():
+    from abuse_remake.engine.horde import ARENA_X1, ARENA_X2, FIRST_BREAK, SPAWN_EVERY, wave_size
+
+    g = Game(seed=3, horde=True)
+    assert g.remastered is not None and g.horde is not None
+    assert {o.ctype.name for o in g.world.objects} <= {"START", "DARNEL"}  # the level's objects are gone
+    assert ARENA_X1 < g.player.x < ARENA_X2 and g.view.weapons[0] > 0  # starts in the arena, with ammo
+    kinds = []
+    for _ in range(FIRST_BREAK + wave_size(1) * SPAWN_EVERY + 2):
+        g.step(Inputs(pointer_x=g.player.x + 100, pointer_y=g.player.y - 20))
+        kinds += [e.kind for e in g.world.events if e.kind.startswith("horde")]
+    st = g.horde.state
+    assert kinds == ["horde_wave"] and st["wave"] == 1 and len(st["alive"]) == wave_size(1)
+    for o in g.world.objects:  # clear the wave
+        if o.uid in st["alive"]:
+            o.hp = 0
+    g.step(Inputs(pointer_x=g.player.x + 100, pointer_y=g.player.y - 20))
+    g.step(Inputs(pointer_x=g.player.x + 100, pointer_y=g.player.y - 20))
+    assert st["cleared"] == 1 and st["break"] and st["kills"] == wave_size(1)
+    drops = [o.ctype.name for o in g.world.objects if o.ctype.name in ("HEALTH", "MBULLET_ICON20", "GRENADE_ICON10",
+                                                                       "ROCKET_ICON5", "FBOMB_ICON5")]
+    assert "HEALTH" in drops and len(drops) == 2  # health plus one ammo drop after wave 1
+    g.player.hp = 0
+    g.player.aistate = 3
+    g.step(Inputs(pointer_x=g.player.x + 100, pointer_y=g.player.y - 20))
+    assert st["over"]
+
+
+def test_horde_is_deterministic_and_never_in_classic():
+    def run(seed):
+        g = Game(seed=seed, horde=True)
+        for i in range(260):
+            p = g.player
+            g.step(Inputs(x=1 if i % 50 < 25 else -1, b2=1, pointer_x=p.x + 100 * p.direction, pointer_y=p.y - 20))
+        return g.state_hash()
+
+    assert run(5) == run(5)
+    assert Game(seed=5).horde is None and AbuseEpisode("level01", seed=5)._game.horde is None
+
+
+def test_horde_app_shows_results_and_keeps_the_best(home):
+    import pygame
+
+    from abuse_remake.game.app import App, parse_args
+
+    app = App(parse_args(["--horde", "--frames", "1", "--no-audio", "--seed", "2", "--scale", "1"]))
+    assert app.horde and app.modern and app.ghost_rec is None
+    app.state = "play"
+    app.game.horde.state.update(cleared=3, kills=17)
+    app.game.player.hp = 0
+    app.game.player.aistate = 3
+    app.tick(0)
+    assert app.state == "horde_over" and app.finish["new_best"]
+    app.draw()
+    app.on_key(pygame.K_RETURN)
+    assert app.state == "title"

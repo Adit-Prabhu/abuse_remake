@@ -42,6 +42,7 @@ def parse_args(argv=None):
     p.add_argument("--no-audio", action="store_true")
     p.add_argument("--record", type=Path, help="write this session's inputs as a replayable trace")
     p.add_argument("--playtest", action="store_true", help="record into playtests/raw/ with a session id")
+    p.add_argument("--horde", action="store_true", help="Remastered's Horde arena: survive waves of ants")
     p.add_argument("--skip-title", action="store_true")
     p.add_argument("--frames", type=int, default=0, help="run N display frames with scripted input, then exit")
     p.add_argument("--screenshot", type=Path, help="save the last frame (with --frames)")
@@ -58,6 +59,8 @@ class App:
             os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
             os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
         pygame.init()
+        if getattr(args, "horde", False):
+            args.mode = "remastered"  # Horde is a Remastered rule set
         self.modern = args.mode == "remastered"
         self.view_w, self.view_h = (480, 270) if self.modern else (VIEW_W, VIEW_H)
         info = pygame.display.Info()
@@ -90,7 +93,8 @@ class App:
     def new_game(self):
         from .remaster import GhostRecorder, load_ghost
 
-        self.game = Game(seed=self.seed, difficulty=self.args.difficulty, remastered=self.modern)
+        self.horde = bool(getattr(self.args, "horde", False)) and self.modern
+        self.game = Game(seed=self.seed, difficulty=self.args.difficulty, remastered=self.modern, horde=self.horde)
         self.renderer = self.Renderer(self.game, self.sprites, self.view_w, self.view_h)
         self.renderer.modern = self.modern
         self.game.world.globals["save_hook"] = self._on_console_save
@@ -102,8 +106,8 @@ class App:
         self.pending_weapon: WeaponCommand | None = None
         self.pending_dash = False
         self.finish: dict | None = None
-        self.ghost_rec = GhostRecorder() if self.modern else None
-        self.ghost = load_ghost(self.args.difficulty) if self.modern else None
+        self.ghost_rec = GhostRecorder() if self.modern and not self.horde else None
+        self.ghost = load_ghost(self.args.difficulty) if self.modern and not self.horde else None
         self.show_ghost = True
         self._open_trace()
 
@@ -211,6 +215,12 @@ class App:
                 self.args.mode = "classic" if self.modern else "remastered"
                 self.__init__(self.args)
                 self.state = "title"
+            elif key == pg.K_h:
+                self.args.horde = not getattr(self.args, "horde", False)
+                if self.args.horde:
+                    self.args.mode = "remastered"
+                self.__init__(self.args)
+                self.state = "title"
             elif key == pg.K_d:
                 i = DIFFICULTIES.index(self.args.difficulty)
                 self.args.difficulty = DIFFICULTIES[(i + 1) % len(DIFFICULTIES)]
@@ -250,7 +260,7 @@ class App:
                 self.game.restore(self.checkpoint)  # the original reloads the last save
                 self._rebind()
                 self.state = "play"
-        elif self.state == "complete":
+        elif self.state in ("complete", "horde_over"):
             if key in (pg.K_RETURN, pg.K_SPACE, pg.K_ESCAPE):
                 self.seed = (self.seed + 1) % 1024
                 self.new_game()
@@ -298,6 +308,10 @@ class App:
                 self.stats["kills"] += 1
             elif e.kind == "damage" and e.data.get("by_player") and e.data["target"] != self.game.player.uid:
                 self.stats["hits"] += 1
+            elif e.kind == "horde_wave":
+                self.hud.say(f"Wave {e.data['wave']}: {e.data['size']} incoming")
+            elif e.kind == "horde_cleared":
+                self.hud.say(f"Wave {e.data['wave']} cleared - supplies dropped")
             elif e.kind == "wall_destroyed":
                 self.stats["secrets"] += 1
             elif e.kind == "sound" and e.data["name"] == "ZAP_SND":
@@ -313,7 +327,13 @@ class App:
             if weapon is not None:
                 rec["weapon"] = {"select": weapon.select, "cycle": weapon.cycle}
             self.trace.write(json.dumps(rec) + "\n")
-        if self.game.player.aistate >= 3:
+        if self.horde and self.game.horde.state["over"]:
+            from .remaster import record_horde
+
+            st = self.game.horde.state
+            self.finish = record_horde(self.args.difficulty, st["cleared"], st["kills"])
+            self.state = "horde_over"
+        elif self.game.player.aistate >= 3:
             self.stats["deaths"] += 1
             self.state = "dead"
         if w.globals.get("level_complete"):
@@ -341,8 +361,13 @@ class App:
                 self.ghost_painter.draw(surf, self.game, row, xoff, yoff)
             self.particles.draw(surf, xoff, yoff)
         pg.transform.scale(surf, self.screen.get_size(), self.screen)
-        if self.state in ("play", "paused", "dead", "complete"):
+        if self.state in ("play", "paused", "dead", "complete", "horde_over"):
             self.hud.draw(self.screen, self.game, self.stats)
+        if self.horde and self.state == "play":
+            st = self.game.horde.state
+            text = f"WAVE {st['wave']}   kills {st['kills']}" + ("   (next wave soon)" if st["break"] else "")
+            img = self.hud.font.render(text, True, (255, 220, 120))
+            self.screen.blit(img, (self.screen.get_width() - img.get_width() - 14, 10))
         if self.state == "play":
             mx, my = pg.mouse.get_pos()
             pg.draw.circle(self.screen, (255, 80, 80), (mx, my), 9, 1)
@@ -350,7 +375,8 @@ class App:
             pg.draw.line(self.screen, (255, 80, 80), (mx + 5, my), (mx + 13, my))
         if self.state == "title":
             self.hud.center(self.screen, ["ABUSE", "Level 1 — reconstructed",
-                                          f"Mode: {self.args.mode} (M)    Difficulty: {self.args.difficulty} (D)",
+                                          f"Mode: {self.args.mode} (M)    Difficulty: {self.args.difficulty} (D)"
+                                          + ("    HORDE (H)" if self.horde else "    Horde: off (H)"),
                                           "Enter to start    Esc to quit"],
                             "Original game © 1996 Crack dot Com (public-domain code and shareware data)")
         elif self.state == "paused":
@@ -359,6 +385,16 @@ class App:
             self.hud.center(self.screen, ["YOU DIED", "Space to restart from the last save"])
         elif self.state == "complete":
             self.hud.center(self.screen, self.stats_lines())
+        elif self.state == "horde_over":
+            st = self.game.horde.state
+            f = self.finish or {}
+            best = f.get("best")
+            lines = ["HORDE OVER", f"waves cleared {st['cleared']}   kills {st['kills']}"]
+            if f.get("new_best"):
+                lines.append("NEW BEST" + (f" (was {best['cleared']} waves, {best['kills']} kills)" if best else ""))
+            elif best:
+                lines.append(f"best: {best['cleared']} waves, {best['kills']} kills")
+            self.hud.center(self.screen, lines + ["Enter to continue"])
         pg.display.flip()
 
 

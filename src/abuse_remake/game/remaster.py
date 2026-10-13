@@ -130,3 +130,15 @@ class GhostPainter:
             tx = x + (4 if d < 0 else 0)  # top_draw's offset (see render.py)
             ty = y + 29 - fig.height
             self._blit(surf, tfig, tx, ty, td, xoff, yoff)
+
+
+def record_horde(difficulty: str, cleared: int, kills: int) -> dict:
+    """Store a Horde result. Returns {"best": previous best or None, "new_best": bool}."""
+    recs = load_records()
+    key = f"horde-{difficulty}"
+    prev = recs.get(key)
+    new_best = prev is None or (cleared, kills) > (prev.get("cleared", 0), prev.get("kills", 0))
+    if new_best:
+        recs[key] = {"cleared": cleared, "kills": kills}
+        _write(data_dir() / "records.json", recs)
+    return {"best": prev, "new_best": new_best}
