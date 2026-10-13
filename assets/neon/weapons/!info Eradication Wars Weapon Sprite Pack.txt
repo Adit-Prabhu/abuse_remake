@@ -1,0 +1,30 @@
+Hello and welcome!
+
+This pack contains over 50 handmade pixel art sprites of various cool futuristic weapons.
+
+Format: Opaque pixel art PNG with transparent background.
+
+Can be used in any 2D sidescrolling video game project as a held weapon sprite or as a menu/HUD icon for the held weapon in any 2D or 3D game.
+
+--
+
+UPDATE v1.1
+
+Expanded the tiny/micro weapons section with these additions:
+- micro weapons are now offered as individual images.
+- micro projectiles are now offered as individual images.
+- micro muzzles are now offered as individual images.
+- added sheets for all tiny sprites with transparent backgrounds.
+- renamed tiny weapon sheets to better describe them.
+
+--
+
+License:
+
+CC-BY 4.0
+Reactorcore
+http://www.reactorcoregames.com
+
+This work © 2024 by Reactorcore is licensed under CC BY 4.0. To view a copy of this license, visit http://creativecommons.org/licenses/by/4.0/
+
+(It means you can use them anywhere, even commercially. You only need to mention me (Reactorcore) and my website in the credits.)

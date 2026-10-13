@@ -44,6 +44,7 @@ jobs:
             --name abuse-remake --onefile --noconfirm --clean --log-level WARN \
             --collect-submodules abuse_remake --add-data "data/original${sep}data/original" \
             --add-data "assets/neon${sep}assets/neon" \
+            --add-data "src/abuse_remake/engine/neon/maps${sep}abuse_remake/engine/neon/maps" \
             --exclude-module google --exclude-module anthropic --exclude-module openai
       - name: Smoke test the bundle
         run: |
@@ -68,6 +69,14 @@ jobs:
           cp assets/neon/city/public-license.txt "pkg/$name/neon-licenses/Warped-City.txt"
           cp assets/neon/city2/public-license.txt "pkg/$name/neon-licenses/Warped-City-2.txt"
           cp assets/neon/lab/public-license.txt "pkg/$name/neon-licenses/Warped-Sci-Fi-Lab.txt"
+          cp assets/neon/sideview/public-license.txt "pkg/$name/neon-licenses/Sideview-Sci-Fi.txt"
+          cp "assets/neon/weapons/!info Eradication Wars Weapon Sprite Pack.txt" \
+            "pkg/$name/neon-licenses/Eradication-Wars-CC-BY-4.0.txt"
+          cp assets/neon/sfx_scifi/License.txt "pkg/$name/neon-licenses/Kenney-Sci-Fi-Sounds.txt"
+          cp assets/neon/sfx_ui/License.txt "pkg/$name/neon-licenses/Kenney-Interface-Sounds.txt"
+          cp assets/neon/sfx_foley/license.txt "pkg/$name/neon-licenses/Kenney-RPG-Sounds.txt"
+          cp assets/neon/fonts/Orbitron-OFL.txt "pkg/$name/neon-licenses/Orbitron-OFL.txt"
+          cp assets/neon/fonts/ShareTechMono-OFL.txt "pkg/$name/neon-licenses/ShareTechMono-OFL.txt"
           cd pkg
           if [ "$RUNNER_OS" = "Windows" ]; then 7z a "$name.zip" "$name" > /dev/null; else tar czf "$name.tar.gz" "$name"; fi
       - uses: actions/upload-artifact@v4
