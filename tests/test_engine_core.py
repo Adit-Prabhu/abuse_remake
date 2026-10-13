@@ -266,7 +266,8 @@ def test_player_damage_draws_random_numbers_in_the_original_order():
     start = rng.rand_on
     g.player.do_damage(20, None, g.player.x, g.player.y, 0, 0)
     assert (rng.rand_on - start) & 0xFFFF == 3
-    pain = [e.data["name"] for e in g.world.events if e.kind == "sound" and e.data["name"].startswith("PLAYER_PAIN")]
+    pain = [e.data["name"] for e in g.world.events
+            if e.kind == "sound" and e.data["name"].startswith("PLAYER_PAIN")]
     from abuse_remake.engine.cmath import RAND_TABLE
     assert pain == [f"PLAYER_PAIN{RAND_TABLE[(start + 2) & 1023] % 4}"]
 
