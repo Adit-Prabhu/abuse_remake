@@ -195,19 +195,22 @@ evaluation run without them (`test_classic_games_and_agent_episodes_never_build_
 
 These are **neon design** rules approved by the student, not claims about the original C or
 Lisp. The constants, timings, evidence labels and tests are listed in `docs/neon-protocol.md`.
-`--mode neon` selects a separate simulation. Classic/Remastered and every evaluation continue
-to use `engine/game.py`; the agent interface is unchanged.
+`--mode neon` selects a separate simulation, `engine/neon/`. Classic, Remastered and every
+evaluation still use `engine/game.py`; the agent interface is unchanged. Version 2
+(2026-10-13) replaced version 1 completely at the student's request.
 
 | Rule | Our code | Evidence |
 |---|---|---|
-| New campaign sectors, relays, barriers, checkpoint refills and extraction | `engine/neon.py`: `NeonGame.__init__`, `_interact`, `relay_secure` | neon design: `docs/neon-protocol.md`, Campaign row; tests require proximity, action edge, security clearance and all relays before extraction |
-| Movement, collision, jump, dash, damage protection and difficulty | `engine/neon.py`: `_move`, `step`, `request_dash`, `hurt_player` | neon design: Movement/Dash/Damage rows; tests check floor landing, barrier collision and cooldown refusal |
-| Pulse, piercing rail, vortex field, sentry shielding and charges | `engine/neon.py`: `_fire`, `_projectiles`, `_fields`, `_hurt_enemy` | neon design: weapon and enemy rows; tests check two-target piercing, wall blocking, area damage, shield direction, invalid weapon selection and exhausted ammo |
-| Four new enemies, temporary power-ups, supply drops and periodic hazards | `engine/neon.py`: `_enemies`, `_pickups`, `hazard_active` | neon design: Enemies/Power-ups/Hazards rows; tests check expiry and shield absorption. Tutorial pickups do not expire (failed-before-fix training-supplies regression) |
-| Separate escalating Horde arena and seven performed-action tutorial lessons | `engine/neon.py`: `_horde`, `step`, `_interact` | neon design: Horde/Tutorial rows; tests advance waves and finish training through real controls |
-| Seeded 15 Hz simulation, independent state, snapshots and terminal freeze | `engine/neon.py`: `snapshot`, `restore`, `state_hash`, `step` | neon design: deterministic/save tests for all three variants; agent episode test confirms Classic uses its original Game |
-| Shaded pixel-art presentation, visible help and menu routes | `game/neon_art.py`, `game/neon_render.py`, `game/neon_app.py`, `game/controls.py`, `game/app.py` | neon presentation: Ansimuz assets, sources/licences/checksums in `assets/neon/PROVENANCE.md`; tests check read-only rendering, closer-camera aim, transparency and help pause. No rule changes |
-| Human Neon and mixed-mode session recordings, checkpoint restore and hash checking | `game/neon_app.py`, `game/human_replay.py`, `game/app.py` | course choice: `neon-trace-1` reports Neon counters without Classic route scoring; integration tests check trace round trips, title configuration and app handoffs |
+| Tile maps: 16-px ASCII sectors with ledges, ladders, doors, switches, keys, elevators, pads, cracked walls and energy floors | `engine/neon/tilemap.py`, `engine/neon/maps/*.txt` | neon design: `docs/neon-protocol.md` Maps row; tests parse every map, require vertical structure and prove reachability with `engine/neon/nav.py` |
+| Movement: acceleration, variable jump, coyote time, jump buffer, ladders, drop-through, crouch-crawl, dash, boots, knock-back; pixel-stepped collision | `engine/neon/player.py`, `engine/neon/physics.py` | neon design: Movement row; tests on small inline maps (heights, timing windows, no tunnelling, elevators) |
+| Five weapons: pulse, scatter fan, piercing hitscan rail, bouncing mortar that breaks cracked walls, homing seekers; firing noise | `engine/neon/weapons.py` | neon design: Weapons row; tests check piercing and wall stops, the fan, bounces and wall breaks, homing, ammo refusal |
+| Enemy AI with sight, hearing and screams: crawler (ceiling ambush, wall climb, spit, pounce, dodge, retreat), stinger, sentry, strider (shield, stomp, lobs), watcher drone (alarm), vent nest | `engine/neon/enemies.py` | neon design: Enemies row; tests check line-of-sight drops, scream radius, flinch, climbing, sentry armour, shield direction, alarm and nests |
+| Core Warden boss: three phases, telegraphed stomp, crawler vents, sweeping laser and exposed core | `engine/neon/enemies.py` `Warden` | neon design: Boss row; tests check phase thresholds, invulnerable roar, double damage when vented and the stomp telegraph |
+| Consoles, switches and timed doors, keycard gates, elevators, teleport pads, pickups and power-ups, energy floors | `engine/neon/objects.py`, `engine/neon/game.py` | neon design: World and Power-ups rows; tests check saves and exact restores, gates, pads and the elevator ride |
+| Campaign of four sectors carrying the arsenal over; Horde with scaling waves, capped upgrades and a stuck-hostile failsafe; ten performed-action training lessons | `engine/neon/game.py`, `engine/neon/horde.py`, `engine/neon/training.py` | neon design: Campaign, Horde and Training rows; tests advance waves, apply upgrades, finish lessons, and the development autopilot completes the campaign with the real physics |
+| Seeded 30 Hz integer simulation, snapshots and canonical state hash | `engine/neon/game.py` | neon design: determinism and save tests; the agent-episode test confirms Classic never imports `engine.neon` |
+| Neon presentation: parallax art, neon tiles, darkness light map, bloom, animated actors, telegraphs, HUD, automap, menus, field manual, recorded sound and adaptive music | `game/neon/*.py` | neon presentation: third-party assets listed in `assets/neon/PROVENANCE.md` with checksums; tests check read-only rendering, aim mapping, transparency, the manifest and the silent-audio fallback. No rule changes |
+| Neon session recordings (`neon-trace-2`) with restores, weapon selections and upgrade choices, replayed with state-hash checks | `game/neon/app.py`, `game/human_replay.py` | course choice: traces report Neon counters without Classic route scoring; a round trip across a sector change and restores replays with zero mismatches |
 | Remastered ghost tint uses its original sprite's per-pixel alpha mask, with 110 opacity on visible pixels | `game/remaster.py`: `GhostPainter._image` | presentation choice; `test_ghost_preserves_exact_alpha_mask` pins transparent pixels at zero. No gameplay effect |
 
 ## Open questions (Classic)

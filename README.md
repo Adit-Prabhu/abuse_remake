@@ -10,9 +10,15 @@ project ("AI in Practice: Game Design and Development").
 - **Remastered mode** adds a wider view, lighting and particles, a dash, quick restart, a ghost
   race, an AI spectator and a Horde arena (`docs/remastered.md`). Evaluations always run Classic
   rules.
-- **Neon Protocol** (`--mode neon`) is a separate futuristic campaign and Horde with a new
-  map, robot enemies, energy weapons, power-ups, shaded pixel art and a playable tutorial.
-  See `docs/neon-protocol.md`; it does not change Classic evaluation.
+- **Neon Protocol** (`--mode neon`) is a separate game with a neon, Tron-style look:
+  - four vertical sectors and a boss;
+  - alien enemies that hang from ceilings, climb walls and pounce;
+  - five futuristic weapons and power-ups;
+  - recorded sound and music;
+  - an upgradeable Horde;
+  - a training deck and a field manual.
+
+  See `docs/neon-protocol.md`. It does not change Classic evaluation.
 - The scope record is `SCOPE.md`. Data provenance and licences are in
   `data/original/PROVENANCE.md`, and `docs/data-lineage.md` shows the data matches the 1995 and
   1996 releases.
@@ -24,7 +30,7 @@ uv sync --all-extras
 uv run abuse-remake                         # play (Remastered); --mode classic for the faithful port
 uv run abuse-remake --horde                 # the Horde arena
 uv run abuse-remake --mode neon             # Neon Protocol: campaign / Horde / training menu
-uv run abuse-remake --mode neon --tutorial --skip-title  # learn the controls by playing
+uv run abuse-remake --tutorial --skip-title # Neon training: learn every control by doing it
 uv run pytest                               # deterministic tests: no network, no model calls
 uv run abuse-data verify                    # check the original data files
 ```
@@ -32,6 +38,11 @@ uv run abuse-data verify                    # check the original data files
 Controls:
 - F1 opens controls in every mode; C also opens them from the Classic/Remastered title or pause.
 - N on the old title opens Neon Protocol; M on Neon's title returns to Classic/Remastered.
+- Neon Protocol has its own controls, listed in `docs/neon-protocol.md`:
+  - Space jumps and E interacts;
+  - Shift dashes;
+  - S crouches;
+  - Tab shows the map.
 - move: A/D or the arrow keys;
 - jump: W, Up or Space;
 - action (switches, doors, consoles, exit): S or Down;

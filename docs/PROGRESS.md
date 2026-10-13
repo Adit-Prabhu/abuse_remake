@@ -4,6 +4,43 @@ This page lets a fresh session (human or agent) pick up the build. Update it wit
 The approved plan is summarised in the "Branches and PRs" table below; `SCOPE.md` is the scope
 record.
 
+## Neon Protocol v2 (2026-10-13, replaces v1)
+
+The student played v1 and rejected it:
+- a one-floor map;
+- NPC-like enemies;
+- drawn-line weapons;
+- synthesised beeps.
+
+They approved the v2 plan: the Warped City runner as the hero, three sectors and a boss,
+Horde kept and upgraded. They asked that Remastered and Classic stay exactly as they are.
+
+| Stage | Branch | Parent | Contents |
+|---|---|---|---|
+| Engine | `feat/neon2-engine` | `feat/neon-validation` (#11) | `engine/neon/` package: maps, physics, AI, weapons, boss, Horde v2, training, nav model, development autopilot, `neon-trace-2` replay. Removes all of v1 |
+| Presentation | `feat/neon2-presentation` | `feat/neon2-engine` | `game/neon/`: renderer, HUD, menus, manual, sound and music; vendored assets with manifest; release bundling |
+| Validation | `feat/neon2-validation` | `feat/neon2-presentation` | Evidence screenshots, replay-checked trace, docs, review records |
+
+Merge order is #9, #10, #11, then the three v2 stages. v2 replaces everything v1 added, so the
+student may prefer to close #9–#11 and rebase the v2 stack onto `main`. That is the student's
+call; agents never merge.
+
+How to pick it up:
+- `uv run abuse-remake --mode neon` plays.
+- `uv run python scripts/neon_evidence.py` regenerates `evidence/neon/`.
+- Maps are ASCII files in `src/abuse_remake/engine/neon/maps/`. Edit them directly; the
+  tile-graph check in `tests/test_neon_engine.py` reports anything unreachable.
+- `uv run python scripts/vendor_neon_assets.py` re-vendors the assets (needs network and ffmpeg).
+
+Validation at the end of the session:
+- The full suite passes and Ruff is clean.
+- The autopilot wins the campaign:
+  - hard: seeds 1–3 with 0 deaths;
+  - extreme: seeds 1–3 with 0–6 deaths.
+- The evidence run (hard, seed 7) wins in 268 game-seconds; its trace replays 4 checks with
+  0 mismatches.
+- The student still needs to play it and judge the feel; nothing here is a human playtest.
+
 ## Neon Protocol expansion (2026-10-13)
 
 The student approved the plan in `docs/neon-protocol.md`: separate futuristic campaign AND

@@ -1,97 +1,146 @@
-# Neon Protocol
+# Neon Protocol (v2)
 
-The student approved this separate futuristic campaign and Horde expansion on 2026-10-13.
-It extends the optional layer; the bounded Classic reconstruction and all model evaluations
-remain Level 1 with Classic rules. Neon is a new design, not a fidelity claim about Abuse or
-a licensed Tron game. It uses its own engine (`engine/neon.py`) and front end.
+Neon Protocol is an optional, separate game built on the Abuse remake. It has a neon,
+Tron-style look and keeps the feel of Abuse:
+- free 360° mouse aim;
+- dark corridors;
+- aliens that ambush you from the ceiling;
+- a maze that goes up and down as much as across.
 
-## Milestones and merge order
+`--mode neon` selects it. Classic, Remastered, the playing-agent interface and every evaluation
+are untouched. Neon is a new design, not a fidelity claim about Abuse, and its rules are
+labelled **neon design** in `docs/rule-source-map.md`.
 
-1. `feat/neon-engine`: deterministic campaign, Horde, tutorial and combat contracts.
-2. `feat/neon-playable`: neon presentation, menus, visible controls and playable tutorial;
-   stacked on the engine branch.
-3. `feat/neon-validation`: shaded art revision, integration evidence, release support and handoff;
-   stacked on the playable branch.
+v2 (2026-10-13) replaces v1 completely. The student rejected v1 for four reasons:
+- a flat, one-floor map;
+- lifeless enemies (the "stalker" was the player's own sprite tinted pink);
+- drawn-line weapons;
+- synthesised beeps.
 
-Each milestone is a separate pushed PR with an independent read-only review using
-`.claude/agents/rules-reviewer.md`. The student merges in order; agents never merge or tag.
-The latest branch contains the full playable build before merges.
-All PRs target `main`, matching the original workflow; merge stages 1, 2, 3 in order.
-
-## Design rules (new optional design)
-
-All gameplay runs at 15 Hz with integer positions and velocities and a local seeded RNG.
-Snapshots include RNG, timers, projectiles, pickups, tutorial progress and wave state.
-The renderer does not change gameplay. No Neon state reaches the Classic agent interface.
-
-| System | Design |
-|---|---|
-| Campaign | A new 4200 px digital facility, floor y=520, three relays at x=1260/2600/3850, two sector barriers at 1400/2740, extraction at 4050. Clear hostiles within 360 px in the current sector, then press action within 60 px of a relay. Relay activation restores health and at least 24 rail/8 vortex charges and emits a checkpoint. Extraction needs all relays, grounded proximity within 70 px, and action |
-| Movement | 22×42 player, 7 px/tick running, 10 with speed; jump velocity −22, gravity +2, max fall 18 (110 px rise reaches the 95 px first platform). Full solid platforms, pixel-stepped collision; ceiling/world edges block movement. Jump and interaction require a released key between presses |
-| Dash | 4 ticks at 24 px/tick; 24-tick cooldown; 6 ticks of invulnerability, including the request tick. Uses movement direction or facing. Refused when dead, finished or cooling down; cannot cross barriers |
-| Pulse | Infinite ammo, 12 damage, speed 30, cooldown 3 ticks; stops at first target |
-| Rail | 40 damage, speed 70, cooldown 12 ticks; pierces separate enemies once per shot and bypasses sentry shielding; starts with 24 charges |
-| Vortex | Speed 18, 14 impact damage, cooldown 18 ticks; creates a radius-95 field for 45 ticks, dealing 14 damage every 5 ticks; starts with 8 charges |
-| Enemies | Drone: 36 HP, hovering/ranged. Stalker: 48 HP, fast melee/obstacle jump, 12 contact damage. Sentry: 80 HP, stationary ranged, frontal pulse damage ÷3. Titan: 240 HP, slow melee (22 damage) and three-shot ranged burst. Ranged attacks have 10-tick windup; bullets speed 9. Enemies activate within 850 px horizontally |
-| Damage | Difficulty scales incoming damage by 50/75/100/150 percent. Successful damage grants 8-tick protection, including the damage tick; protection decays after combat. Tutorial has no player damage. Lethal damage stops before healing or interaction and freezes simulation |
-| Power-ups | Shield: 60 absorb capacity for 150 ticks. Overcharge: double weapon damage for 90 ticks. Speed: faster run for 120 ticks. Health restores 30 up to 100; full health leaves pickup. Ammo gives 12 rail/4 vortex up to 48/16. Combat pickups expire after 900 ticks; tutorial pickups remain until collected so training never runs out of supplies. Kills have a seeded 1-in-3 chance of a random supply |
-| Hazards | Campaign energy strips: 60 safe ticks (last 15 warning), then 30 active ticks, repeating; 14 damage while grounded on them. Jump or dash avoids them |
-| Horde | Separate 1100 px arena. 45-tick initial preparation; wave n has 2+2n enemies in seven repeating bounded edge slots. Stalkers/drones initially, sentries from wave 2, one titan every third wave. Clear all enemies for four supplies and 75-tick break. Death ends the run |
-| Tutorial | Separate safe 1100 px deck. Seven performed-action lessons: move 70 px, jump, hit target, change weapon, dash, collect power-up, activate relay. New pickup provided for the pickup lesson if necessary |
-
-## Art and sound provenance
-
-The student selected **gritty armored industrial art**, closer to Abuse's shaded depth,
-on 2026-10-13. The final presentation uses artist-authored pixel art by **Luis Zuno / Ansimuz**:
-Warped City, Warped City 2 and Warped Sci-Fi Lab. Those source pages list CC0; the vendored
-licence text explicitly permits use/modification/redistribution. `assets/neon/PROVENANCE.md`
-links the primary sources; `manifest.json` pins every included PNG/licence file by SHA-256.
-No music, demo code, previews or paid add-ons are included. Sounds are synthesized locally.
-
-The art has shaded armor, articulated animation, textured steel decks with top/front faces,
-structural supports, cast shadows, layered city/lab scenery, and limited powered light pools.
-World rendering uses a closer **640×360** view, scaled with nearest-neighbour to the 960×540
-HUD canvas and window. Aiming follows the same interpolated camera and scale. Actor images
-retain per-pixel transparency; source material is transformed at runtime, not modified on disk.
-The title credits the artist. No generative image tool is used for these assets.
-
-## Validation
-
-Engine contracts were written first and initially failed to collect because the Neon engine
-did not exist. `tests/test_neon_engine.py` checks campaign/Horde separation, movement, locked
-barriers, relay edge/proximity/security conditions, extraction, shields, piercing and area
-weapons, ammo refusal, Horde progression, actual tutorial completion, deterministic hashes,
-repeated saves, and Classic agent isolation. These are design tests, not original-game evidence.
-App smoke checks and review records will be added with their milestones.
-
-Actual game screenshots and a checked development trace are in `evidence/neon/`, regenerated
-by `uv run python scripts/neon_evidence.py`. The controller is explicitly labelled as a
-development controller with full map access; it is not a human playtest or agent evaluation.
-Five Hard campaign seed contracts complete all relays and extraction through normal inputs.
-App tests check a real relay checkpoint, repeated restores, replay hashes, title/mode handoffs,
-camera aiming and alpha masks. Asset tests check the manifest and retained licences.
+The student chose the hero (the Warped City runner) and the scope (three sectors and a boss,
+with Horde kept and upgraded). They asked that Remastered and Classic stay exactly as they are.
 
 ## Playing
 
 ```sh
-uv run abuse-remake --mode neon                    # menu: campaign, Horde, training, manual
-uv run abuse-remake --mode neon --skip-title        # start campaign immediately
+uv run abuse-remake --mode neon                    # title: campaign, Horde, training, manual
+uv run abuse-remake --tutorial --skip-title        # straight into training
 uv run abuse-remake --mode neon --horde --skip-title
-uv run abuse-remake --mode neon --tutorial --skip-title
 ```
 
-The old title screen offers **N: Neon Protocol**, and Neon offers **M: Classic/Remastered**.
-Choose cards by click or arrows and Enter. C starts campaign, H Horde, T training; D cycles
-difficulty. Every mode has a controls screen (F1, or C from a legacy title/pause screen).
-Neon also keeps a controls strip visible during play. Training is safe and requires performed
-actions, then Enter starts campaign.
+| Action | Keyboard and mouse | Gamepad |
+|---|---|---|
+| Move | A / D, ← → | left stick |
+| Jump (hold for higher, tap for a hop) | Space, or W when not on a ladder | A |
+| Climb a ladder | W / S | stick up/down |
+| Crouch, crawl through vents | hold S | stick down |
+| Drop through a thin ledge | S + Space | |
+| Aim (all the way around you) | mouse | right stick |
+| Fire | left click, J | right trigger |
+| Dash (invulnerable) | Shift, F, right click | X |
+| Interact (consoles, switches, elevators, exit) | E, or S | B |
+| Weapons | 1–5, Q, mouse wheel, middle click | bumpers |
+| Map | Tab | |
+| Pause / field manual | Esc / F1 | Start |
+| Volume | − / = | |
 
-Keyboard/mouse: A/D or arrows move, Space/W/Up jump, mouse aims, left click/J fires,
-S/Down interacts, 1/2/3 select pulse/rail/vortex, Q/E or scroll cycle, F dashes, R restores
-checkpoint, Esc pauses. Release jump/action between presses. Gamepad: left stick movement,
-right stick aim, A jump, B interact, X dash, right trigger fire, bumpers switch weapons.
-From pause, C/F1 opens controls, R restarts the level, T returns to title and X quits.
+The controls are also explained in three places:
+- the **Training** deck: 10 lessons, each finished by doing it;
+- the **Field Manual**: F1 anywhere, with pages for controls, weapons, hostiles and systems;
+- prompts shown the first time you meet a ladder or a grating (for at most 7 seconds each).
 
-Neon `--record FILE` uses `neon-trace-1`; `abuse-replay --human-trace FILE` checks it without
-pygame or model calls. It reports Neon counters; it does not compute Classic route progress.
-Checkpoints and restores include all power-ups, weapon charges, projectiles, waves and RNG.
+## Design
+
+All gameplay is in `src/abuse_remake/engine/neon/`:
+- pure Python, no pygame;
+- 30 ticks per second;
+- integer pixels, and velocities in 1/256 px;
+- a seeded local RNG;
+- exact snapshots and a canonical state hash.
+
+| System | Design | Code |
+|---|---|---|
+| Maps | ASCII files of 16-px tiles, with a legend: walls `#`, one-way ledges `=`, ladders `H`, cracked walls `%`, energy floors `^`, elevator rails `\|`, doors, switches, keys, pads, consoles, lamps and enemies. Each sector is a vertical maze, from 72×40 (Core) up to 170×56 tiles (Hive) | `tilemap.py`, `maps/*.txt` |
+| Movement | Run at 3.5 px/tick with acceleration and friction. Jump −9.6 px/tick: up to 72 px, holding the button for full height. 5-tick coyote time and a 6-tick jump buffer. Ladders. Drop through ledges and ladder tops. Crouch to 26 px and crawl through 2-tile vents. Dash: 8 ticks × 9 px, invulnerable, 30-tick cooldown. Knock-back and stun when hit. The Vault Boots add one air jump. Movement steps one pixel at a time, so nothing tunnels | `player.py`, `physics.py` |
+| Weapons | **Pulse Carbine**: unlimited cyan bolts. **Scatter Arc**: 5-way laser fan with knock-back. **Rail Lance**: hitscan, pierces every enemy, stops at walls. **Plasma Mortar**: arcs, bounces twice, bursts, breaks cracked walls. **Seeker Swarm**: 3 homing missiles. Firing makes noise that enemies hear | `weapons.py` |
+| Enemies | **Xeno Crawler** (the Abuse ant reimagined): hangs from ceilings and walks them, drops on you, climbs walls, spits acid, leaps gaps, crouches then pounces, dodges, retreats when hurt, and its scream wakes its neighbours. **Stinger**: circles, telegraphs, dives. **Sentry**: hides in walls and ceilings, pops out, shows a laser sight, fires a leading burst, armoured while hidden. **Strider**: frontal shield (pulse and scatter deflect; weak from behind), lobbed plasma, telegraphed stomp shockwave, slow turn. **Watcher drone**: searchlight; spotting you or being shot raises an alarm that opens vent nests. **Vent nest**: releases crawlers | `enemies.py` |
+| Boss | **Core Warden**, in three phases: (1) volleys and a telegraphed stomp; (2) roars, ceiling vents release crawlers; (3) a sweeping laser to jump over (low) or crouch under (high), after which its core is exposed and takes double damage | `enemies.py` `Warden` |
+| World | Save consoles (repair, ammo top-up, checkpoint). Switch doors, some timed. Red keycard gate. Elevators that carry riders and can be called. Teleport pads. Cracked-wall secrets. Timed energy floors | `objects.py` |
+| Power-ups | Health, ammo, Shield (absorbs 50), Overcharge (×2 damage), Haste, Phase (longer dash), Vault Boots (permanent), keycards | `game.py` `collect` |
+| Campaign | Neon Transit → Reactor Stack (climbed bottom to top: elevator, boots, key, gate, teleporter, or a double-jump shaft) → The Hive (ceiling crawlers, crawl vent, the drone hall's 10-second timed door) → The Core (boss). Your arsenal and boots carry over between sectors | `game.py` |
+| Horde | A three-tier arena with vents and ladders. Waves grow: crawlers, then stingers from wave 2, striders from wave 4, elites every 5th wave. Each wave hostiles have +6% integrity and hit +3% harder. After each wave, pick 1 of 2 upgrades (each at most 3 times). A hostile stuck for 20 s returns to a vent | `horde.py` |
+| Training | 10 lessons: run, jump, ladder, drop, crawl, aim and fire, weapons, dash, switches, save. Nothing can hurt you | `training.py`, `maps/training.txt` |
+| Difficulty | Incoming damage ×50 / 75 / 100 / 140%; enemy integrity ×80 / 90 / 100 / 125% (easy, medium, hard, extreme) | `game.py` |
+
+## Presentation
+
+`src/abuse_remake/game/neon/` reads the simulation and never changes it.
+
+**Render.**
+- The 640×360 scene is drawn on a 1280×720 canvas, with interpolation between ticks.
+- Parallax backdrops from Ansimuz's corridor, lab, hive and bulkhead art, plus deterministic
+  background furniture and animated signs.
+- Tiles are dark machined plates with Tron-style neon edges, behind a grid on the back wall.
+- An Abuse-style darkness light map, lit by lamps, the runner, shots, muzzle flashes and
+  explosions.
+- An emissive layer with two-level bloom.
+- Particles, gibs, decals, after-images and screen shake.
+- The gun turns toward the mouse in 32 steps and flips so it is never upside down.
+- Enemies telegraph their attacks: a crawler's crouch, a Stinger's red eye, a Sentry's laser
+  sight, the Strider's glow and shield, the Warden rearing up, and the beam warning.
+
+**HUD.**
+- Integrity and shield, power-up timers, keys and boots.
+- A weapon panel with the real gun art.
+- A dash pip, the objective, Horde wave info and the boss bar.
+- An automap (Tab) of explored tiles, and the upgrade cards.
+
+**Sound.**
+- Recorded effects for each event, with random variants, distance falloff, stereo pan and
+  per-sound rate limits.
+- Footsteps and an ambient hum.
+- Music that follows the action: a calm track per sector, the combat track while alerted
+  hostiles are near, and the boss track. Tracks fade between each other.
+
+**Traces.** `--record` writes `neon-trace-2`, including weapon selections, upgrade choices,
+restores and state-hash checks. `abuse-replay --human-trace` replays it without pygame. Neon v1
+traces are refused with a clear message.
+
+## Assets
+
+Every third-party file is listed in `assets/neon/PROVENANCE.md` and `assets/neon/manifest.json`
+(source archive, member path, SHA-256). `scripts/vendor_neon_assets.py` recreates them.
+- **Art**: Luis Zuno (Ansimuz), CC0: Warped City 1 and 2, Warped Sci-Fi Lab, Sideview Sci-Fi.
+- **Weapon art**: Reactorcore, Eradication Wars. CC-BY 4.0 per the bundled file, so it is
+  credited on the title screen and in the release.
+- **Sound**: Kenney (CC0) and rubberduck (CC0).
+- **Music**: vitalezzz, cinameng, SRG774 and MintoDog (all CC0). Two tracks are re-encoded to
+  128 kbit/s MP3.
+- **Fonts**: Orbitron and Share Tech Mono (SIL OFL).
+
+No generative image or audio tool was used.
+
+## Validation
+
+| Check | Where |
+|---|---|
+| Movement feel, collisions, ladders, ledges, crouch, dash, elevators, pads, doors, keys | `tests/test_neon_engine.py` (small inline maps) |
+| Enemy behaviour: ceiling ambush only with line of sight, scream radius, pounce and flinch, wall climb, sentry armour, Strider shield, alarm opens nests, Warden phases and telegraph | `tests/test_neon_engine.py` |
+| Every console, exit, switch, weapon, key and boots can be reached in a tile-graph model (`nav.py`). The red key needs the boots; secrets need explosives | `tests/test_neon_engine.py` |
+| The development autopilot finishes the whole campaign with the real physics on easy and hard | `tests/test_neon_engine.py` |
+| Determinism, snapshots, Horde scaling and its stuck failsafe | `tests/test_neon_engine.py` |
+| App: menus, manual, pause and map freeze the game; rendering is read-only; aim mapping; trace round trip across a sector change and restores; Horde upgrade recording; transparency; asset manifest; silent audio fallback; mode handoff | `tests/test_neon_app.py` |
+| Screenshots and a replay-checked development trace | `evidence/neon/` (`scripts/neon_evidence.py`) |
+
+The autopilot (`engine/neon/autopilot.py`) has full map access. It is a development tool for
+proving the maps can be completed and for producing evidence. It is not a playing agent, a
+fair evaluation or a human playtest.
+
+During development it found real bugs, all fixed:
+- two holes in the Transit walls that let you bypass the security door;
+- a jump into the timed-door tunnel that was too tight;
+- an arena block the Strider could not fit under;
+- an attack cooldown that the Warden and Strider shared between contact damage and the stomp.
+
+Balance runs on seeds 1–3: the autopilot wins the campaign with 0 deaths on hard and 0–6 on
+extreme.

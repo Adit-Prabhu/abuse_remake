@@ -65,6 +65,32 @@ it in a fresh context, and the agent fixed or recorded every finding. The studen
 
 ## AI use
 
+### Neon Protocol v2 (2026-10-13, Claude Code)
+
+The student rejected Neon v1:
+- the map was one-dimensional;
+- the enemies were "boring NPCs" compared with the original ants;
+- the audio and the weapon assets were bad.
+
+They asked for a plan first, then approved it in auto mode. They chose the hero art and the
+campaign size, and told the agent to leave Remastered untouched. Claude Code (Opus) then:
+- researched and previewed CC0 and CC-BY art, sound and music, and vendored them with
+  checksums;
+- wrote the new engine, maps, front end, tests and docs.
+
+Tests were written first and run against the staged tree before each of the three stacked
+commits. A full-map-access development autopilot (not a playing agent) drove the real physics
+through every sector. It exposed bugs that were fixed:
+- two holes in the map walls;
+- a gap that was too tight to jump;
+- an arena block too low for a Strider;
+- a cooldown shared between two attacks.
+
+It also guided boss and Horde balance: the Warden's stomp got a telegraph, and Horde waves now
+scale. No generative image or audio tools were used, and no live model calls were made. The
+independent read-only review records are in `docs/reviews/`. Merging and acceptance stay with
+the student. Commits carry no AI co-author trailers.
+
 ### Neon Protocol expansion (2026-10-13)
 
 The student requested a radically different futuristic campaign and Horde and approved the

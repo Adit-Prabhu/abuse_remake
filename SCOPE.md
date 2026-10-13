@@ -80,7 +80,14 @@ screen, the ghost race and the Horde arena (`docs/remastered.md`). The AI specta
 
 ## Optional expansion: Neon Protocol (approved 2026-10-13)
 
-The student approved a distinct futuristic **campaign and Horde**, plus a playable tutorial,
-new enemies, weapons, power-ups and presentation. It is selected with `--mode neon` and runs
-in a separate optional simulation; it does not expand the Classic Level 1 fidelity claim or
-the evaluation scenarios. The design and staged PR plan are in `docs/neon-protocol.md`.
+The student approved a separate futuristic **campaign and Horde**, with a playable tutorial,
+new enemies, weapons, power-ups and presentation. Version 2 (2026-10-13) replaced version 1
+completely:
+- vertical sector mazes;
+- Abuse-like alien AI;
+- real weapon art, sound and music;
+- a boss.
+
+It is selected with `--mode neon` and runs in a separate optional simulation
+(`engine/neon/`). It does not expand the Classic Level 1 fidelity claim or the evaluation
+scenarios, and Remastered is unchanged. The design is in `docs/neon-protocol.md`.

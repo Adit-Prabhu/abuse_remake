@@ -1,25 +1,27 @@
-# Neon Protocol development evidence
+# Neon Protocol v2 development evidence
 
-Rebuild with `uv run python scripts/neon_evidence.py` (no network or model calls).
-The script creates these screenshots and `development-smoke.jsonl`; `validation.json`
-records the result. The screenshots are actual pygame output, not image-generation mockups.
-The final screenshots use artist-authored shaded sprites and textures; credits/licences and
-asset checksums are recorded in `assets/neon/PROVENANCE.md` and `manifest.json`.
+Rebuild with `uv run python scripts/neon_evidence.py` (no network, no model calls). The
+screenshots are real pygame frames. The game's art is third-party pixel art credited in
+`assets/neon/PROVENANCE.md`; nothing was produced by an image generator.
 
-- `title.png`: campaign, Horde, training and controls cards.
-- `campaign.png`: new environment, courier, enemies and combat HUD.
-- `core.png`: final sector and heavy Titan security unit.
-- `horde.png`: separate arena and wave counter.
-- `training.png`: first performed-action lesson.
-- `controls.png`: in-game field manual.
-- `extraction.png`: completed campaign.
+| File | What it shows |
+|---|---|
+| `title.png` | Title: Campaign, Horde, Training, Field Manual, Classic/Remastered, credits |
+| `manual-controls.png`, `manual-hostiles.png` | The field manual (F1) |
+| `training.png` | Lesson 1 of the training deck, with its marker beacon |
+| `sector1-fight.png` | Neon Transit: crawlers, sentries, the concourse |
+| `sector2-arrival.png`, `sector2-fight.png` | Reactor Stack: Strider (shield arc), Stinger |
+| `sector3-arrival.png`, `sector3-fight.png` | The Hive |
+| `sector4-arrival.png`, `sector4-fight.png`, `boss-laser.png` | The Core and the Core Warden's sweeping laser |
+| `campaign-complete.png` | Protocol complete |
+| `horde.png`, `horde-upgrade.png`, `horde-over.png` | Horde arena, upgrade choice, run over |
+| `development-campaign.jsonl` | The recorded session (`neon-trace-2`) |
+| `validation.json` | Outcome and replay result |
 
-The smoke controller has full development access to the engine/map. It is **not** a playing
-agent, a fair agent evaluation or a human playtest. It supplies normal controls without
-granting health, moving objects directly, removing enemies or unlocking relays. At seed 7,
-Hard, it finishes all three relays, defeats all 11 enemies and extracts in 533 ticks.
-Replay checks four hashes with zero mismatches. Five independent Hard campaign seed runs
-also complete in `tests/test_neon_engine.py`; this is reachability evidence, not a balance study.
+The development autopilot (`engine/neon/autopilot.py`) plays these runs. It has full map
+access and presses only normal controls through the app: nothing is granted, moved or
+unlocked by hand, and on death the app restores the last checkpoint as a player would.
 
-Existing Classic evaluation reports, traces and recordings have not been regenerated or
-relabelled as Neon results. The student still owns real playtests and acceptance.
+This is **not** a playing agent, a fair evaluation or a human playtest. The Classic
+evaluation reports and traces were not regenerated or relabelled. The student owns real
+playtests and acceptance.

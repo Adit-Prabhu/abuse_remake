@@ -1,47 +1,47 @@
 {
-  "purpose": "developer smoke only; full map access, not a fair player evaluation or human playtest",
+  "purpose": "development evidence only: a full-map-access autopilot pressing normal controls; not a playing agent, a fair evaluation or a human playtest",
   "seed": 7,
   "difficulty": "hard",
   "campaign": {
     "status": "won",
-    "ticks": 533,
-    "kills": 11,
-    "relays": 3,
-    "health": 100
+    "deaths_restored": 0,
+    "ticks": 8041,
+    "seconds": 268,
+    "kills": 77,
+    "secrets": 0,
+    "damage_taken": 295,
+    "sector_ticks": {
+      "0": 1443,
+      "1": 3420,
+      "2": 1308,
+      "3": 1870
+    }
+  },
+  "horde": {
+    "waves_cleared": 4,
+    "kills": 36,
+    "status": "running"
   },
   "trace_replay": {
-    "games": [
-      {
-        "rules": "neon",
-        "seed": 7,
-        "variant": "campaign",
-        "ticks": 533,
-        "deaths": 0,
-        "console_saves": 3,
-        "reached_exit": true,
-        "waves_cleared": 0
-      },
-      {
-        "rules": "neon",
-        "seed": 7,
-        "variant": "horde",
-        "ticks": 165,
-        "deaths": 0,
-        "console_saves": 0,
-        "reached_exit": false,
-        "waves_cleared": 0
-      }
-    ],
     "checks": 4,
-    "mismatches": 0
+    "mismatches": 0,
+    "games": 3
   },
   "screenshots": [
     "title.png",
-    "campaign.png",
-    "core.png",
-    "horde.png",
+    "manual-controls.png",
+    "manual-hostiles.png",
     "training.png",
-    "controls.png",
-    "extraction.png"
+    "sector1-fight.png",
+    "sector2-arrival.png",
+    "sector2-fight.png",
+    "sector3-arrival.png",
+    "sector3-fight.png",
+    "sector4-arrival.png",
+    "sector4-fight.png",
+    "boss-laser.png",
+    "campaign-complete.png",
+    "horde-upgrade.png",
+    "horde.png"
   ]
 }
