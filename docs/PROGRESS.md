@@ -44,7 +44,8 @@ release was pushed; the release workflow will exercise these modes on each suppo
 
 Independent reviews: `docs/reviews/PR-9.md`, `PR-10.md`, `PR-11.md`. Final review follow-ups
 report no unresolved findings. CI originally caught licence CRLF normalization against the
-manifest; `.gitattributes` now preserves those upstream bytes. Final CI rerun is pending push.
+manifest; `.gitattributes` now preserves those upstream bytes. GitHub push and PR CI both
+pass on Python 3.11 and 3.12 for gameplay/art commit `0ec79cd`; security checks also pass.
 
 ## Branches and PRs (stacked; the student merges in order, agents never merge)
 
