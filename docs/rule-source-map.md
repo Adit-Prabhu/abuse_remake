@@ -15,6 +15,8 @@ The labels follow the course convention:
 | course choice | Not a rule of the game: a decision about the evaluation harness or episode, made for the course and labelled so it is never mistaken for fidelity. |
 | course rule | A requirement the course sets (for example, no automatic paid retries). |
 | remastered design | A new rule that exists only in Remastered mode. It is not a claim about the original. |
+| neon design | A new rule that exists only in Neon Protocol's separate optional simulation. Not an original-game fidelity claim. |
+| neon presentation | Optional artist assets, rendering and input/help UI, with no effect on Classic rules. |
 
 For the Lisp's relation to the 1996 retail release, see `docs/data-lineage.md`.
 
@@ -201,10 +203,10 @@ to use `engine/game.py`; the agent interface is unchanged.
 | New campaign sectors, relays, barriers, checkpoint refills and extraction | `engine/neon.py`: `NeonGame.__init__`, `_interact`, `relay_secure` | neon design: `docs/neon-protocol.md`, Campaign row; tests require proximity, action edge, security clearance and all relays before extraction |
 | Movement, collision, jump, dash, damage protection and difficulty | `engine/neon.py`: `_move`, `step`, `request_dash`, `hurt_player` | neon design: Movement/Dash/Damage rows; tests check floor landing, barrier collision and cooldown refusal |
 | Pulse, piercing rail, vortex field, sentry shielding and charges | `engine/neon.py`: `_fire`, `_projectiles`, `_fields`, `_hurt_enemy` | neon design: weapon and enemy rows; tests check two-target piercing, wall blocking, area damage, shield direction, invalid weapon selection and exhausted ammo |
-| Four new enemies, temporary power-ups, supply drops and periodic hazards | `engine/neon.py`: `_enemies`, `_pickups`, `hazard_active` | neon design: Enemies/Power-ups/Hazards rows; tests check expiry and shield absorption |
+| Four new enemies, temporary power-ups, supply drops and periodic hazards | `engine/neon.py`: `_enemies`, `_pickups`, `hazard_active` | neon design: Enemies/Power-ups/Hazards rows; tests check expiry and shield absorption. Tutorial pickups do not expire (failed-before-fix training-supplies regression) |
 | Separate escalating Horde arena and seven performed-action tutorial lessons | `engine/neon.py`: `_horde`, `step`, `_interact` | neon design: Horde/Tutorial rows; tests advance waves and finish training through real controls |
 | Seeded 15 Hz simulation, independent state, snapshots and terminal freeze | `engine/neon.py`: `snapshot`, `restore`, `state_hash`, `step` | neon design: deterministic/save tests for all three variants; agent episode test confirms Classic uses its original Game |
-| Independent neon vector presentation, visible help and menu routes | `game/neon_render.py`, `game/neon_app.py`, `game/controls.py`, `game/app.py` | neon presentation: repo-authored art; integration tests check read-only rendering, camera aim and help pause. No rule changes |
+| Shaded pixel-art presentation, visible help and menu routes | `game/neon_art.py`, `game/neon_render.py`, `game/neon_app.py`, `game/controls.py`, `game/app.py` | neon presentation: Ansimuz assets, sources/licences/checksums in `assets/neon/PROVENANCE.md`; tests check read-only rendering, closer-camera aim, transparency and help pause. No rule changes |
 | Human Neon and mixed-mode session recordings, checkpoint restore and hash checking | `game/neon_app.py`, `game/human_replay.py`, `game/app.py` | course choice: `neon-trace-1` reports Neon counters without Classic route scoring; integration tests check trace round trips, title configuration and app handoffs |
 | Remastered ghost tint uses its original sprite's per-pixel alpha mask, with 110 opacity on visible pixels | `game/remaster.py`: `GhostPainter._image` | presentation choice; `test_ghost_preserves_exact_alpha_mask` pins transparent pixels at zero. No gameplay effect |
 

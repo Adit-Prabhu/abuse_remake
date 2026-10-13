@@ -10,15 +10,25 @@ The student approved the plan in `docs/neon-protocol.md`: separate futuristic ca
 Horde, new combat/art, visible controls, tutorial, and transparency fixes. Earlier PRs #1–#8
 are now merged (confirmed against GitHub); the historical table below records their old handoff.
 
-| Stage | Branch | Base | State |
+| Stage | Branch | Branch parent | State |
 |---|---|---|---|
 | Simulation | `feat/neon-engine` (#9) | `main` | Pushed; independent review found five issues, all fixed with failing regression tests |
 | Playable presentation/tutorial | `feat/neon-playable` (#10) | `feat/neon-engine` | Pushed; independent review found two trace lifecycle issues, fixed with failed-before-fix regressions |
-| Final validation/release support | `feat/neon-validation` | `feat/neon-playable` | Planned |
+| Art revision/validation/release | `feat/neon-validation` | `feat/neon-playable` | Shaded industrial revision tested: 242 tests, lint and checksums pass; fresh review and packaged-build checks underway |
 
 Merge ownership remains with the student. These branches will be pushed as milestones finish;
 no live model calls are needed. Development uses `.claude/skills/port-classic-rule/SKILL.md`,
 with honest `neon design` evidence labels for new optional rules.
+
+All three PRs target `main`, matching #1–#8's workflow. Merge #9, then #10, then #11; the
+later PR diffs shrink as earlier milestones merge. Branches themselves are stacked so the
+latest checkout is the complete playable game. No agent merges or tags.
+
+Neon's final art is vendored under `assets/neon/` with licence text and SHA-256 manifest.
+The new renderer reads assets through `paths.assets_root`; release bundles must include
+`assets/neon` as well as original data. World view is 640×360 with a 960×540 HUD; mouse
+mapping uses world size. The first two PRs describe the earlier milestone snapshots; the
+third PR replaces prototype wireframes with artist sprites and textured industrial scenery.
 
 ## Branches and PRs (stacked; the student merges in order, agents never merge)
 

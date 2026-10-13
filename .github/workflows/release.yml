@@ -43,6 +43,7 @@ jobs:
           uv run --frozen --with "pyinstaller>=6.10,<7" pyinstaller packaging/abuse_remake_main.py \
             --name abuse-remake --onefile --noconfirm --clean --log-level WARN \
             --collect-submodules abuse_remake --add-data "data/original${sep}data/original" \
+            --add-data "assets/neon${sep}assets/neon" \
             --exclude-module google --exclude-module anthropic --exclude-module openai
       - name: Smoke test the bundle
         run: |
@@ -50,14 +51,23 @@ jobs:
           mkdir -p smoke && cd smoke
           "../$exe" --frames 40 --no-audio --scale 1 --screenshot shot.png
           test -s shot.png
+          "../$exe" --mode neon --frames 40 --no-audio --scale 1 --screenshot neon-campaign.png
+          "../$exe" --mode neon --horde --frames 100 --no-audio --scale 1 --screenshot neon-horde.png
+          "../$exe" --mode neon --tutorial --frames 40 --no-audio --scale 1 --screenshot neon-training.png
+          test -s neon-campaign.png && test -s neon-horde.png && test -s neon-training.png
       - name: Package
         run: |
           os=$(echo "$RUNNER_OS" | tr '[:upper:]' '[:lower:]')  # bash 3 on macOS has no ${x,,}
           name="abuse-remake-${GITHUB_REF_NAME}-${os}"
           mkdir -p "pkg/$name"
           cp dist/abuse-remake* "pkg/$name/"
-          cp README.md SCOPE.md docs/remastered.md "pkg/$name/"
+          cp README.md SCOPE.md docs/remastered.md docs/neon-protocol.md "pkg/$name/"
           cp data/original/PROVENANCE.md data/original/COPYING.upstream "pkg/$name/"
+          cp assets/neon/PROVENANCE.md "pkg/$name/NEON-ASSET-CREDITS.md"
+          mkdir -p "pkg/$name/neon-licenses"
+          cp assets/neon/city/public-license.txt "pkg/$name/neon-licenses/Warped-City.txt"
+          cp assets/neon/city2/public-license.txt "pkg/$name/neon-licenses/Warped-City-2.txt"
+          cp assets/neon/lab/public-license.txt "pkg/$name/neon-licenses/Warped-Sci-Fi-Lab.txt"
           cd pkg
           if [ "$RUNNER_OS" = "Windows" ]; then 7z a "$name.zip" "$name" > /dev/null; else tar czf "$name.tar.gz" "$name"; fi
       - uses: actions/upload-artifact@v4
@@ -84,4 +94,4 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" out/* --repo "$GITHUB_REPOSITORY" \
             --title "Abuse remake $GITHUB_REF_NAME" \
-            --notes "Playable build of the Level 1 reconstruction (Classic and Remastered). Run the binary; see README.md inside the archive. Built from ${GITHUB_SHA}."
+            --notes "Playable build: Abuse Level 1 (Classic/Remastered) and Neon Protocol (campaign/Horde/tutorial). Run the binary; see README.md inside the archive. Built from ${GITHUB_SHA}."

@@ -55,11 +55,11 @@ def test_rendering_is_read_only_and_mouse_aim_uses_interpolated_camera():
     app.draw()
     assert before == app.game.state_hash()
     x, y = app.screen_to_game(480, 270)
-    assert (x, y) == (480 + app.renderer.last_camera[0], 270 + app.renderer.last_camera[1])
+    assert (x, y) == (320 + app.renderer.last_camera[0], 180 + app.renderer.last_camera[1])
     pygame.quit()
 
 
-def test_neon_trace_round_trip_includes_checkpoint_dash_and_restart(tmp_path):
+def test_neon_trace_round_trip_includes_dash_and_restart(tmp_path):
     from abuse_remake.game.human_replay import replay_human
 
     path = tmp_path / "neon.jsonl"
@@ -77,6 +77,34 @@ def test_neon_trace_round_trip_includes_checkpoint_dash_and_restart(tmp_path):
     result = replay_human(path)
     assert result["mismatches"] == 0 and result["checks"] >= 2
     assert result["games"][-1]["rules"] == "neon"
+    pygame.quit()
+
+
+def test_campaign_checkpoint_restores_repeatedly_and_trace_replays(tmp_path):
+    from abuse_remake.game.human_replay import replay_human
+
+    path = tmp_path / "checkpoint.jsonl"
+    app = make_app("--skip-title", "--record", str(path))
+    for tick in range(400):
+        p = app.game.player
+        targets = [e for e in app.game.enemies if e.x < app.game.doors[0][0]]
+        enemy = min(targets, key=lambda e: abs(e.x - p.x)) if targets else None
+        goal = app.game.relays[0].x - 10
+        move = 1 if p.x < goal - 5 else -1 if p.x > goal + 5 else 0
+        app.tick(Inputs(x=move, y=1 if not move and tick % 2 == 0 else -1 if tick % 30 == 0 else 0,
+                        b2=int(enemy is not None), pointer_x=enemy.x + enemy.w // 2 if enemy else goal,
+                        pointer_y=enemy.y + enemy.h // 2 if enemy else 480))
+        if app.game.relays[0].active:
+            break
+    assert app.game.relays[0].active
+    checkpoint_hash = app.game.state_hash()
+    for _ in range(3):
+        app.tick(Inputs(x=1))
+        app.restore()
+        assert app.game.state_hash() == checkpoint_hash
+    app.close_trace()
+    result = replay_human(path)
+    assert result["mismatches"] == 0 and result["games"][0]["console_saves"] == 1
     pygame.quit()
 
 
@@ -169,4 +197,20 @@ def test_ghost_preserves_exact_alpha_mask():
     got_alpha = pygame.surfarray.array_alpha(ghost)
     assert np.all(got_alpha[src_alpha == 0] == 0)
     assert np.all(got_alpha[src_alpha > 0] == 110)
+    pygame.quit()
+
+
+def test_neon_uses_shaded_animated_assets_with_transparent_silhouettes():
+    import numpy as np
+
+    app = make_app()
+    art = app.renderer.art
+    for group in ("courier_idle", "courier_run", "drone", "stalker_run", "sentry", "titan_idle"):
+        frames = art.animations[group]
+        assert len(frames) >= 2
+        first = frames[0]
+        alpha = pygame.surfarray.array_alpha(first)
+        colors = pygame.surfarray.array3d(first)[alpha > 0]
+        assert np.any(alpha == 0) and np.any(alpha == 255)
+        assert len(np.unique(colors, axis=0)) >= 5  # five-color palettes include dark/midtone/highlight clusters
     pygame.quit()

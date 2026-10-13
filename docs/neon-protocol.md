@@ -10,12 +10,13 @@ a licensed Tron game. It uses its own engine (`engine/neon.py`) and front end.
 1. `feat/neon-engine`: deterministic campaign, Horde, tutorial and combat contracts.
 2. `feat/neon-playable`: neon presentation, menus, visible controls and playable tutorial;
    stacked on the engine branch.
-3. `feat/neon-validation`: integration evidence, release support, final fixes and handoff;
+3. `feat/neon-validation`: shaded art revision, integration evidence, release support and handoff;
    stacked on the playable branch.
 
 Each milestone is a separate pushed PR with an independent read-only review using
 `.claude/agents/rules-reviewer.md`. The student merges in order; agents never merge or tag.
 The latest branch contains the full playable build before merges.
+All PRs target `main`, matching the original workflow; merge stages 1, 2, 3 in order.
 
 ## Design rules (new optional design)
 
@@ -33,21 +34,26 @@ The renderer does not change gameplay. No Neon state reaches the Classic agent i
 | Vortex | Speed 18, 14 impact damage, cooldown 18 ticks; creates a radius-95 field for 45 ticks, dealing 14 damage every 5 ticks; starts with 8 charges |
 | Enemies | Drone: 36 HP, hovering/ranged. Stalker: 48 HP, fast melee/obstacle jump, 12 contact damage. Sentry: 80 HP, stationary ranged, frontal pulse damage ÷3. Titan: 240 HP, slow melee (22 damage) and three-shot ranged burst. Ranged attacks have 10-tick windup; bullets speed 9. Enemies activate within 850 px horizontally |
 | Damage | Difficulty scales incoming damage by 50/75/100/150 percent. Successful damage grants 8-tick protection, including the damage tick; protection decays after combat. Tutorial has no player damage. Lethal damage stops before healing or interaction and freezes simulation |
-| Power-ups | Shield: 60 absorb capacity for 150 ticks. Overcharge: double weapon damage for 90 ticks. Speed: faster run for 120 ticks. Health restores 30 up to 100; full health leaves pickup. Ammo gives 12 rail/4 vortex up to 48/16. Pickups expire after 900 ticks. Kills have a seeded 1-in-3 chance of a random supply |
+| Power-ups | Shield: 60 absorb capacity for 150 ticks. Overcharge: double weapon damage for 90 ticks. Speed: faster run for 120 ticks. Health restores 30 up to 100; full health leaves pickup. Ammo gives 12 rail/4 vortex up to 48/16. Combat pickups expire after 900 ticks; tutorial pickups remain until collected so training never runs out of supplies. Kills have a seeded 1-in-3 chance of a random supply |
 | Hazards | Campaign energy strips: 60 safe ticks (last 15 warning), then 30 active ticks, repeating; 14 damage while grounded on them. Jump or dash avoids them |
 | Horde | Separate 1100 px arena. 45-tick initial preparation; wave n has 2+2n enemies in seven repeating bounded edge slots. Stalkers/drones initially, sentries from wave 2, one titan every third wave. Clear all enemies for four supplies and 75-tick break. Death ends the run |
 | Tutorial | Separate safe 1100 px deck. Seven performed-action lessons: move 70 px, jump, hit target, change weapon, dash, collect power-up, activate relay. New pickup provided for the pickup lesson if necessary |
 
 ## Art and sound provenance
 
-Neon art is authored in the repository as pygame vector drawing code: an armored courier,
-four robot silhouettes, digital platforms, parallax skyline, circuitry, energy weapons and
-transparent particle effects. No third-party sprites, fonts, trademark logos, or original
-sound recordings are downloaded. This gives all characters a consistent palette and clean
-alpha, with no black sprite backgrounds. Sound effects are synthesized locally.
+The student selected **gritty armored industrial art**, closer to Abuse's shaded depth,
+on 2026-10-13. The final presentation uses artist-authored pixel art by **Luis Zuno / Ansimuz**:
+Warped City, Warped City 2 and Warped Sci-Fi Lab. Those source pages list CC0; the vendored
+licence text explicitly permits use/modification/redistribution. `assets/neon/PROVENANCE.md`
+links the primary sources; `manifest.json` pins every included PNG/licence file by SHA-256.
+No music, demo code, previews or paid add-ons are included. Sounds are synthesized locally.
 
-The user permitted Internet sprites; that permission is optional, and this implementation
-does not depend on an external asset service or add asset licensing obligations.
+The art has shaded armor, articulated animation, textured steel decks with top/front faces,
+structural supports, cast shadows, layered city/lab scenery, and limited powered light pools.
+World rendering uses a closer **640×360** view, scaled with nearest-neighbour to the 960×540
+HUD canvas and window. Aiming follows the same interpolated camera and scale. Actor images
+retain per-pixel transparency; source material is transformed at runtime, not modified on disk.
+The title credits the artist. No generative image tool is used for these assets.
 
 ## Validation
 
@@ -57,6 +63,13 @@ barriers, relay edge/proximity/security conditions, extraction, shields, piercin
 weapons, ammo refusal, Horde progression, actual tutorial completion, deterministic hashes,
 repeated saves, and Classic agent isolation. These are design tests, not original-game evidence.
 App smoke checks and review records will be added with their milestones.
+
+Actual game screenshots and a checked development trace are in `evidence/neon/`, regenerated
+by `uv run python scripts/neon_evidence.py`. The controller is explicitly labelled as a
+development controller with full map access; it is not a human playtest or agent evaluation.
+Five Hard campaign seed contracts complete all relays and extraction through normal inputs.
+App tests check a real relay checkpoint, repeated restores, replay hashes, title/mode handoffs,
+camera aiming and alpha masks. Asset tests check the manifest and retained licences.
 
 ## Playing
 

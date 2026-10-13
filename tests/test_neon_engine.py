@@ -283,6 +283,53 @@ def test_tutorial_can_be_finished_with_real_controls():
     assert g.status == "won"
 
 
+def test_training_powerups_do_not_expire_while_learning():
+    g = NeonGame(variant="tutorial")
+    for _ in range(901):
+        g.step()
+    assert g.pickups and g.pickups[0].kind == "shield"
+    g.lesson = 4
+    assert g.request_dash(-1)
+    for _ in range(901):
+        g.step()
+    assert any(p.kind == "overcharge" for p in g.pickups)
+
+
+def test_combat_pickups_expire_at_zero_and_permanent_training_pickups_are_collectible():
+    g = quiet()
+    g.pickups = [Pickup("ammo", 900, 480, life=2)]
+    g.step()
+    assert g.pickups[0].life == 1
+    g.step()
+    assert g.pickups == []
+    g.pickups = [Pickup("shield", g.player.x, g.player.y, life=-1)]
+    g.step()
+    assert g.pickups == [] and g.player.shield == 60
+
+
+@pytest.mark.parametrize("seed", range(5))
+def test_campaign_completes_through_normal_controls_on_hard(seed):
+    """Reach all relays/extraction without changing simulation state or granting health."""
+    g = NeonGame(seed=seed, difficulty="hard")
+    for tick in range(1800):
+        p = g.player
+        sector = sum(r.active for r in g.relays)
+        left = g.doors[sector - 1][0] if 0 < sector <= len(g.doors) else 0
+        right = g.doors[sector][0] if sector < len(g.doors) else g.width
+        targets = [e for e in g.enemies if left <= e.x < right]
+        enemy = min(targets, key=lambda e: abs(e.x - p.x)) if targets else None
+        goal = g.relays[sector].x - 10 if sector < 3 else g.exit_x
+        move = 1 if p.x < goal - 5 else -1 if p.x > goal + 5 else 0
+        action = 1 if move == 0 and tick % 2 == 0 else -1 if tick % 30 == 0 else 0
+        g.step(Inputs(x=move, y=action, b2=int(enemy is not None),
+                      pointer_x=enemy.x + enemy.w // 2 if enemy else goal,
+                      pointer_y=enemy.y + enemy.h // 2 if enemy else 480), select=0)
+        if g.status != "running":
+            break
+    assert g.status == "won" and all(r.active for r in g.relays)
+    assert g.kills == 11 and g.player.hp > 0
+
+
 def test_neon_is_not_available_to_classic_agent_episodes():
     from abuse_remake.agent.interface import AbuseEpisode
 

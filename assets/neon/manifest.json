@@ -1,0 +1,611 @@
+{
+  "author": "Luis Zuno (Ansimuz)",
+  "files": [
+    {
+      "path": "city/ENVIRONMENT/background/buildings-bg.png",
+      "source_path": "ENVIRONMENT/background/buildings-bg.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "2bcf93444924a333a340920ad773421137bc2d59d629017d5eb886239e70e7df"
+    },
+    {
+      "path": "city/ENVIRONMENT/background/near-buildings-bg.png",
+      "source_path": "ENVIRONMENT/background/near-buildings-bg.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "70eca49ce42f7c57135ade657d669ee9c7850f1bd02ba3eeece5f3f33c731205"
+    },
+    {
+      "path": "city/ENVIRONMENT/background/skyline-a.png",
+      "source_path": "ENVIRONMENT/background/skyline-a.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "396a8ed4cc3027f38737319ebf78dd55452e0f6d56a28179dd6bd268e9870344"
+    },
+    {
+      "path": "city/ENVIRONMENT/background/skyline-b.png",
+      "source_path": "ENVIRONMENT/background/skyline-b.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "96deb29230a929a7464791195ea81c637736353e99f48ba309552ee06536a695"
+    },
+    {
+      "path": "city/ENVIRONMENT/tileset.png",
+      "source_path": "ENVIRONMENT/tileset.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "b84bbcac67eb7497c5be1644acced216e4cb170b1573b89bef1d2ba78be02536"
+    },
+    {
+      "path": "city/ENVIRONMENT/props/control-box-1.png",
+      "source_path": "ENVIRONMENT/props/control-box-1.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "033df177c1ea6048b91b7c448aae48dea8cfc159b06277ed60ada99134983948"
+    },
+    {
+      "path": "city/ENVIRONMENT/props/control-box-2.png",
+      "source_path": "ENVIRONMENT/props/control-box-2.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "ed80e3b0eee31e7e74b5c34f2cfe77a23ec290f865eb0e459a403f8c6b85b01d"
+    },
+    {
+      "path": "city/ENVIRONMENT/props/control-box-3.png",
+      "source_path": "ENVIRONMENT/props/control-box-3.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "d4121f674aa53443c34954d91cb31909d5771dfd1545499b4dc2961b81a4be30"
+    },
+    {
+      "path": "city/ENVIRONMENT/props/antenna.png",
+      "source_path": "ENVIRONMENT/props/antenna.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "d6fc0acd73b1158a1c8b2b1e8cf692946e57fc0b6f6acf6cb0347262444d34d8"
+    },
+    {
+      "path": "city/ENVIRONMENT/props/banner-neon/banner-neon-1.png",
+      "source_path": "ENVIRONMENT/props/banner-neon/banner-neon-1.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "96560474d1565f066d8e5a1bc57150ee4f099b57a382a72212b41444a7ff47cf"
+    },
+    {
+      "path": "city/ENVIRONMENT/props/banner-neon/banner-neon-2.png",
+      "source_path": "ENVIRONMENT/props/banner-neon/banner-neon-2.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "ba87add8d562e2d800986d29516ad6937c7d98af6f780983d4f12002f129138c"
+    },
+    {
+      "path": "city/ENVIRONMENT/props/banner-neon/banner-neon-3.png",
+      "source_path": "ENVIRONMENT/props/banner-neon/banner-neon-3.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "e472990f6f7a533be96f9c6222291127021f6b3bc58aba097e92ee32c26bc116"
+    },
+    {
+      "path": "city/ENVIRONMENT/props/banner-neon/banner-neon-4.png",
+      "source_path": "ENVIRONMENT/props/banner-neon/banner-neon-4.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "43d5472da720ecc7efd69ad21c039d9a4327120a08345c69f93f6a3c4a01eafb"
+    },
+    {
+      "path": "city/SPRITES/player/idle/idle-1.png",
+      "source_path": "SPRITES/player/idle/idle-1.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "8747ed85b3625502e7962cb8a019cc38cc2cb7ccf12788f5e8f851ab2ef3a006"
+    },
+    {
+      "path": "city/SPRITES/player/idle/idle-2.png",
+      "source_path": "SPRITES/player/idle/idle-2.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "91576cbfaee3d835eb61872c24a4d36dcc3d230d81dab8b3d8cdb544d0de186d"
+    },
+    {
+      "path": "city/SPRITES/player/idle/idle-3.png",
+      "source_path": "SPRITES/player/idle/idle-3.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "65f307ce34e8a2d14802e69dc8001ae56b96386694491d378afaee6cd2dd9d33"
+    },
+    {
+      "path": "city/SPRITES/player/idle/idle-4.png",
+      "source_path": "SPRITES/player/idle/idle-4.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "d068f81ff1f3c380f026d244bbda8e28e8c09926c3dc2ddce17866713961434c"
+    },
+    {
+      "path": "city/SPRITES/player/run/run-1.png",
+      "source_path": "SPRITES/player/run/run-1.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "98c6e4426d238f089cd29abb05533ce4f95f3a45c8be73502352234cf119a705"
+    },
+    {
+      "path": "city/SPRITES/player/run/run-2.png",
+      "source_path": "SPRITES/player/run/run-2.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "a4fa896fe4d18544c204ea8e914ef4bd72e600ff149db6c1612733bbe08d403e"
+    },
+    {
+      "path": "city/SPRITES/player/run/run-3.png",
+      "source_path": "SPRITES/player/run/run-3.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "d6bdf1d181dae9504abc10c12ba6724925ced4362fe5eb4ebdc5c086284a22e9"
+    },
+    {
+      "path": "city/SPRITES/player/run/run-4.png",
+      "source_path": "SPRITES/player/run/run-4.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "8e5068630e4b53e26d0637cef7285947c3108b7c4a1fb6c7e94c97870cce8972"
+    },
+    {
+      "path": "city/SPRITES/player/run/run-5.png",
+      "source_path": "SPRITES/player/run/run-5.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "d23702a706fac3837e784e21b83f51f38c3223ef2d39dec027c912302abe7e78"
+    },
+    {
+      "path": "city/SPRITES/player/run/run-6.png",
+      "source_path": "SPRITES/player/run/run-6.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "a2d16ff235afa933014ae05b8c9ed9565f988e1b8568bc643d525a7ca59bdf85"
+    },
+    {
+      "path": "city/SPRITES/player/run/run-7.png",
+      "source_path": "SPRITES/player/run/run-7.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "84080777a2754ac62f4c36c97d952aaa6353b08bade1ed531e3dc008de226c7d"
+    },
+    {
+      "path": "city/SPRITES/player/run/run-8.png",
+      "source_path": "SPRITES/player/run/run-8.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "e8c334d32305bd6d63299b9c5cf14b291a144c33220123227af81df27433b834"
+    },
+    {
+      "path": "city/SPRITES/player/jump/jump-1.png",
+      "source_path": "SPRITES/player/jump/jump-1.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "cc0054dc03732c6fd847a396cac731773e0209a031c7fd334474422bcd666b46"
+    },
+    {
+      "path": "city/SPRITES/player/jump/jump-2.png",
+      "source_path": "SPRITES/player/jump/jump-2.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "d1b5a2a0b5a7bf46fa96db4f3583047fc688eaca01da6a4eacc09979b52433aa"
+    },
+    {
+      "path": "city/SPRITES/player/jump/jump-3.png",
+      "source_path": "SPRITES/player/jump/jump-3.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "ed1f772dc50187ab17a4cc48911166cb15effbe0c03744508679dfaee839fe05"
+    },
+    {
+      "path": "city/SPRITES/player/jump/jump-4.png",
+      "source_path": "SPRITES/player/jump/jump-4.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "9407bda5873724aa30827cf36e649a2b32b5df4d080c0dfb595dad585988ed0d"
+    },
+    {
+      "path": "city/SPRITES/player/hurt/hurt.png",
+      "source_path": "SPRITES/player/hurt/hurt.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "c7427c3820aa7080b8a0205f0eedf7250c88615f897e95cff5428285be3a534e"
+    },
+    {
+      "path": "city/SPRITES/misc/drone/drone-1.png",
+      "source_path": "SPRITES/misc/drone/drone-1.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "6df8407e7cb99d3a07d41d464d84fd1397d8d412aba364f5ab083aa1e5d1722a"
+    },
+    {
+      "path": "city/SPRITES/misc/drone/drone-2.png",
+      "source_path": "SPRITES/misc/drone/drone-2.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "e8cf95fc04c39c84c526055345b5662681f6a9006de63e3f9ebfbffb5bed3b02"
+    },
+    {
+      "path": "city/SPRITES/misc/drone/drone-3.png",
+      "source_path": "SPRITES/misc/drone/drone-3.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "4677077e2f1faf87eecb870fd82e1091acb129b5384993dd2dc4fd14f43cb4d7"
+    },
+    {
+      "path": "city/SPRITES/misc/drone/drone-4.png",
+      "source_path": "SPRITES/misc/drone/drone-4.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "320c92a733d07d7be7a3323dec5aab8afdf1f43f8f38b14bf9d4df72bcff73de"
+    },
+    {
+      "path": "city/SPRITES/misc/turret/turret-1.png",
+      "source_path": "SPRITES/misc/turret/turret-1.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "25e999f6d0ad3303191002a2aea2b622d05829f3f6f90e3c75d7976572ef9dd4"
+    },
+    {
+      "path": "city/SPRITES/misc/turret/turret-2.png",
+      "source_path": "SPRITES/misc/turret/turret-2.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "c10be4c8fa686ce41a997d03ff98a1e5ccb06c12df10fc21b240df3476ed243d"
+    },
+    {
+      "path": "city/SPRITES/misc/turret/turret-3.png",
+      "source_path": "SPRITES/misc/turret/turret-3.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "41ef945245f0bf8ab3f290aefe1dfb4da013ea8310078633b5e672246065996a"
+    },
+    {
+      "path": "city/SPRITES/misc/turret/turret-4.png",
+      "source_path": "SPRITES/misc/turret/turret-4.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "b6a41aabc0526da7dd705074e705ac93316b67c086f7c3640580dd81226e6e52"
+    },
+    {
+      "path": "city/SPRITES/misc/turret/turret-5.png",
+      "source_path": "SPRITES/misc/turret/turret-5.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "e32c53aa87d865b87a638766918aac0b792f2869176dfbd74b57f50c49397bd5"
+    },
+    {
+      "path": "city/SPRITES/misc/turret/turret-6.png",
+      "source_path": "SPRITES/misc/turret/turret-6.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "46ce22baaf929b6c1b899915078d8d931c2831f761fecd5ad965c0b3771a7c44"
+    },
+    {
+      "path": "city/SPRITES/misc/enemy-explosion/enemy-explosion-1.png",
+      "source_path": "SPRITES/misc/enemy-explosion/enemy-explosion-1.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "cfc51c6942700c30483b7574710e3f3355660cf5aaf622bf91fbe6d8e86d182d"
+    },
+    {
+      "path": "city/SPRITES/misc/enemy-explosion/enemy-explosion-2.png",
+      "source_path": "SPRITES/misc/enemy-explosion/enemy-explosion-2.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "48eeae463d468adfd5c4aed4deebc08b9239cae36de9cee90cf0312c2b59dd91"
+    },
+    {
+      "path": "city/SPRITES/misc/enemy-explosion/enemy-explosion-3.png",
+      "source_path": "SPRITES/misc/enemy-explosion/enemy-explosion-3.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "aae47f79b0f1db49ad224c2f086fba1083e1d7d959d23e27793ca1ee83a5ee4d"
+    },
+    {
+      "path": "city/SPRITES/misc/enemy-explosion/enemy-explosion-4.png",
+      "source_path": "SPRITES/misc/enemy-explosion/enemy-explosion-4.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "044288904b516986b5d9e5e78961b1bc6a81071193a3d029caf995a6833a3e5a"
+    },
+    {
+      "path": "city/SPRITES/misc/enemy-explosion/enemy-explosion-5.png",
+      "source_path": "SPRITES/misc/enemy-explosion/enemy-explosion-5.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "9f6bf59a125c8c7eb373329dd11ace4f9070eed93a5fb863166c62d9e58e4277"
+    },
+    {
+      "path": "city/SPRITES/misc/enemy-explosion/enemy-explosion-6.png",
+      "source_path": "SPRITES/misc/enemy-explosion/enemy-explosion-6.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "45a170eb85783e997dcdb6878dba6d9f472b684c232bc7bfad82c9271c55f139"
+    },
+    {
+      "path": "city/SPRITES/misc/shot/shot-1.png",
+      "source_path": "SPRITES/misc/shot/shot-1.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "97f7dea2ef6364a0b3e948acd9495b627ed0549f800ef515afbb9dc754a9f314"
+    },
+    {
+      "path": "city/SPRITES/misc/shot/shot-2.png",
+      "source_path": "SPRITES/misc/shot/shot-2.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "cb258e05f3c02195b74c5c7d50b9f5e38a7346474cc6c3d7fa5a39d266940d48"
+    },
+    {
+      "path": "city/SPRITES/misc/shot/shot-3.png",
+      "source_path": "SPRITES/misc/shot/shot-3.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "02c070400173004d4cf4c15ad8414bf4e19a38dcccc47944e678152d1326c462"
+    },
+    {
+      "path": "city/SPRITES/misc/shot-hit/shot-hit-1.png",
+      "source_path": "SPRITES/misc/shot-hit/shot-hit-1.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "6866af5d980113dd1b800866319aa9034e5be5676dfd0fddfcc8ba60d3707d64"
+    },
+    {
+      "path": "city/SPRITES/misc/shot-hit/shot-hit-2.png",
+      "source_path": "SPRITES/misc/shot-hit/shot-hit-2.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "2f809ea9d169b593ec67543b3fe0d00af5f785060d14b145e91474feda21f865"
+    },
+    {
+      "path": "city/SPRITES/misc/shot-hit/shot-hit-3.png",
+      "source_path": "SPRITES/misc/shot-hit/shot-hit-3.png",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "095b3e47c40cdd3240c1c292ac3f1f54b255d56b93ab1d96e9b73ae497e20e4c"
+    },
+    {
+      "path": "city/public-license.txt",
+      "source_path": "public-license.txt",
+      "archive": "https://opengameart.org/sites/default/files/warped_city_files.zip",
+      "sha256": "b0492b7b7a16a63bab85a0f088a9871ac58bce0764af651488b5c9118d6becdc"
+    },
+    {
+      "path": "city2/Environment/background/back.png",
+      "source_path": "Environment/background/back.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "22a367be0c5571f28df0149acad57a3ff7613bd3e51b9207a8647a7b2f6884de"
+    },
+    {
+      "path": "city2/Environment/background/middle.png",
+      "source_path": "Environment/background/middle.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "6d55df21301ade991e514c49ec4d63c3975d7e18bd72e4a4ffc12edb15c61be1"
+    },
+    {
+      "path": "city2/Environment/background/front.png",
+      "source_path": "Environment/background/front.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "4d76cc40cf523efc113ffa1abe1966b6bc5d15c72f0fbd5f39c9b0c4e8ea092e"
+    },
+    {
+      "path": "city2/Environment/tileset.png",
+      "source_path": "Environment/tileset.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "280ba562ff7fbd7e478ddcea34e7da143db1eb5c8dd5e2e80a5493da02ec6b9d"
+    },
+    {
+      "path": "city2/Environment/props/lights/lights1.png",
+      "source_path": "Environment/props/lights/lights1.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "c2d660b103f05f11a8f90069f5f5e60194e7d68772ec0ce9b68898bf1fc7f7c7"
+    },
+    {
+      "path": "city2/Environment/props/lights/lights2.png",
+      "source_path": "Environment/props/lights/lights2.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "44cc062ac7ec0a3516caae183dd64baa07e1e5f7bb82ed7cb4a683e6c79140dc"
+    },
+    {
+      "path": "city2/Environment/props/lights/lights3.png",
+      "source_path": "Environment/props/lights/lights3.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "2ec46934c8090c8ace19d852e96f989425519e5a1fa8a911f57491a8a2c9b9f8"
+    },
+    {
+      "path": "city2/Environment/props/lights/lights4.png",
+      "source_path": "Environment/props/lights/lights4.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "c2d660b103f05f11a8f90069f5f5e60194e7d68772ec0ce9b68898bf1fc7f7c7"
+    },
+    {
+      "path": "city2/Environment/props/banner-a/banner-a1.png",
+      "source_path": "Environment/props/banner-a/banner-a1.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "b3e833fba8fe8fcfcd904c8e9dd4c22f83f10a6437ec2ed38ef133cec6f6df4b"
+    },
+    {
+      "path": "city2/Environment/props/banner-a/banner-a2.png",
+      "source_path": "Environment/props/banner-a/banner-a2.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "cdeca36d99cdcdc252dc5c1e76affcf972db2a43ddf69b38f4765960a31ac65b"
+    },
+    {
+      "path": "city2/Environment/props/banner-a/banner-a3.png",
+      "source_path": "Environment/props/banner-a/banner-a3.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "3972fd57829625b573ba6982c58a6549a80ad5d5319c094b261810fbc604d317"
+    },
+    {
+      "path": "city2/Environment/props/banner-a/banner-a4.png",
+      "source_path": "Environment/props/banner-a/banner-a4.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "a36b4691a64798c249658c3c4f059150a01eca5ba231b35ebe2a9fe68f488447"
+    },
+    {
+      "path": "city2/Sprites/cop/idle/cop1.png",
+      "source_path": "Sprites/cop/idle/cop1.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "4823437438ce8c4df2693be9e01c44726e59d1a8fc30cfd3f63dd3e74834f208"
+    },
+    {
+      "path": "city2/Sprites/cop/idle/cop2.png",
+      "source_path": "Sprites/cop/idle/cop2.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "79dea3c6322edb9a2f14ee7ef20d319ac775b177df5f692863b17f554c61d7b4"
+    },
+    {
+      "path": "city2/Sprites/cop/idle/cop3.png",
+      "source_path": "Sprites/cop/idle/cop3.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "9511add9fb05c6ae7b31daec70c84485cc2656fbddb9fda2478df4ffee634ea2"
+    },
+    {
+      "path": "city2/Sprites/cop/run/cop1.png",
+      "source_path": "Sprites/cop/run/cop1.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "f3c4f855a6de7e2da9709987dd4c79ede0ecc389de25f6e312cbb90905a92c06"
+    },
+    {
+      "path": "city2/Sprites/cop/run/cop10.png",
+      "source_path": "Sprites/cop/run/cop10.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "f5907db887472afb4854fa056a87725ce742de571584f8245eb86ff6c0837df1"
+    },
+    {
+      "path": "city2/Sprites/cop/run/cop2.png",
+      "source_path": "Sprites/cop/run/cop2.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "d2fb2ab5cd2d0fa8d4c28ba12bfe3d7e9df9c7d93cbddac9ca9ac8faa0fe067c"
+    },
+    {
+      "path": "city2/Sprites/cop/run/cop3.png",
+      "source_path": "Sprites/cop/run/cop3.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "3bd933e967772e783b4f69b89072d2985cd7fd3cba70cfa052738aa08a6fb0b1"
+    },
+    {
+      "path": "city2/Sprites/cop/run/cop4.png",
+      "source_path": "Sprites/cop/run/cop4.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "3a87bd3558f328694d2e4b7b6d142fa3e4438cbae3c787d056d3416f215d79bf"
+    },
+    {
+      "path": "city2/Sprites/cop/run/cop5.png",
+      "source_path": "Sprites/cop/run/cop5.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "ae7efb16a0800899afd0184293656343941a79dd52b35a0c20ac6e21bcfb0760"
+    },
+    {
+      "path": "city2/Sprites/cop/run/cop6.png",
+      "source_path": "Sprites/cop/run/cop6.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "45d9afdd3dee05741ef09816a1cbdb3464091c4031ef9a0736eb3519f4f2d23a"
+    },
+    {
+      "path": "city2/Sprites/cop/run/cop7.png",
+      "source_path": "Sprites/cop/run/cop7.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "61b66a3dfdce61c75f2aeb13f583c7e3bf335b065a6f385d350d637e4266dc6c"
+    },
+    {
+      "path": "city2/Sprites/cop/run/cop8.png",
+      "source_path": "Sprites/cop/run/cop8.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "0e60aa7b1ef78f2c8c2ae77b4b386cbe1970e974cb9d46589d3c23ad2d46616b"
+    },
+    {
+      "path": "city2/Sprites/cop/run/cop9.png",
+      "source_path": "Sprites/cop/run/cop9.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "a7b0c489e8731885b82969193c180c874e206cd73779917db7dbede95c145af3"
+    },
+    {
+      "path": "city2/Sprites/egg turret/Idle/idle1.png",
+      "source_path": "Sprites/egg turret/Idle/idle1.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "4ddb8190d2d4c35763307f8cb4b7825035ea246d303a315358788b15cb70e782"
+    },
+    {
+      "path": "city2/Sprites/egg turret/Idle/idle2.png",
+      "source_path": "Sprites/egg turret/Idle/idle2.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "8a24e0d9e58d1081f92aef495006468901d857961c64e7dd2b18ebed6f677884"
+    },
+    {
+      "path": "city2/Sprites/egg turret/Shoot/shoot1.png",
+      "source_path": "Sprites/egg turret/Shoot/shoot1.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "4ddb8190d2d4c35763307f8cb4b7825035ea246d303a315358788b15cb70e782"
+    },
+    {
+      "path": "city2/Sprites/egg turret/Shoot/shoot2.png",
+      "source_path": "Sprites/egg turret/Shoot/shoot2.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "e5aea9f49e803b81dd1822f995f0c2271180558b29bf50218b172a5ca8856240"
+    },
+    {
+      "path": "city2/Sprites/egg turret/Shoot/shoot3.png",
+      "source_path": "Sprites/egg turret/Shoot/shoot3.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "8cbef25e90002c0e29f7ea8c74677ac09c25df0fbdf0601eadfb4b637acd663f"
+    },
+    {
+      "path": "city2/Sprites/egg turret/Shoot/shoot4.png",
+      "source_path": "Sprites/egg turret/Shoot/shoot4.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "27466b600dc8e50e85d8410e27307aa53d623dc63880718a16dd24f3ecf27b6a"
+    },
+    {
+      "path": "city2/Sprites/explosion-a/explosion-a1.png",
+      "source_path": "Sprites/explosion-a/explosion-a1.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "2fa99d48056c8e2fd5a708eec8275a1b024534aa0d417311375cff762346d4db"
+    },
+    {
+      "path": "city2/Sprites/explosion-a/explosion-a2.png",
+      "source_path": "Sprites/explosion-a/explosion-a2.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "e29002d9741e91785c764c3eed603c9bbf4a34da48f0b161e6648cfb74866e10"
+    },
+    {
+      "path": "city2/Sprites/explosion-a/explosion-a3.png",
+      "source_path": "Sprites/explosion-a/explosion-a3.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "8b5b6e444eccbb3698d505ad25e720162d717a2d6ce33a5555efd99bed4978cb"
+    },
+    {
+      "path": "city2/Sprites/explosion-a/explosion-a4.png",
+      "source_path": "Sprites/explosion-a/explosion-a4.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "3bbc027357e31d10f6a95401b9fcdca13157e84d00d22121e2c4e9ab8459808d"
+    },
+    {
+      "path": "city2/Sprites/explosion-a/explosion-a5.png",
+      "source_path": "Sprites/explosion-a/explosion-a5.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "9abe317c69204d1a3b0a8019bc84b63c6d49caa1a7e9a302f86eecd0ed9b55ad"
+    },
+    {
+      "path": "city2/Sprites/explosion-a/explosion-a6.png",
+      "source_path": "Sprites/explosion-a/explosion-a6.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "76c6b29e5ab2f2b03ca6ce6d64b679b9f5afcc38132722e4fc8a748f734074f5"
+    },
+    {
+      "path": "city2/Sprites/explosion-a/explosion-a7.png",
+      "source_path": "Sprites/explosion-a/explosion-a7.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "7780e498c6a58b3985733626abe99880b13e9fe0c88359e84235596c3160d45c"
+    },
+    {
+      "path": "city2/Sprites/explosion-a/explosion-a8.png",
+      "source_path": "Sprites/explosion-a/explosion-a8.png",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "3a6d5407761699cbbb5a39fe44612cf6b2e8881cd0280d38de73f5dbcf40b483"
+    },
+    {
+      "path": "city2/public-license.txt",
+      "source_path": "public-license.txt",
+      "archive": "https://opengameart.org/sites/default/files/cyberpunk_city_2_files.zip",
+      "sha256": "f49f19245741d89dc9239f3352af38a3213dada598bf101967d02cbcab5c3dd1"
+    },
+    {
+      "path": "lab/layers/Props/support.png",
+      "source_path": "layers/Props/support.png",
+      "archive": "https://opengameart.org/sites/default/files/scifi_lab_files.zip",
+      "sha256": "8db6242f463a5f55b6709f9fb5994fbbb485720c6405dd356d4f7f35e671cb6b"
+    },
+    {
+      "path": "lab/layers/Props/tank-1.png",
+      "source_path": "layers/Props/tank-1.png",
+      "archive": "https://opengameart.org/sites/default/files/scifi_lab_files.zip",
+      "sha256": "c1b77579cae127984e63db0b595bf36aeddfefb9016dd3cf9935aaa05793ceea"
+    },
+    {
+      "path": "lab/layers/Props/tank-2.png",
+      "source_path": "layers/Props/tank-2.png",
+      "archive": "https://opengameart.org/sites/default/files/scifi_lab_files.zip",
+      "sha256": "ff65cb85117636a04c34c8c4287a4d8f02f2b31f10fc5a272b6b674604841505"
+    },
+    {
+      "path": "lab/layers/Props/tank-3.png",
+      "source_path": "layers/Props/tank-3.png",
+      "archive": "https://opengameart.org/sites/default/files/scifi_lab_files.zip",
+      "sha256": "64ec6ea0b1bfe97e06c3dddcdef2c90cb3f1dd38ac7a53eb572a1eb4e6ca8e02"
+    },
+    {
+      "path": "lab/layers/back.png",
+      "source_path": "layers/back.png",
+      "archive": "https://opengameart.org/sites/default/files/scifi_lab_files.zip",
+      "sha256": "fb2658168f1f95ceb84b243cda4698877dc97366b04c677bf8db66b66af1204e"
+    },
+    {
+      "path": "lab/layers/front.png",
+      "source_path": "layers/front.png",
+      "archive": "https://opengameart.org/sites/default/files/scifi_lab_files.zip",
+      "sha256": "ccd277d05875a1621113d35f48df91da80da901a7a62794b056e260dc53ef3a0"
+    },
+    {
+      "path": "lab/layers/middle.png",
+      "source_path": "layers/middle.png",
+      "archive": "https://opengameart.org/sites/default/files/scifi_lab_files.zip",
+      "sha256": "1a2dce9ba852169180baa11a6911f3c1b9f518df03f93e292a23ece29586772d"
+    },
+    {
+      "path": "lab/public-license.txt",
+      "source_path": "public-license.txt",
+      "archive": "https://opengameart.org/sites/default/files/scifi_lab_files.zip",
+      "sha256": "f49f19245741d89dc9239f3352af38a3213dada598bf101967d02cbcab5c3dd1"
+    }
+  ]
+}

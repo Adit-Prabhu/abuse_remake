@@ -16,6 +16,7 @@ from ..engine.world import DIFFICULTIES, Event
 from .app import MAX_CATCHUP, TICK
 from .audio import Audio
 from .controls import draw_controls
+from .neon_art import WORLD_H, WORLD_W
 from .neon_render import CYAN, H, NeonRenderer, W
 
 
@@ -56,7 +57,8 @@ class NeonApp:
             append = getattr(args, "_append_trace", False) and path.exists()
             self.trace = path.open("a" if append else "w")
             if not append:
-                self.write({"kind": "header", "format": "neon-trace-1", "player": "human", "game": "neon_protocol"})
+                self.write({"kind": "header", "format": "neon-trace-1",
+                            "player": getattr(args, "trace_player", "human"), "game": "neon_protocol"})
         variant = "tutorial" if args.tutorial else "horde" if args.horde else "campaign"
         # Explicit --horde/--tutorial still shows the title unless skip-title was requested,
         # but selects the requested variant for Enter and headless smoke runs.
@@ -113,7 +115,7 @@ class NeonApp:
     def screen_to_game(self, x, y):
         sw, sh = self.screen.get_size()
         cx, cy = self.renderer.last_camera
-        return int(x * W / sw + cx), int(y * H / sh + cy)
+        return int(x * WORLD_W / sw + cx), int(y * WORLD_H / sh + cy)
 
     def read_inputs(self):
         k = pg.key.get_pressed()
@@ -288,7 +290,7 @@ class NeonApp:
             pg.draw.circle(self.renderer.surface, CYAN, (round(mouse[0]), round(mouse[1])), 7, 1)
             pg.draw.line(self.renderer.surface, CYAN, (mouse[0] - 11, mouse[1]), (mouse[0] - 4, mouse[1]))
             pg.draw.line(self.renderer.surface, CYAN, (mouse[0] + 4, mouse[1]), (mouse[0] + 11, mouse[1]))
-        pg.transform.smoothscale(self.renderer.surface, self.screen.get_size(), self.screen)
+        pg.transform.scale(self.renderer.surface, self.screen.get_size(), self.screen)
         pg.display.flip()
 
     def run(self):

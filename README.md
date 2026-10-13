@@ -11,7 +11,7 @@ project ("AI in Practice: Game Design and Development").
   race, an AI spectator and a Horde arena (`docs/remastered.md`). Evaluations always run Classic
   rules.
 - **Neon Protocol** (`--mode neon`) is a separate futuristic campaign and Horde with a new
-  map, robot enemies, energy weapons, power-ups, neon vector art and a playable tutorial.
+  map, robot enemies, energy weapons, power-ups, shaded pixel art and a playable tutorial.
   See `docs/neon-protocol.md`; it does not change Classic evaluation.
 - The scope record is `SCOPE.md`. Data provenance and licences are in
   `data/original/PROVENANCE.md`, and `docs/data-lineage.md` shows the data matches the 1995 and

@@ -1,6 +1,8 @@
 # Remastered mode
 
 `uv run abuse-remake` starts in Remastered mode, and `--mode classic` gives the faithful port.
+`--mode neon` opens the separate Neon Protocol campaign/Horde/training expansion
+(`docs/neon-protocol.md`). The existing Horde arena remains Remastered's arena.
 `--playtest` starts in Classic mode, because playtests are the human reference for the Classic
 evaluation. The title screen toggles the mode (M), the difficulty (D) and Horde (H). Horde is
 Remastered only, so switching to Classic turns it off.
@@ -25,6 +27,10 @@ and adds the following. Mechanics that change rules live in the engine behind
 | Horde | `--horde`, or H on the title screen | An arena on the longest flat floor of Level 1 (x 1680-2400) with the level's objects removed. Ants come in growing waves, released the way the original's cracks release them; tougher ant types from wave 3. Health and ammo drop between waves, and the run ends on death | `engine/horde.py` |
 
 ## Quality-of-life features (no rule changes)
+
+**F1** opens a controls screen in every mode; **C** also opens it from the old title or pause
+screen. **N** on the title opens Neon Protocol. Remastered ghosts use a silhouette alpha mask
+(zero background alpha, 110 visible alpha) so their tinted images have no black rectangle.
 
 | Feature | Controls | What it does | Code |
 |---|---|---|---|

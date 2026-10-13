@@ -74,6 +74,19 @@ existing test-first and independent-review workflow. New mechanics are labelled 
 Classic evaluation is unchanged. Merge/acceptance remains student-owned. Validation results
 and fresh review records are recorded with each milestone; no live playing-model calls occur.
 
+PR #9's fresh reviewer found five engine issues, all fixed and rechecked. PR #10's reviewer
+found two trace lifecycle issues, also fixed and rechecked. The final stage adds actual
+pygame screenshots, a reproducible development smoke trace, five Hard campaign seed checks,
+and executable smoke checks. Development controllers have full map access and are explicitly
+excluded from agent evaluation or human playtest claims. Commits have no AI co-author trailers.
+
+The student tried the initial Neon prototype and rejected its vector graphics as flat. They
+requested depth and shaded assets comparable to the original, then selected the gritty armored
+industrial direction over a colorful cyberpunk city. Codex replaced that presentation using
+Ansimuz's licensed pixel-art sprites/environment packs, with credited source pages, original
+licence text, checksum manifest and actual screenshot evidence. Gameplay and Classic
+evaluation remain isolated. The artwork is sourced from the artist, not generated imagery.
+
 The agent wrote the code, tests and docs. The agent also ran the reviews, as separate
 read-only agents. The student directed the scope and the decisions. No model calls were made
 for play or evaluation up to this point: every result in `evidence/` comes from the

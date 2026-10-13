@@ -1,0 +1,47 @@
+{
+  "purpose": "developer smoke only; full map access, not a fair player evaluation or human playtest",
+  "seed": 7,
+  "difficulty": "hard",
+  "campaign": {
+    "status": "won",
+    "ticks": 533,
+    "kills": 11,
+    "relays": 3,
+    "health": 100
+  },
+  "trace_replay": {
+    "games": [
+      {
+        "rules": "neon",
+        "seed": 7,
+        "variant": "campaign",
+        "ticks": 533,
+        "deaths": 0,
+        "console_saves": 3,
+        "reached_exit": true,
+        "waves_cleared": 0
+      },
+      {
+        "rules": "neon",
+        "seed": 7,
+        "variant": "horde",
+        "ticks": 165,
+        "deaths": 0,
+        "console_saves": 0,
+        "reached_exit": false,
+        "waves_cleared": 0
+      }
+    ],
+    "checks": 4,
+    "mismatches": 0
+  },
+  "screenshots": [
+    "title.png",
+    "campaign.png",
+    "core.png",
+    "horde.png",
+    "training.png",
+    "controls.png",
+    "extraction.png"
+  ]
+}

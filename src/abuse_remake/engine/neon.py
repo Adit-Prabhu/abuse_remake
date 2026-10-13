@@ -144,7 +144,7 @@ class NeonGame:
         elif variant == "tutorial":
             self.relays = [Relay(940)]
             self.spawn_enemy("dummy", 550, 480)
-            self.pickups = [Pickup("shield", 790, 480)]
+            self.pickups = [Pickup("shield", 790, 480, life=-1)]
         else:
             self.player.x = 535
 
@@ -198,7 +198,7 @@ class NeonGame:
         if self.variant == "tutorial" and self.lesson == 4:
             self.lesson = 5
             # Always provide a pickup for this lesson, even if the first was collected earlier.
-            self.pickups.append(Pickup("overcharge", min(self.width - 50, p.x + 80), p.y))
+            self.pickups.append(Pickup("overcharge", min(self.width - 50, p.x + 80), p.y, life=-1))
         return True
 
     def step(self, inputs: Inputs | None = None, select: int | None = None, cycle: int = 0):
@@ -413,8 +413,9 @@ class NeonGame:
     def _pickups(self):
         p = self.player
         for item in list(self.pickups):
-            item.life -= 1
-            if item.life <= 0:
+            if item.life > 0:
+                item.life -= 1
+            if item.life == 0:
                 self.pickups.remove(item)
                 continue
             if abs(p.x + p.w // 2 - item.x) > 34 or abs(p.y + p.h // 2 - item.y) > 40:
