@@ -127,6 +127,21 @@ class GameObject:
         self.xvel = self.yvel = self.xacel = self.yacel = 0
         self.fxvel = self.fyvel = self.fxacel = self.fyacel = 0
 
+    def change_aitype(self, v: int) -> None:
+        """objects.c:1564-1592: Lisp ``(set_aitype x)`` also runs the type_change_fun."""
+        self.set_aitype(v)
+        fn = self.ctype.type_change_fun
+        if fn is not None:
+            fn(self)
+
+    def change_type(self, type_name: str) -> None:
+        """objects.c:1595-1635: new type, fresh zeroed local variables, then its constructor."""
+        ct = self.world.types[type_name]
+        self.ctype = ct
+        self.lvars = dict.fromkeys(ct.vars, 0)
+        if ct.constructor is not None:
+            ct.constructor(self)
+
     # --- links (extend.c add_object / remove_object) ---
     def add_object(self, o: GameObject | None) -> None:
         if o is None or o in self.objs:

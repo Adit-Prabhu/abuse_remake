@@ -212,7 +212,7 @@ def rocket_ai(o) -> bool:
 def exp_ai(o) -> bool:
     if o.aitype == 0:
         return o.next_picture()
-    o.set_aitype(o.aitype - 1)
+    o.change_aitype(o.aitype - 1)
     return True
 
 
@@ -287,7 +287,7 @@ def create_dead_parts(o, array: str, part_num: int, ptype: int) -> None:
     saved = rng.rand_on
     for k, extra_frames in ((0, 0), (1, 0), (2, 1), (2, 2), (2, 3)):
         p = o.world.spawn(names[part_num + k], o.x, o.y)
-        p.set_aitype(ptype)
+        p.change_aitype(ptype)
         for _ in range(extra_frames):
             p.next_picture()
         # (* dir (random 10)): Lisp's integer * evaluates each argument twice and multiplies
@@ -298,40 +298,42 @@ def create_dead_parts(o, array: str, part_num: int, ptype: int) -> None:
     rng.rand_on = saved
 
 
-def bounce_move(o, on_left=None, on_right=None, on_up=None, on_down=None, on_nothing=None) -> None:
-    """duong.lsp:358-388."""
+def bounce_move(o, on_left=None, on_right=None, on_up=None, on_down=None, on_nothing=None):
+    """duong.lsp:358-388. Returns what the Lisp returns: the value of the stub that ran
+    (a missing stub counts as T), or nil when the move was blocked in no listed direction."""
     old_yv, old_xv = o.yvel, o.xvel
     status = o.float_tick()
-    if status is not True and status is not False:
-        flags = status[0]
-        if flags & 4:  # blocked up
-            o.xvel = old_xv
-            o.yvel = 2 - old_yv if old_yv > 1 else -old_yv
-            if on_up:
-                on_up(o)
-        elif flags & 8:  # blocked down
-            o.xvel = old_xv
-            o.yvel = 2 - old_yv if old_yv > 1 else -old_yv
-            if on_down:
-                on_down(o)
-        elif flags & 1:
-            o.yvel = old_yv
-            o.xvel = -old_xv
-            if on_left:
-                on_left(o)
-        elif flags & 2:
-            o.yvel = old_yv
-            o.xvel = -old_xv
-            if on_right:
-                on_right(o)
-    elif on_nothing:
-        on_nothing(o)
+
+    def run(stub):
+        return True if stub is None else stub(o)
+
+    if status is True or status is False:  # float_tick returned T (or nil for a dead object)
+        return run(on_nothing) if status is True else False
+    flags = status[0]
+    if flags & 4:  # blocked up: bounce
+        o.xvel = old_xv
+        o.yvel = 2 - old_yv if old_yv > 1 else -old_yv
+        return run(on_up)
+    if flags & 8:  # blocked down
+        o.xvel = old_xv
+        o.yvel = 2 - old_yv if old_yv > 1 else -old_yv
+        return run(on_down)
+    if flags & 1:
+        o.yvel = old_yv
+        o.xvel = -old_xv
+        return run(on_left)
+    if flags & 2:
+        o.yvel = old_yv
+        o.xvel = -old_xv
+        return run(on_right)
+    return False
 
 
-def _landed(o) -> None:
+def _landed(o):
     o.set_state("dieing")
     o.set_aistate_time(0)
     o.set_aistate(1)
+    return True
 
 
 @lisp("head_ai")
