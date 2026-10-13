@@ -1,0 +1,51 @@
+[project]
+name = "abuse-remake"
+version = "0.1.0"
+description = "A Level 1 reconstruction of Abuse (Crack dot Com, 1996) with a model-driven player"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26,<3",
+    "pygame-ce>=2.5,<3",
+]
+
+[project.optional-dependencies]
+# Live model providers for the model-driven player. Only one is needed.
+model = [
+    "google-genai>=1.0,<3",
+    "anthropic>=0.84,<1",
+    "openai>=2.0,<3",
+]
+
+[project.scripts]
+abuse-remake = "abuse_remake.game.app:main"
+abuse-agent = "abuse_remake.agent.runner:main"
+abuse-eval = "abuse_remake.agent.evaluate:main"
+abuse-replay = "abuse_remake.agent.replay:main"
+abuse-data = "abuse_remake.formats.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+]
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/abuse_remake"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E741"]

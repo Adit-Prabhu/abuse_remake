@@ -1,0 +1,29 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+.idea/
+dist/
+build/
+*.spec.bak
+
+# Secrets and local model configuration
+.env
+.env.*
+!.env.example
+credentials*.json
+*-credentials.json
+gha-creds-*.json
+
+# Generated at run time
+runs/
+cache/
+playtests/raw/
+local-audio/
+*.mp4
+!evidence/video/*.mp4
+
+.claude/settings.local.json
+.claude/worktrees/
