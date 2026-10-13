@@ -191,7 +191,8 @@ def visible_objects(game, ids: IdMap, x0, y0, w, h) -> list[dict]:
 
 
 EVENT_KINDS = {"pickup", "enemy_killed", "wall_destroyed", "door", "switch", "checkpoint_saved",
-               "teleported", "enemy_fired", "enemy_revealed", "enemy_spawned", "explosion", "level_complete",
+               "teleported", "enemy_fired", "enemy_alert", "enemy_revealed", "enemy_spawned", "explosion",
+               "level_complete",
                "player_died"}
 
 
