@@ -14,6 +14,7 @@ The labels follow the course convention:
 | `assumed` | Not yet backed by evidence. Each one is listed under "Open questions". |
 | course choice | Not a rule of the game: a decision about the evaluation harness or episode, made for the course and labelled so it is never mistaken for fidelity. |
 | course rule | A requirement the course sets (for example, no automatic paid retries). |
+| remastered design | A new rule that exists only in Remastered mode. It is not a claim about the original. |
 
 For the Lisp's relation to the 1996 retail release, see `docs/data-lineage.md`.
 
