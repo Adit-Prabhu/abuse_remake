@@ -178,3 +178,13 @@ def test_baselines_are_deterministic_and_scripted_beats_random():
     r = run(RandomPlayer(), 3)
     assert a["progress"] >= r["progress"] or r["reason"] == "player died"
     assert a["invalid_actions"] == 0
+
+
+def test_off_screen_events_are_not_reported():
+    from abuse_remake.engine.world import Event
+    ep = AbuseEpisode("level01", seed=0)
+    v = ep.observe(PLAYER_ID)["view"]
+    ep._pending_events = [Event("enemy_alert", {"uid": 999, "x": v["x"] + 2000, "y": v["y"] + 900}),
+                          Event("enemy_alert", {"uid": 998, "x": v["x"] + 50, "y": v["y"] + 50})]
+    events = ep.observe(PLAYER_ID)["events"]
+    assert len(events) == 1 and events[0]["type"] == "enemy_alert"
