@@ -162,6 +162,17 @@ made for the course and labelled as one. Details are in `docs/action-interface.m
 | Progress (`1 - d_best / d_start` over the full map, doors ignored) is computed by the runner and never shown to players | `agent/progress.py` | course choice |
 | Token and wall-clock budgets are enforced by the runner from the usage the player reports; a model request is one attempt with a 20 s timeout | `agent/runner.py` `budget_stop`, `agent/providers/` | course rule (no automatic paid retries) |
 
+## Remastered mode (new rules, not in the original)
+
+These rules exist only with `--mode remastered`. Classic mode, the fidelity tests and every
+evaluation run without them (`test_classic_games_and_agent_episodes_never_build_remastered_rules`,
+`test_remastered_without_a_dash_plays_exactly_like_classic`). Details are in `docs/remastered.md`.
+
+| Rule | Our code | Evidence |
+|---|---|---|
+| Dash: 4 ticks at +13 px per tick with feet and head collision, 7 ticks without damage, an 18-tick cooldown | `engine/remastered.py`; the damage check is in `player.bottom_damage` behind `player_iframes`, which Classic never sets | remastered design, not the original. Checked by the dash tests in `tests/test_remastered.py` |
+| Horde: the arena is the longest flat floor with headroom in Level 1; ants are released as cracks release them (`run_jump`, aistate 6); waves of 2 + 2n; health and ammo drops between waves | `engine/horde.py` | remastered design. The ant release follows `code`: `ant.lsp:524-551` (`crack_ai`). Checked by `test_horde_waves_drops_and_the_end` |
+
 ## Open questions
 
 - `assumed`: the fixed 15 Hz tick. See the timing table.
