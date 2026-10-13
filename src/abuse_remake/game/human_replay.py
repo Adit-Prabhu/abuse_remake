@@ -79,28 +79,33 @@ class _Session:
 
 
 class _NeonSession:
-    """Replay the new optional design, without Classic evaluator progress or pygame."""
+    """Replay Neon Protocol (``neon-trace-2``), without Classic route scoring or pygame.
+
+    A save console and the start of every campaign sector are checkpoints, as in the game.
+    """
 
     def __init__(self, row):
         from ..engine.neon import NeonGame
 
-        self.game = NeonGame(row["seed"], row["variant"], row.get("difficulty", "hard"))
+        self.game = NeonGame(row["seed"], row["variant"], row.get("difficulty", "hard"), row.get("sector", 0))
         self.level_start = self.game.snapshot()
         self.checkpoint = self.level_start
         self.ticks, self.deaths, self.saves = 0, 0, 0
         self.won = False
 
     def step(self, row):
+        from ..engine.neon import NeonInput
+
         g = self.game
-        if row.get("dash"):
-            g.request_dash(row["x"])
-        g.step(Inputs(x=row["x"], y=row["y"], b2=row["b2"], pointer_x=row["px"], pointer_y=row["py"]),
-               select=row.get("select"), cycle=row.get("cycle", 0))
+        g.step(NeonInput(x=row["x"], y=row["y"], jump=bool(row.get("jump")), fire=bool(row.get("fire")),
+                         dash=bool(row.get("dash")), interact=bool(row.get("interact")),
+                         px=row["px"], py=row["py"]),
+               select=row.get("select"), cycle=row.get("cycle", 0), upgrade=row.get("upgrade"))
         self.ticks += 1
         for e in g.events:
-            if e["kind"] == "checkpoint":
+            if e["kind"] in ("checkpoint", "sector_start"):
                 self.checkpoint = g.snapshot()
-                self.saves += 1
+                self.saves += e["kind"] == "checkpoint"
         self.deaths += int(g.status == "dead")
         self.won |= g.status == "won"
 
@@ -110,16 +115,20 @@ class _NeonSession:
             self.checkpoint = self.level_start
 
     def summary(self):
-        return {"rules": "neon", "seed": self.game.seed, "variant": self.game.variant,
-                "ticks": self.ticks, "deaths": self.deaths, "console_saves": self.saves,
-                "reached_exit": self.won, "waves_cleared": self.game.cleared}
+        g = self.game
+        return {"rules": "neon", "seed": g.seed, "variant": g.variant, "ticks": self.ticks,
+                "deaths": self.deaths, "console_saves": self.saves, "reached_exit": self.won,
+                "sector": g.sector, "kills": g.kills,
+                "waves_cleared": g.horde.cleared if g.horde is not None else 0}
 
 
 def replay_human(path: Path) -> dict:
     rows = [json.loads(x) for x in Path(path).read_text().splitlines() if x.strip()]
+    if rows and rows[0].get("format") == "neon-trace-1":
+        raise SystemExit(f"{path}: a Neon Protocol v1 trace; v1 was replaced, so it cannot be replayed")
     if (not rows or rows[0].get("kind") != "header"
-            or rows[0].get("format") not in ("human-trace-1", "neon-trace-1")):
-        raise SystemExit(f"{path}: not a human trace (format human-trace-1 or neon-trace-1)")
+            or rows[0].get("format") not in ("human-trace-1", "neon-trace-2")):
+        raise SystemExit(f"{path}: not a human trace (format human-trace-1 or neon-trace-2)")
     games: list[dict] = []
     session: _Session | _NeonSession | None = None
     checks = mismatches = 0

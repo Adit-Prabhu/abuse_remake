@@ -496,9 +496,8 @@ def main(argv=None) -> int:
     args = parse_args(argv)
     while True:
         if args.mode == "neon":
-            from .neon_app import NeonApp
-
-            app = NeonApp(args)
+            # Neon Protocol v2: this stage ships the simulation only; its front end is the next PR
+            sys.exit("Neon Protocol v2's front end lands in the next stage (feat/neon2-presentation)")
         else:
             app = App(args)
         result = app.run()
