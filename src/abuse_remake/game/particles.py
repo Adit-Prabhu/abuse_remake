@@ -40,6 +40,10 @@ class Particles:
             elif e.kind == "pickup":
                 self.emit(d["x"], d["y"] - 6, 16, 1.8, [(120, 255, 200), (255, 255, 255)], life=(10, 20),
                           gravity=-0.08)
+            elif e.kind == "dash":  # Remastered: a streak of light behind the player
+                for i in range(6):
+                    self.emit(d["x"] - d["direction"] * i * 6, d["y"] - 18, 4, 0.6,
+                              [(120, 220, 255), (200, 240, 255)], life=(6, 12), size=(1, 2), gravity=0.0)
             elif e.kind == "sound" and d["name"] == "ZAP_SND":
                 self.emit(d["x"], d["y"], 5, 2.0, [(255, 120, 90), (255, 230, 200)], life=(3, 7))
 

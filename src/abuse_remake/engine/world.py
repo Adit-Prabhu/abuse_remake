@@ -646,5 +646,7 @@ class World:
         self.events.append(Event(kind, data))
 
     def note_damage(self, target: GameObject, amount: int, from_obj) -> None:
+        owner = from_obj.objs[0] if from_obj is not None and from_obj.objs else None
+        by_player = from_obj is not None and any(from_obj is v.focus or owner is v.focus for v in self.views)
         self.emit("damage", target=target.uid, type=target.ctype.name, amount=amount,
-                  source=from_obj.ctype.name if from_obj is not None else None)
+                  source=from_obj.ctype.name if from_obj is not None else None, by_player=by_player)

@@ -51,7 +51,7 @@ class WeaponCommand:
 
 class Game:
     def __init__(self, seed: int = 0, difficulty: str = DEFAULT_DIFFICULTY, level: str = LEVEL,
-                 strict: bool = True, object_filter=None):
+                 strict: bool = True, object_filter=None, remastered: bool = False):
         lf = _level(level)
         if object_filter is not None:
             lf = _filtered(lf, object_filter)
@@ -69,6 +69,11 @@ class Game:
         self.player = player
         self.seed = seed
         self.frames = 0
+        self.remastered = None
+        if remastered:  # rule changes for --mode remastered only; Classic never builds this
+            from .remastered import Remastered
+
+            self.remastered = Remastered(self)
 
     def step(self, inputs: Inputs | None = None, weapon: WeaponCommand | None = None) -> None:
         if weapon is not None:
@@ -79,7 +84,11 @@ class Game:
             elif weapon.cycle > 0:
                 self.view.next_weapon()
         self.view.set_input(inputs or Inputs(pointer_x=self.player.x + 100, pointer_y=self.player.y - 20))
+        if self.remastered is not None:
+            self.remastered.before_step()
         self.world.step()
+        if self.remastered is not None:
+            self.remastered.after_step()
         self.frames += 1
 
     # --- save and restore (the human game's restart; see SCOPE.md) ---

@@ -1,14 +1,17 @@
 """``abuse-remake``: play Level 1.
 
 Rules run at a fixed 15 Hz, as in the original; drawing runs at the display rate with
-interpolation in between. Classic mode shows the original 311x151 view; Remastered mode shows
-a wider 16:9 view with modern effects (and, from milestone 8, the Remastered-only mechanics).
+interpolation in between. Classic mode shows the original 316x162 view and the original rules.
+Remastered mode shows a wider 16:9 view with modern effects and adds a dash (F) with brief
+invulnerability, quick restart at the last console (R), a stats screen with your best time, and
+a ghost race against your best finished run.
 
 Controls (original defaults, plus modern ones):
   move A/D or arrows; jump W, Up or Space; action (switches, doors, consoles, exit) S or Down
   aim with the mouse; fire left button (or J); special right button (or Shift)
   weapons 1-4, Q/E or the mouse wheel; pause Esc; gamepad: left stick move, right stick aim,
   A jump, B action, right trigger fire, bumpers switch weapon
+  Remastered only: dash F (gamepad X), quick restart at the last console R, ghost on/off G
 """
 
 from __future__ import annotations
@@ -80,19 +83,28 @@ class App:
         self.clock = pygame.time.Clock()
         self.state = "play" if (args.skip_title or args.frames) else "title"
         self.trace = None
+        self.ghost_painter = None
         self.new_game()
 
     # --- game lifecycle ---
     def new_game(self):
-        self.game = Game(seed=self.seed, difficulty=self.args.difficulty)
+        from .remaster import GhostRecorder, load_ghost
+
+        self.game = Game(seed=self.seed, difficulty=self.args.difficulty, remastered=self.modern)
         self.renderer = self.Renderer(self.game, self.sprites, self.view_w, self.view_h)
         self.renderer.modern = self.modern
         self.game.world.globals["save_hook"] = self._on_console_save
         self.level_start = self.game.snapshot()
         self.checkpoint = self.level_start
-        self.stats = {"ticks": 0, "kills": 0, "secrets": 0, "deaths": 0, "shots": 0, "damage_taken": 0}
+        self.stats = {"ticks": 0, "kills": 0, "secrets": 0, "deaths": 0, "shots": 0, "hits": 0, "damage_taken": 0,
+                      "dashes": 0}
         self.acc = 0.0
         self.pending_weapon: WeaponCommand | None = None
+        self.pending_dash = False
+        self.finish: dict | None = None
+        self.ghost_rec = GhostRecorder() if self.modern else None
+        self.ghost = load_ghost(self.args.difficulty) if self.modern else None
+        self.show_ghost = True
         self._open_trace()
 
     def _open_trace(self):
@@ -172,6 +184,8 @@ class App:
                     self.pending_weapon = WeaponCommand(cycle=-1 if ev.y > 0 else 1)
                 elif ev.type == pg.JOYBUTTONDOWN and self.state == "play" and ev.button in (4, 5):
                     self.pending_weapon = WeaponCommand(cycle=-1 if ev.button == 4 else 1)
+                elif ev.type == pg.JOYBUTTONDOWN and self.state == "play" and ev.button == 2 and self.modern:
+                    self.pending_dash = True
             if self.state == "play":
                 self.acc += dt if not self.args.frames else TICK / 2
                 while self.acc >= TICK:
@@ -214,6 +228,14 @@ class App:
                 self.pending_weapon = WeaponCommand(cycle=1)
             elif key == pg.K_l:
                 self.renderer.lighting = not self.renderer.lighting
+            elif self.modern and key == pg.K_f:
+                self.pending_dash = True
+            elif self.modern and key == pg.K_r:
+                self.game.restore(self.checkpoint)  # quick restart at the last console
+                self._rebind()
+                self.hud.say("Back to the last console")
+            elif self.modern and key == pg.K_g:
+                self.show_ghost = not self.show_ghost
         elif self.state == "paused":
             if key == pg.K_ESCAPE:
                 self.state = "play"
@@ -235,6 +257,24 @@ class App:
                 self.state = "title"
         return True
 
+    def stats_lines(self) -> list[str]:
+        s = self.stats
+        lines = ["LEVEL COMPLETE", f"time {clock_text(s['ticks'])}",
+                 f"kills {s['kills']}   secrets {s['secrets']}   deaths {s['deaths']}"]
+        if self.modern:
+            acc = f"{min(100, 100 * s['hits'] // s['shots'])}%" if s["shots"] else "-"
+            lines.append(f"damage taken {s['damage_taken']}   shots {s['shots']}   accuracy {acc}   dashes "
+                         f"{s['dashes']}")
+            f = self.finish or {}
+            best = f.get("best")
+            if f.get("new_best"):
+                lines.append("NEW BEST TIME" + (f" (was {clock_text(best['ticks'])})" if best else "")
+                             + " - saved as your ghost")
+            elif best:
+                lines.append(f"best {clock_text(best['ticks'])}")
+        lines.append("Enter to continue")
+        return lines
+
     def _rebind(self):
         self.renderer.game = self.game
         self.game.world.globals["save_hook"] = self._on_console_save
@@ -243,13 +283,21 @@ class App:
     def tick(self, frame_no):
         inp = self.scripted_inputs(self.stats["ticks"]) if self.args.frames else self.read_inputs()
         weapon, self.pending_weapon = self.pending_weapon, None
+        if self.pending_dash and self.game.remastered is not None:
+            self.pending_dash = False
+            if self.game.remastered.request_dash(inp.x):
+                self.stats["dashes"] += 1
         hp_before = self.game.player.hp
         self.game.step(inp, weapon)
         self.stats["ticks"] += 1
+        if self.ghost_rec is not None:
+            self.ghost_rec.capture(self.game)
         w = self.game.world
         for e in w.events:
             if e.kind == "enemy_killed":
                 self.stats["kills"] += 1
+            elif e.kind == "damage" and e.data.get("by_player") and e.data["target"] != self.game.player.uid:
+                self.stats["hits"] += 1
             elif e.kind == "wall_destroyed":
                 self.stats["secrets"] += 1
             elif e.kind == "sound" and e.data["name"] == "ZAP_SND":
@@ -270,6 +318,12 @@ class App:
             self.state = "dead"
         if w.globals.get("level_complete"):
             self.state = "complete"
+            if self.modern:
+                from .remaster import record_finish
+
+                self.finish = record_finish(self.args.difficulty, self.stats)
+                if self.finish["new_best"] and self.ghost_rec is not None:
+                    self.ghost_rec.save(self.args.difficulty)
 
     def draw(self):
         pg = self.pg
@@ -278,6 +332,13 @@ class App:
         if self.modern:
             self.particles.step(0.25)
             xoff, yoff = self.renderer.camera(alpha)
+            if self.ghost and self.show_ghost and self.state == "play":
+                row = self.ghost[min(self.stats["ticks"], len(self.ghost) - 1)]
+                if self.ghost_painter is None:
+                    from .remaster import GhostPainter
+
+                    self.ghost_painter = GhostPainter(pg, self.sprites)
+                self.ghost_painter.draw(surf, self.game, row, xoff, yoff)
             self.particles.draw(surf, xoff, yoff)
         pg.transform.scale(surf, self.screen.get_size(), self.screen)
         if self.state in ("play", "paused", "dead", "complete"):
@@ -297,12 +358,13 @@ class App:
         elif self.state == "dead":
             self.hud.center(self.screen, ["YOU DIED", "Space to restart from the last save"])
         elif self.state == "complete":
-            s = self.stats
-            t = s["ticks"] // 15
-            self.hud.center(self.screen, ["LEVEL COMPLETE", f"time {t // 60}:{t % 60:02d}",
-                                          f"kills {s['kills']}   secrets {s['secrets']}   deaths {s['deaths']}",
-                                          "Enter to continue"])
+            self.hud.center(self.screen, self.stats_lines())
         pg.display.flip()
+
+
+def clock_text(ticks: int) -> str:
+    t = ticks // 15
+    return f"{t // 60}:{t % 60:02d}.{(ticks % 15) * 100 // 15:02d}"
 
 
 def main(argv=None) -> int:
