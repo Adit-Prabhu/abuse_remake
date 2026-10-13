@@ -26,6 +26,7 @@ from .lispfns import (
     lmod,
     play_sound,
     random,
+    set_aistate,
     set_course,
     set_frame_angle,
     state_time,
@@ -181,10 +182,10 @@ def rocket_ai(o) -> bool:
         clock_dist = cur - angle if angle < cur else cur + (360 - angle)
         closest = 360 - clock_dist if clock_dist > 180 else clock_dist
         add = 23 if closest > 23 else (0 if closest < 5 else closest)
-        if clock_dist > 180:
-            o.set_aistate(lmod(cur + add, 360))
+        if clock_dist > 180:  # Lisp set_aistate also zeroes aistate_time (clisp.c:1074-1078)
+            set_aistate(o, lmod(cur + add, 360))
         else:
-            o.set_aistate(lmod(cur - add + 360, 360))
+            set_aistate(o, lmod(cur - add + 360, 360))
     if o.lvars["speed"] < o.lvars["max_speed"]:
         o.lvars["speed"] += 2
     set_course(o, o.aistate, o.lvars["speed"])
@@ -289,6 +290,9 @@ def create_dead_parts(o, array: str, part_num: int, ptype: int) -> None:
         p.set_aitype(ptype)
         for _ in range(extra_frames):
             p.next_picture()
+        # (* dir (random 10)): Lisp's integer * evaluates each argument twice and multiplies
+        # the second values (lisp.c:1904-1931), so two random numbers are drawn
+        random(p, 10)
         p.xvel = d * random(p, 10)
         p.yvel = -random(p, 25)
     rng.rand_on = saved

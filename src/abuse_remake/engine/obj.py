@@ -626,7 +626,7 @@ class GameObject:
                 self.aistate_time = 0
             else:
                 self.set_aistate_time(self.aistate_time + 1)
-            return bool(ret)
+            return ret is not None and ret is not False  # only nil deletes (objects.c:418)
         self.move(0, 0, 0)
         return True
 
