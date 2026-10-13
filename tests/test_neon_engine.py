@@ -45,6 +45,59 @@ def test_jump_lands_and_floor_never_tunnels():
     assert g.player.y == initial and g.player.grounded
 
 
+def test_first_platform_is_reachable_by_a_normal_jump():
+    g = quiet()
+    g.player.x = 280
+    g.step(Inputs(y=-1))
+    for _ in range(6):
+        g.step()
+    lowest_feet = g.player.y + g.player.h
+    for _ in range(20):
+        g.step(Inputs(x=1))
+        lowest_feet = min(lowest_feet, g.player.y + g.player.h)
+        if g.player.grounded:
+            break
+    assert lowest_feet <= 425
+    assert g.player.grounded and g.player.y + g.player.h == 425
+
+
+def test_lethal_hit_cannot_be_healed_or_saved_in_the_same_tick():
+    from abuse_remake.engine.neon import Shot
+
+    g = quiet()
+    p = g.player
+    p.hp = 5
+    p.x = g.relays[0].x - 10
+    g.pickups = [Pickup("health", p.x, p.y)]
+    g.shots = [Shot(p.x, p.y + 15, 1, 0, 0, 20, True)]
+    g.step(Inputs(y=1))
+    assert p.hp == 0 and g.status == "dead"
+    assert not g.relays[0].active and len(g.pickups) == 1
+
+
+def test_dash_protects_six_ticks_then_damage_resumes():
+    g = quiet()
+    assert g.request_dash(1)
+    for _ in range(6):
+        # Damage occurs in the enemies phase, before end-of-tick decay.
+        g._enemies = lambda: g.hurt_player(20)
+        g.step()
+        assert g.player.hp == 100
+    g.step()
+    assert g.player.hp == 80
+
+
+def test_airborne_player_above_hazard_is_safe():
+    g = quiet()
+    g.hazards = [(100, 200)]
+    g.frames = 60
+    g.player.y = 474
+    g.player.vy = -5
+    g.player.grounded = False
+    g.step()
+    assert g.player.hp == 100
+
+
 def test_relays_require_proximity_action_and_security_clearance():
     g = quiet()
     g.step(Inputs(y=1))
@@ -168,6 +221,14 @@ def test_horde_wave_clears_drops_supplies_and_escalates():
     g.player.hp = 0
     g.step()
     assert g.status == "dead"
+
+
+def test_late_horde_waves_keep_every_enemy_inside_the_arena():
+    g = NeonGame(seed=0, variant="horde")
+    g.wave, g.break_ticks = 39, 1
+    g.step()
+    assert len(g.enemies) == 82
+    assert all(0 <= e.x and e.x + e.w <= g.width for e in g.enemies)
 
 
 @pytest.mark.parametrize("variant", ["campaign", "horde", "tutorial"])

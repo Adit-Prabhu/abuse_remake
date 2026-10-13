@@ -26,16 +26,16 @@ The renderer does not change gameplay. No Neon state reaches the Classic agent i
 | System | Design |
 |---|---|
 | Campaign | A new 4200 px digital facility, floor y=520, three relays at x=1260/2600/3850, two sector barriers at 1400/2740, extraction at 4050. Clear hostiles within 360 px in the current sector, then press action within 60 px of a relay. Relay activation restores health and at least 24 rail/8 vortex charges and emits a checkpoint. Extraction needs all relays, grounded proximity within 70 px, and action |
-| Movement | 22×42 player, 7 px/tick running, 10 with speed; jump velocity −18, gravity +2, max fall 18. Full solid platforms, pixel-stepped collision; ceiling/world edges block movement. Jump and interaction require a released key between presses |
+| Movement | 22×42 player, 7 px/tick running, 10 with speed; jump velocity −22, gravity +2, max fall 18 (110 px rise reaches the 95 px first platform). Full solid platforms, pixel-stepped collision; ceiling/world edges block movement. Jump and interaction require a released key between presses |
 | Dash | 4 ticks at 24 px/tick; 24-tick cooldown; 6 ticks of invulnerability, including the request tick. Uses movement direction or facing. Refused when dead, finished or cooling down; cannot cross barriers |
 | Pulse | Infinite ammo, 12 damage, speed 30, cooldown 3 ticks; stops at first target |
 | Rail | 40 damage, speed 70, cooldown 12 ticks; pierces separate enemies once per shot and bypasses sentry shielding; starts with 24 charges |
 | Vortex | Speed 18, 14 impact damage, cooldown 18 ticks; creates a radius-95 field for 45 ticks, dealing 14 damage every 5 ticks; starts with 8 charges |
 | Enemies | Drone: 36 HP, hovering/ranged. Stalker: 48 HP, fast melee/obstacle jump, 12 contact damage. Sentry: 80 HP, stationary ranged, frontal pulse damage ÷3. Titan: 240 HP, slow melee (22 damage) and three-shot ranged burst. Ranged attacks have 10-tick windup; bullets speed 9. Enemies activate within 850 px horizontally |
-| Damage | Difficulty scales incoming damage by 50/75/100/150 percent. Successful damage grants 8-tick protection. Tutorial has no player damage. Player death freezes simulation |
+| Damage | Difficulty scales incoming damage by 50/75/100/150 percent. Successful damage grants 8-tick protection, including the damage tick; protection decays after combat. Tutorial has no player damage. Lethal damage stops before healing or interaction and freezes simulation |
 | Power-ups | Shield: 60 absorb capacity for 150 ticks. Overcharge: double weapon damage for 90 ticks. Speed: faster run for 120 ticks. Health restores 30 up to 100; full health leaves pickup. Ammo gives 12 rail/4 vortex up to 48/16. Pickups expire after 900 ticks. Kills have a seeded 1-in-3 chance of a random supply |
 | Hazards | Campaign energy strips: 60 safe ticks (last 15 warning), then 30 active ticks, repeating; 14 damage while grounded on them. Jump or dash avoids them |
-| Horde | Separate 1100 px arena. 45-tick initial preparation; wave n has 2+2n enemies. Stalkers/drones initially, sentries from wave 2, one titan every third wave. Clear all enemies for four supplies and 75-tick break. Death ends the run |
+| Horde | Separate 1100 px arena. 45-tick initial preparation; wave n has 2+2n enemies in seven repeating bounded edge slots. Stalkers/drones initially, sentries from wave 2, one titan every third wave. Clear all enemies for four supplies and 75-tick break. Death ends the run |
 | Tutorial | Separate safe 1100 px deck. Seven performed-action lessons: move 70 px, jump, hit target, change weapon, dash, collect power-up, activate relay. New pickup provided for the pickup lesson if necessary |
 
 ## Art and sound provenance

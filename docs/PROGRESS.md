@@ -12,7 +12,7 @@ are now merged (confirmed against GitHub); the historical table below records th
 
 | Stage | Branch | Base | State |
 |---|---|---|---|
-| Simulation | `feat/neon-engine` | `main` | Engine contracts passing; independent review next |
+| Simulation | `feat/neon-engine` (#9) | `main` | Pushed; independent review found five issues, all fixed with failing regression tests |
 | Playable presentation/tutorial | `feat/neon-playable` | `feat/neon-engine` | Planned |
 | Final validation/release support | `feat/neon-validation` | `feat/neon-playable` | Planned |
 

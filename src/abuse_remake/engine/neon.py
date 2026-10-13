@@ -216,7 +216,7 @@ class NeonGame:
         elif cycle:
             self.weapon = (self.weapon + (1 if cycle > 0 else -1)) % 3
         self.aim = (inp.pointer_x, inp.pointer_y)
-        for attr in ("iframes", "dash_cooldown", "overcharge", "speed", "shield_time"):
+        for attr in ("dash_cooldown", "overcharge", "speed", "shield_time"):
             setattr(p, attr, max(0, getattr(p, attr) - 1))
         if not p.shield_time:
             p.shield = 0
@@ -227,7 +227,7 @@ class NeonGame:
         p.vx = move * (10 if p.speed else 7)
         jumped = inp.y < 0 and not self.jump_held and p.grounded
         if jumped:
-            p.vy = -18
+            p.vy = -22
             self.emit("jump", p.x, p.y)
         self.jump_held = inp.y < 0
         p.vy = min(18, p.vy + 2)
@@ -243,11 +243,17 @@ class NeonGame:
             self._fire(inp.pointer_x, inp.pointer_y)
         self._enemies()
         self._projectiles()
+        if p.hp <= 0:
+            self.status = "dead"
+            return
         self._fields()
-        self._pickups()
         for x, width in self.hazards:
-            if self.hazard_active() and p.x + p.w > x and p.x < x + width and p.y + p.h > FLOOR - 12:
+            if self.hazard_active() and p.grounded and p.x + p.w > x and p.x < x + width:
                 self.hurt_player(14)
+        if p.hp <= 0:
+            self.status = "dead"
+            return
+        self._pickups()
         pressed = inp.y > 0 and not self.action_held
         self.action_held = inp.y > 0
         if pressed:
@@ -263,8 +269,7 @@ class NeonGame:
                 self.lesson = 3
             elif self.lesson == 3 and self.weapon != 0:
                 self.lesson = 4
-        if p.hp <= 0:
-            self.status = "dead"
+        p.iframes = max(0, p.iframes - 1)
 
     def hazard_active(self) -> bool:
         return self.frames % 90 >= 60  # 4 seconds safe (last second warning), 2 seconds active
@@ -469,7 +474,8 @@ class NeonGame:
                 kinds = ["stalker", "drone"] + (["sentry"] if self.wave >= 2 else [])
                 for i in range(2 + self.wave * 2):
                     kind = "titan" if self.wave % 3 == 0 and i == 0 else self.rng.choice(kinds)
-                    x = 50 + (i // 2) * 32 if i % 2 == 0 else self.width - 90 - (i // 2) * 32
+                    offset = (i // 2) % 7 * 32
+                    x = 50 + offset if i % 2 == 0 else self.width - 90 - offset
                     self.spawn_enemy(kind, x, 260 if kind == "drone" else FLOOR - (58 if kind == "titan" else 36))
                 self.emit("wave", self.player.x, self.player.y, wave=self.wave)
         else:

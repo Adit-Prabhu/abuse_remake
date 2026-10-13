@@ -189,8 +189,6 @@ evaluation run without them (`test_classic_games_and_agent_episodes_never_build_
 | Dash: 4 ticks at +13 px per tick with feet and head collision (the top half moves with it), 7 ticks without damage, an 18-tick cooldown; a teleport or death cancels it | `engine/remastered.py`; the damage check is in `player.bottom_damage` behind `player_iframes`, which Classic never sets | remastered design, not the original. Checked by the dash tests in `tests/test_remastered.py`, including a run where the player is hurt in both modes with identical results |
 | Horde: the arena is the longest flat floor with headroom in Level 1 (x 1680-2400). Ants start in `run_jump` with aistate 6, the state a crack releases them in. Waves are 2 + 2n ants, one every 18 ticks, with a 45-tick start and 90-tick breaks; aitype 0 until wave 3, then a mix. Ants spawn 30 px above the floor at the arena's ends, at the front of the object list, moving at 12 px per tick. After wave n, 2 + n//2 drops: health, then ammo. The player starts with 100 laser rounds and 6 grenades | `engine/horde.py` | remastered design. Only the release state follows `code`: `ant.lsp:524-551` (`crack_ai`). A crack instead adds the ant after itself, moving at 20 px per tick, with the crack's aitype. Checked by `test_horde_waves_drops_and_the_end` |
 
-## Open questions
-
 ## Neon Protocol (new optional design)
 
 These are **neon design** rules approved by the student, not claims about the original C or
