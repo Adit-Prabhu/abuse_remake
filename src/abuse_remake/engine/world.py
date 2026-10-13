@@ -97,7 +97,7 @@ class World:
         fore_bounds = {n: t.boundary for n, t in tiles.fore.items()}
         cells = [v & 0x3FFF for v in level.fg]
         self.tiles = TileMap(level.fg_width, level.fg_height, cells, fore_bounds)
-        self.bg = list(level.bg)
+        self.bg_map = list(level.bg)
         self.bg_scroll = level.bg_scroll
         self.areas = list(level.areas)
         self.min_light_level = level.min_light_level
