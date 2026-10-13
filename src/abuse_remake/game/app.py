@@ -139,9 +139,11 @@ class App:
         if path is None:
             return
         path.parent.mkdir(parents=True, exist_ok=True)
-        self.trace = open(path, "w")  # noqa: SIM115 - closed on exit
-        self._write({"kind": "header", "game": "abuse_remake", "level": "level01", "player": "human",
-                     "format": "human-trace-1"})
+        append = getattr(self.args, "_append_trace", False) and path.exists()
+        self.trace = open(path, "a" if append else "w")  # noqa: SIM115 - closed on exit
+        if not append:
+            self._write({"kind": "header", "game": "abuse_remake", "level": "level01", "player": "human",
+                         "format": "human-trace-1"})
 
     def _write(self, row: dict) -> None:
         """Human traces (game/human_replay.py replays them): a header, then for each game a
@@ -503,6 +505,7 @@ def main(argv=None) -> int:
         if app.next_mode is None:
             return result
         args.mode = app.next_mode
+        args._append_trace = True  # mode changes are one session; preserve previous trace rows
         args.skip_title, args.horde, args.tutorial = False, False, False
 
 

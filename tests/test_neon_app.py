@@ -80,6 +80,59 @@ def test_neon_trace_round_trip_includes_checkpoint_dash_and_restart(tmp_path):
     pygame.quit()
 
 
+def test_title_difficulty_change_keeps_finished_trace_replayable(tmp_path):
+    from abuse_remake.game.human_replay import replay_human
+
+    path = tmp_path / "title-config.jsonl"
+    app = make_app("--skip-title", "--record", str(path))
+    for _ in range(12):
+        app.tick(Inputs(x=1))
+    app.on_key(pygame.K_ESCAPE)
+    app.on_key(pygame.K_t)
+    before = app.game.state_hash()
+    app.on_key(pygame.K_d)
+    assert app.game.state_hash() == before
+    app.close_trace()
+    assert replay_human(path)["mismatches"] == 0
+    pygame.quit()
+
+
+def test_mode_switch_preserves_all_games_in_one_recording(tmp_path):
+    from abuse_remake.game.app import App
+    from abuse_remake.game.human_replay import replay_human
+    from abuse_remake.game.neon_app import NeonApp
+
+    path = tmp_path / "mixed.jsonl"
+    args = parse_args(["--mode", "neon", "--frames", "2", "--no-audio", "--scale", "1", "--record", str(path)])
+    NeonApp(args).run()
+    first = path.read_text()
+    args._append_trace = True  # same handoff flag the main loop sets
+    args.mode = "remastered"
+    App(args).run()
+    assert path.read_text().startswith(first)
+    args.mode = "neon"
+    NeonApp(args).run()
+    rows = [json.loads(line) for line in path.read_text().splitlines()]
+    assert sum(r["kind"] == "header" for r in rows) == 1
+    result = replay_human(path)
+    assert result["mismatches"] == 0 and len(result["games"]) == 3
+
+
+def test_recording_a_mode_handoff_and_quitting_at_title_matches(tmp_path):
+    from abuse_remake.game.app import App
+    from abuse_remake.game.human_replay import replay_human
+    from abuse_remake.game.neon_app import NeonApp
+
+    path = tmp_path / "idle-handoff.jsonl"
+    args = parse_args(["--frames", "2", "--no-audio", "--scale", "1", "--record", str(path)])
+    App(args).run()
+    args.mode, args.frames, args._append_trace = "neon", 0, True
+    app = NeonApp(args)
+    app.close_trace()
+    assert replay_human(path)["mismatches"] == 0
+    pygame.quit()
+
+
 def test_legacy_controls_are_accessible_from_title_and_pause():
     from abuse_remake.game.app import App
 

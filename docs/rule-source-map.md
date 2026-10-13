@@ -204,6 +204,9 @@ to use `engine/game.py`; the agent interface is unchanged.
 | Four new enemies, temporary power-ups, supply drops and periodic hazards | `engine/neon.py`: `_enemies`, `_pickups`, `hazard_active` | neon design: Enemies/Power-ups/Hazards rows; tests check expiry and shield absorption |
 | Separate escalating Horde arena and seven performed-action tutorial lessons | `engine/neon.py`: `_horde`, `step`, `_interact` | neon design: Horde/Tutorial rows; tests advance waves and finish training through real controls |
 | Seeded 15 Hz simulation, independent state, snapshots and terminal freeze | `engine/neon.py`: `snapshot`, `restore`, `state_hash`, `step` | neon design: deterministic/save tests for all three variants; agent episode test confirms Classic uses its original Game |
+| Independent neon vector presentation, visible help and menu routes | `game/neon_render.py`, `game/neon_app.py`, `game/controls.py`, `game/app.py` | neon presentation: repo-authored art; integration tests check read-only rendering, camera aim and help pause. No rule changes |
+| Human Neon and mixed-mode session recordings, checkpoint restore and hash checking | `game/neon_app.py`, `game/human_replay.py`, `game/app.py` | course choice: `neon-trace-1` reports Neon counters without Classic route scoring; integration tests check trace round trips, title configuration and app handoffs |
+| Remastered ghost tint uses its original sprite's per-pixel alpha mask, with 110 opacity on visible pixels | `game/remaster.py`: `GhostPainter._image` | presentation choice; `test_ghost_preserves_exact_alpha_mask` pins transparent pixels at zero. No gameplay effect |
 
 ## Open questions (Classic)
 

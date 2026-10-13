@@ -53,14 +53,20 @@ class NeonApp:
             path = Path("playtests/raw") / f"neon-{time.strftime('%Y%m%d-%H%M%S')}.jsonl"
         if path:
             path.parent.mkdir(parents=True, exist_ok=True)
-            self.trace = path.open("w")
-            self.write({"kind": "header", "format": "neon-trace-1", "player": "human", "game": "neon_protocol"})
+            append = getattr(args, "_append_trace", False) and path.exists()
+            self.trace = path.open("a" if append else "w")
+            if not append:
+                self.write({"kind": "header", "format": "neon-trace-1", "player": "human", "game": "neon_protocol"})
         variant = "tutorial" if args.tutorial else "horde" if args.horde else "campaign"
         # Explicit --horde/--tutorial still shows the title unless skip-title was requested,
         # but selects the requested variant for Enter and headless smoke runs.
         self.selection = ("campaign", "horde", "tutorial").index(variant)
         self.level_start = self.game.snapshot()
         self.checkpoint = self.level_start
+        # The preview is a real simulation too: record it for quitting at the title after
+        # a mode handoff. Zero-tick previews are omitted from replay summaries.
+        self.write({"kind": "new_game", "rules": "neon", "seed": self.seed,
+                    "variant": self.game.variant, "difficulty": self.game.difficulty})
         if args.skip_title or args.frames:
             self.start(variant)
 
@@ -205,8 +211,6 @@ class NeonApp:
                 self.start({pg.K_c: "campaign", pg.K_h: "horde", pg.K_t: "tutorial"}[key])
             elif key == pg.K_d:
                 self.args.difficulty = DIFFICULTIES[(DIFFICULTIES.index(self.args.difficulty) + 1) % 4]
-                self.game = NeonGame(self.seed, "campaign", self.args.difficulty)
-                self.renderer.reset(self.game)
             elif key == pg.K_m:
                 self.next_mode, self.running = "remastered", False
             elif key == pg.K_ESCAPE:
@@ -260,7 +264,7 @@ class NeonApp:
         mx, my = pg.mouse.get_pos()
         mouse = (mx * W / sw, my * H / sh)
         if self.state == "title":
-            self.buttons = self.renderer.menu(self.game, mouse, self.selection)
+            self.buttons = self.renderer.menu(self.game, mouse, self.selection, self.args.difficulty)
         else:
             alpha = min(1, self.acc / TICK) if self.state == "play" else 1
             self.renderer.render(self.game, alpha, self.message if self.message_ticks else "")

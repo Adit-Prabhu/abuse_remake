@@ -409,7 +409,7 @@ class NeonRenderer:
             self.hud(game, message)
         return self.surface
 
-    def menu(self, game, mouse, selection=0):
+    def menu(self, game, mouse, selection=0, difficulty=None):
         self.render(game, 1, hud=False)
         shade = pg.Surface((W, H), pg.SRCALPHA)
         shade.fill((4, 9, 23, 155))
@@ -434,7 +434,7 @@ class NeonRenderer:
             buttons.append((action, rect))
         self.text("C campaign   H horde   T training   F1 controls", (68, 320), WHITE)
         self.text("Up / Down + Enter or click a card", (68, 345), MUTED)
-        self.text(f"D / DIFFICULTY: {game.difficulty.upper()}", (68, 396), GOLD)
+        self.text(f"D / DIFFICULTY: {(difficulty or game.difficulty).upper()}", (68, 396), GOLD)
         self.text("M / Classic & Remastered    Esc / Quit", (68, 423), MUTED)
         self.line((30, 74, 91), (66, 475), (900, 475), bloom=False)
         self.text("NEW CAMPAIGN  /  FOUR SECURITY CLASSES  /  THREE ENERGY WEAPONS", (68, 493), MUTED)

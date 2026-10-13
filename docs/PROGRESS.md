@@ -13,7 +13,7 @@ are now merged (confirmed against GitHub); the historical table below records th
 | Stage | Branch | Base | State |
 |---|---|---|---|
 | Simulation | `feat/neon-engine` (#9) | `main` | Pushed; independent review found five issues, all fixed with failing regression tests |
-| Playable presentation/tutorial | `feat/neon-playable` | `feat/neon-engine` | Front end and legacy controls/ghost transparency implemented; headless tests passing; independent review next |
+| Playable presentation/tutorial | `feat/neon-playable` (#10) | `feat/neon-engine` | Pushed; independent review found two trace lifecycle issues, fixed with failed-before-fix regressions |
 | Final validation/release support | `feat/neon-validation` | `feat/neon-playable` | Planned |
 
 Merge ownership remains with the student. These branches will be pushed as milestones finish;
