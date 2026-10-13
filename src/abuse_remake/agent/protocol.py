@@ -11,8 +11,9 @@ player -> runner, one JSON object per line, in reply to each "decide":
     {"action": "<one of legal_actions>", "note": "<optional>", "meta": {<optional usage data>}}
 
 The player writes protocol messages to stdout only; logs go to stderr. If a reply is late
-(``decision_timeout``), unparsable or missing, the runner sends the raw text to ``step`` as the
-action, so the episode refuses and counts it exactly like any other invalid action.
+(``decision_timeout``), not a JSON object, or missing, the runner sends no action to ``step``
+(the raw text is kept for the trace), so the episode refuses and counts it like any other invalid
+action.
 """
 
 from __future__ import annotations
@@ -99,8 +100,8 @@ class ProcessPlayer:
             reply = json.loads(line)
             if not isinstance(reply, dict):
                 raise ValueError("reply is not an object")
-        except ValueError:
-            return {"action": line.strip()[:500], "error": "reply is not JSON", "raw": line.strip()[:500],
+        except ValueError:  # refused, never read as an action: a bare "wait" must not slip through
+            return {"action": None, "error": "reply is not a JSON object", "raw": line.strip()[:500],
                     "wall_s": time.monotonic() - t0}
         reply.setdefault("raw", line.strip()[:2000])
         reply["wall_s"] = time.monotonic() - t0
