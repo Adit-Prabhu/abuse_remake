@@ -12,9 +12,9 @@ record.
 | 2. Engine core | `feat/engine-core` | #2 | reviewed (`docs/reviews/PR-2.md`), fixes in, awaiting merge |
 | 3. Every Level 1 object | `feat/level01-objects` | #3 | reviewed (`docs/reviews/PR-3.md`), fixes in, awaiting merge |
 | 4. Playable game (pygame, modern rendering) | `feat/game-app` | #4 | done; no separate review yet |
-| 5. Player interface, baselines, runner, traces | `feat/player-interface` | #5 | done; no separate review yet |
+| 5. Player interface, baselines, runner, traces | `feat/player-interface` | #5 | reviewed (`docs/reviews/PR-5.md`); fixes landed on `feat/remastered` |
 | 6+7. Model player, providers, memory conditions, `abuse-eval`, live-eval workflow | `feat/model-player` | #6 | reviewed (`docs/reviews/PR-6.md`), all fixes in |
-| 8. Remastered mode | `feat/remastered` (on top of #6) | #7 | built: dash, quick restart, stats and best time, ghost race, AI spectator and `abuse-replay` (MP4), Horde; independent review running (the first run was cut off by a usage limit) |
+| 8. Remastered mode | `feat/remastered` (on top of #6) | #7 | reviewed (`docs/reviews/PR-7.md`), all fixes in; also carries PR #5's fixes |
 | 9. Evidence, docs, release | `docs/evidence` (on top of #7) | #8 | done except the human-owned items below |
 
 Milestones 6 and 7 share one branch: the live comparison needs both the model player and the
@@ -75,8 +75,7 @@ evaluation harness.
 
 ## Next steps
 
-1. Merge `feat/model-player` into `feat/remastered`, open its PR, and review it. Then reviews
-   for PRs #4 and #5, which have none yet.
+1. Review PR #4 (the playable game), the only milestone without a review record.
 2. **Live comparison (human-gated).**
    - The owner sets up Vertex: `gcloud auth application-default login`, `GOOGLE_CLOUD_PROJECT`,
      `GOOGLE_CLOUD_LOCATION`, and `COURSE_MODEL` (a Gemini ID).

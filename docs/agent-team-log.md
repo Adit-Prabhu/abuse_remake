@@ -41,9 +41,9 @@ it in a fresh context, and the agent fixed or recorded every finding. The studen
 | #2 | Engine core | No blocking findings. The fixes covered the view size (316x162), Lisp `*` semantics, test strength and citations. `PR-2.md` |
 | #3 | Every Level 1 object | No fidelity bugs. 11 findings on tests, labels and citations, all fixed. `PR-3.md` |
 | #4 | Playable game | Not yet reviewed |
-| #5 | Player interface, baselines, runner | Not yet reviewed |
+| #5 | Player interface, baselines, runner | Reviewed after #6 and #7, against the current code. No blocking findings; 4 should-fix findings. Among them: repeated events after a refusal, the seed reaching players, and `weapon laser` writing engine state. All fixed, with new controller tests. On the full level random and scripted are now level, which the evaluation reports. `PR-5.md` |
 | #6 | Model player, providers, memory conditions, `abuse-eval` | 1 blocking finding (the Vertex SDK's automatic continuation could send several billed requests per decision) and 12 should-fix findings, all fixed. `PR-6.md` |
-| #7 | Remastered mode | Review in progress. The first run was cut off by a usage limit and was re-run |
+| #7 | Remastered mode | No blocking findings; 8 should-fix findings. Among them: spectating a model skipped the budgets, the replay check could pass a truncated trace, and playtests defaulted to Remastered rules. All fixed. The first review run was cut off by a usage limit and re-run. `PR-7.md` |
 | #8 | Evidence, docs, release | This PR |
 
 ## What went wrong, and what changed
