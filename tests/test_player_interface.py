@@ -167,6 +167,17 @@ def test_a_player_that_answers_garbage_is_refused_not_crashed(tmp_path):
     assert out["invalid_actions"] == 3 and out["ticks"] == 0
 
 
+def test_a_bare_legal_word_that_is_not_json_is_still_refused(tmp_path):
+    script = tmp_path / "bare_player.py"
+    script.write_text("import sys\nfor line in sys.stdin:\n    print('wait', flush=True)\n")
+    player = ProcessPlayer([sys.executable, str(script)], decision_timeout=10)
+    trace = tmp_path / "t.jsonl"
+    out = run_episode(player, "level01", 0, budgets=Budgets(max_ticks=9000, max_decisions=2), trace_path=trace)
+    assert out["invalid_actions"] == 2 and out["ticks"] == 0
+    step = [json.loads(x) for x in trace.read_text().splitlines()][1]
+    assert step["raw"] == "wait" and step["player_error"] == "reply is not a JSON object"
+
+
 def test_baselines_are_deterministic_and_scripted_beats_random():
     def run(policy, seed):
         budgets = Budgets(max_ticks=9000, max_decisions=120)

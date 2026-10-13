@@ -1,0 +1,55 @@
+# The repeated live comparison: baselines and the model player under the same budgets.
+# Live players run only with --live. Run `abuse-eval estimate --config eval/configs/live.toml`
+# first and fill [prices] from the provider's price page (with the date) before running.
+name = "live"
+scenarios = ["level01", "level01-cp1", "level01-cp2", "level01-cp3"]
+seeds = [0, 1, 2, 3, 4]
+difficulty = "hard"
+isolation = "process"
+decision_timeout = 60.0  # the runner's wait for a player reply; each model request itself times out at 20 s
+reference = "scripted"
+
+[budgets]               # the same for every player
+max_decisions = 200
+max_input_tokens = 600000
+max_output_tokens = 150000
+max_wall_s = 3600
+
+[run]                   # stop starting live episodes once these are reached
+max_input_tokens = 30000000
+max_output_tokens = 4000000
+
+[prices]                # USD per million tokens; fill in from the provider's price page before a live run
+date = ""
+source = ""
+input_per_mtok = 0.0
+output_per_mtok = 0.0
+
+[[players]]
+label = "random"
+player = "random"
+
+[[players]]
+label = "scripted"
+player = "scripted"
+
+# The model players differ only in --memory. Thinking tokens count against --max-output-tokens on
+# models that think; for such a model add a thinking cap to all three (Gemini: "--thinking-budget",
+# "<n>"), or truncated answers will show up as failed requests in the report.
+[[players]]
+label = "model-M0"
+player = "model"
+args = ["--provider", "vertex", "--memory", "M0", "--timeout", "20", "--max-output-tokens", "2048"]
+live = true
+
+[[players]]
+label = "model-M1"
+player = "model"
+args = ["--provider", "vertex", "--memory", "M1", "--timeout", "20", "--max-output-tokens", "2048"]
+live = true
+
+[[players]]
+label = "model-M2"
+player = "model"
+args = ["--provider", "vertex", "--memory", "M2", "--timeout", "20", "--max-output-tokens", "2048"]
+live = true

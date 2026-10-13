@@ -1,53 +1,88 @@
 # Progress and handoff notes
 
 This page lets a fresh session (human or agent) pick up the build. Update it with every push.
-The approved plan is summarised in the "Milestones" table below; `SCOPE.md` is the scope
+The approved plan is summarised in the "Branches and PRs" table below; `SCOPE.md` is the scope
 record.
 
 ## Branches and PRs (stacked; the student merges in order, agents never merge)
 
 | Milestone | Branch | PR | State |
 |---|---|---|---|
-| 1. Scaffold, data, format readers | `feat/scaffold-data` | #1 | review done (`docs/reviews/PR-1.md`), CI green, awaiting merge |
-| 2. Engine core | `feat/engine-core` (on top of #1) | #2 | done; independent review running |
-| 3. Every Level 1 object | `feat/level01-objects` (on top of #2) | #3 | done: all 44 types ported, strict load passes, tests green |
-| 4. Playable game (pygame, modern rendering) | `feat/game-app` | | not started |
-| 5. Player interface (observe, legal actions, step, outcome) | `feat/player-interface` | | not started |
-| 6. Baselines and evaluation | `feat/baselines-eval` | | not started |
-| 7. Model player (Vertex, Anthropic, OpenAI) | `feat/model-player` | | not started |
-| 8. Remastered mode | `feat/remastered` | | not started |
+| 1. Scaffold, data, format readers | `feat/scaffold-data` | #1 | reviewed (`docs/reviews/PR-1.md`), awaiting merge |
+| 2. Engine core | `feat/engine-core` | #2 | reviewed (`docs/reviews/PR-2.md`), fixes in, awaiting merge |
+| 3. Every Level 1 object | `feat/level01-objects` | #3 | reviewed (`docs/reviews/PR-3.md`), fixes in, awaiting merge |
+| 4. Playable game (pygame, modern rendering) | `feat/game-app` | #4 | done; no separate review yet |
+| 5. Player interface, baselines, runner, traces | `feat/player-interface` | #5 | done; no separate review yet |
+| 6+7. Model player, providers, memory conditions, `abuse-eval`, live-eval workflow | `feat/model-player` | #6 | reviewed (`docs/reviews/PR-6.md`), all fixes in |
+| 8. Remastered mode | `feat/remastered` (on top of #6) | | built: dash, quick restart, stats and best time, ghost race, AI spectator and `abuse-replay` (MP4), Horde; PR to open after #6's fixes are merged in |
 | 9. Evidence, docs, release | `docs/evidence` | | not started |
 
-## Current state (milestones 2 and 3)
+Milestones 6 and 7 share one branch: the live comparison needs both the model player and the
+evaluation harness.
 
-The full Level 1 runs in strict mode: every in-scope Lisp or C behaviour has a Python port.
-600 ticks take about 0.08 s headless. Key modules:
+## Current state (milestones 6 and 7, `feat/model-player`)
 
-- `engine/` (pure Python): `cmath`, `tables`, `geometry`, `chardefs`, `obj`, `world`, `view`,
-  `game`.
-- `engine/behaviors/`:
-  - `player.py`: cop.c and people.lsp;
-  - `weapons.py`: guns.lsp, weapons.lsp, explo.lsp, debris;
-  - `logic.py`: gates, switches, sensors, dimmers, ambient sound, exit, consoles;
-  - `world_objects.py`: doors, force field, walls, teleporters, platforms, boulder;
-  - `enemies.py`: ants (ant.c), the crack, the spray gun, pickups.
-- Tests:
-  - `tests/test_engine_core.py`: includes the differential test against compiled
-    `intsect.c`;
-  - `tests/test_level01_objects.py`.
+- `agent/providers/`: one adapter per SDK.
+  - `vertex.py` (google-genai, the default), `anthropic_provider.py`, `openai_provider.py`.
+  - Each makes one request per decision with structured JSON output, a 20 s timeout, an output
+    cap and no retries.
+  - The model comes from `--model` or `COURSE_MODEL`.
+  - Failures raise `ProviderError` with a category.
+- `agent/prompts.py`: the system prompt (manual-level knowledge plus the baseline's priors, no map
+  knowledge) and the turn renderer (status, screen map with `@` and object letters, objects,
+  events, memory, legal actions).
+- `agent/memory.py`: M0, M1 (last 8 turns), M2 (plus notes up to 600 characters and an automap
+  summary).
+- `agent/players/model_player.py`: `ModelPlayer` and `check_config`. It passes the model's
+  action through unchanged, and failures become refused decisions.
+- `agent/runner.py`:
+  - token and wall-clock budgets, ended through `AbuseEpisode.stop`;
+  - the provider, model and memory recorded in the outcome;
+  - `error` and `player_error` kept apart in traces.
+- `agent/evaluate.py` and `agent/stats.py`: `abuse-eval run/estimate/report`, with bootstrap CIs,
+  paired tables and run-level token caps.
+- Configs: `eval/configs/offline.toml`, `live.toml` (Vertex, M0/M1/M2, 200 decisions),
+  `live-smoke.toml`, `ci-smoke.toml`.
+- `.github/workflows/live-eval.yml`: manual, default branch only, Workload Identity Federation.
+- The protocol now refuses any reply that is not a JSON object (a bare `wait` used to be
+  accepted).
+- Docs: `information-boundary.md`, `action-interface.md`, `budgets.md`, `evaluation.md`, and a
+  new map section for the agent-interface course choices.
+- Evidence: `evidence/reports/offline-baselines.md` (scripted beats random: paired difference
+  −0.219 [−0.329, −0.124]), plus three traces.
+- Measured: a turn prompt is about 2.8k characters plus a 2.8k-character system prompt, about
+  1,800 tokens per decision with M2.
+- After the PR #6 review:
+  - one decision is one request (Vertex continuation is off);
+  - players get a minimal environment and never the evaluator's progress;
+  - late replies are dropped by request id;
+  - fatal credential errors end an episode as `player failed`;
+  - results are written as they finish, and `--only`/`--resume` split long live runs;
+  - success uses Wilson intervals and pooled pairs a cluster bootstrap;
+  - failed requests are reported apart from illegal choices.
+  See `docs/reviews/PR-6.md`.
 
-Next: milestone 4, the playable pygame app (`src/abuse_remake/game/`). Plan:
+## Next steps
 
-- render with the original palette and sprites, at a 311x151 logical view scaled up;
-- 60 fps interpolation between 15 Hz ticks; lighting from the level lights and the view's
-  ambient level; particles for the `panim`/explosion events;
-- HUD: health, weapons and ammo;
-- input: keyboard and mouse, mapped to `Inputs`;
-- a restart from the in-memory save on death (set `world.globals["save_hook"]` to snapshot);
-- `--record` writes human traces;
-- CC0 audio mapped from the sound event names.
-
-Then milestone 5, the player interface (`agent/`).
+1. Merge `feat/model-player` into `feat/remastered`, open its PR, and review it. Then reviews
+   for PRs #4 and #5, which have none yet.
+2. **Live comparison (human-gated).**
+   - The owner sets up Vertex: `gcloud auth application-default login`, `GOOGLE_CLOUD_PROJECT`,
+     `GOOGLE_CLOUD_LOCATION`, and `COURSE_MODEL` (a Gemini ID).
+   - The owner fills in `[prices]` in `eval/configs/live.toml`.
+   - Show `abuse-eval estimate`, get approval, run `live-smoke`, then `live`, with
+     `--report-to docs/evaluation-report.md`.
+   - Commit a few traces under `evidence/traces/`.
+3. Milestone 8, Remastered mode: dash, stats screen, quick restart, ghost race, AI spectator,
+   Horde.
+4. Milestone 9:
+   - `agent-config.json` (course-1);
+   - skills `.claude/skills/port-classic-rule/` and `.claude/skills/agent-eval/`;
+   - docs: `agent-team-log.md`, `human-responsibility.md`, `playtests/protocol.md` and
+     `playtests/template.md`, `demo.md`;
+   - `release.yml` (PyInstaller on tag);
+   - the README submission checklist;
+   - `abuse-replay` to MP4, and the demo video.
 
 ## Facts established from the source (cite these in the map)
 
@@ -85,32 +120,3 @@ Then milestone 5, the player interface (`agent/`).
 - Merge the PRs in order, and push tag `v1.0.0` at the end.
 - Set up Vertex credentials before the live evaluation.
 - Peer playtests, the narrated demo, and Asana links.
-
-## Handoff (2026-10-13, session limit reached)
-
-Branch heads (all pushed):
-
-| Branch | PR | State |
-|---|---|---|
-| `feat/scaffold-data` | #1 | done, reviewed |
-| `feat/engine-core` | #2 | review received; code fixes pushed (`da329b2`); test and map fixes still to do |
-| `feat/level01-objects` | #3 | built and tested; its independent review was cut off by the usage limit, so re-run it |
-| `feat/game-app` | not opened | playable app works (`uv run abuse-remake`); needs `feat/engine-core` merged in |
-
-To do next, in order:
-
-1. **On `feat/engine-core`, finish the PR #2 review fixes** (findings are in the PR #2 review; record them in
-   `docs/reviews/PR-2.md` the same way as `PR-1.md`):
-   - Tests:
-     - assert exact laser intervals: 3 ticks with ammo, 5 without;
-     - assert `yvel == -15` on the jump tick;
-     - pin `JRand(0)`'s first values to `[976, 25285, 23126, 7218, 62995]` (from the jrand.c LCG with seed "FUCK");
-     - add tests for: `bottom_damage` scaling and its random order (random 2, then do_flinch's jrandom 2, then random 4); `give_player_health`; the `hurt_radius` falloff and push; grenade, firebomb and rocket (speed 5, 7, ... 15 for the player, 11 for others); the `add_ammo` cap of 999 and its switch to the most powerful weapon; `select_weapon` refusing a weapon with 0 ammo.
-   - Map:
-     - the rocket row should say max speed 15/11, not 14/10;
-     - add line numbers for collide.c 147-222 (hity at 212), explo.lsp 24-35, jrand.c, lisp.c 1904-1931 / 2512-2518, options.lsp:36, abuse.lsp:40-42;
-     - relabel rows that cite only our own tests as `code` (our tests test the port, not the original);
-     - the view-size row is now `code`: 316x162 from `view.c:636-676`, `game.c:1423`, `video.c:333-334`; remove it from the open questions.
-2. Merge `feat/engine-core` into `feat/level01-objects`, then into `feat/game-app`. Expect conflicts in `world.py`, where `bg_map` was renamed on both branches. Push each.
-3. Re-run the independent review on PR #3 (same prompt as PR #2's), fix what it finds, and write `docs/reviews/PR-3.md`.
-4. Open the PR for `feat/game-app` (milestone 4). Then milestone 5, the player interface: `agent/interface.py` with the five operations, the observation boundary, legal actions, JSON-lines player processes, budgets and traces.

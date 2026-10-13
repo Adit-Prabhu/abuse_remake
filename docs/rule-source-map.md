@@ -12,6 +12,8 @@ The labels follow the course convention:
 | `manual` | Stated in the original manual or release notes. |
 | `observed` | Seen by running the original (data or compiled original code); the method is named. Tests of our own port are cited as checks, not as evidence. |
 | `assumed` | Not yet backed by evidence. Each one is listed under "Open questions". |
+| course choice | Not a rule of the game: a decision about the evaluation harness or episode, made for the course and labelled so it is never mistaken for fidelity. |
+| course rule | A requirement the course sets (for example, no automatic paid retries). |
 
 For the Lisp's relation to the 1996 retail release, see `docs/data-lineage.md`.
 
@@ -113,7 +115,7 @@ l_caller case 39).
 
 | Rule | Our code | Evidence |
 |---|---|---|
-| AND, XOR, NOT, DELAY and PULSE gates | `logic.and_ai`, `xor_ai`, `not_ai`, `delay_ai`, `pulse_ai` | `code`: `data/original/lisp/gates.lsp:4-162` (check: truth-table tests )|
+| AND, XOR, NOT, DELAY and PULSE gates | `logic.and_ai`, `xor_ai`, `not_ai`, `delay_ai`, `pulse_ai` | `code`: `data/original/lisp/gates.lsp:4-162` (check: `test_and_and_xor_gates_follow_their_truth_tables`, `test_not_gate_inverts_its_first_link`, `test_delay_gate_copies_input_after_delay_time_ticks`; PULSE has no test yet) |
 | SENSOR turns on inside its (xvel, yvel) box and off outside its (xacel, yacel) box, or after `hp` ticks; `unoffable` sensors stay on | `logic.sensor_ai` | `code`: `abuse/src/sensor.c` (compiled C; the Lisp version at `switch.lsp:142-157` is commented out) |
 | A new SENSOR gets `aitype` 1, which sets its boxes to 50x50 (on) and 100x100 (off) | `logic.sensor_cons`, `sensor_ct` | `code`: `switch.lsp:137-140, 186-198`; `abuse/src/objects.c:1564-1592` (`change_aitype` runs the type-change function) |
 | SWITCH toggles when the player is within 20x30 and presses the action key; the key must be released before it can toggle again | `logic.switcher_ai` | `code`: `switch.lsp:4-26` (check: `test_switch_toggles_with_the_action_key_and_needs_a_release` )|
@@ -123,11 +125,11 @@ l_caller case 39).
 | SWITCH_DIMMER fades the light or ambient level when signalled | `logic.switch_dim_ai` | `code`: `data/original/lisp/light.lsp:4-62, 82-90` |
 | AMBIENT_SOUND repeats a sound every `xvel + random(xacel+1)` ticks while activated, drawing from the random table | `logic.amb_sound_ai` | `code`: `sfx.lsp:230-244` |
 | Exit: touching NEXT_LEVEL and pressing the action key ends the level | `logic.next_level_ai` | `code`: `people.lsp:915-923` (check: `test_exit_needs_touch_and_action_key` )|
-| NEXT_LEVEL_TOP shifts the random table by 80 every tick it is active | `logic.next_level_top_ai` | `code`: `people.lsp:932-937` (check: test )|
+| NEXT_LEVEL_TOP shifts the random table by 80 every tick it is active | `logic.next_level_top_ai` | `code`: `people.lsp:932-937` (check: `test_next_level_top_shifts_the_random_table_by_80_each_tick`) |
 | A RESTART_POSITION console saves when touched with the action key; health is 100 in the save unless the difficulty is extreme | `logic.restart_ai` | `code`: `people.lsp:873-904`. **Deviation:** the original's save-slot dialog is replaced by one in-memory slot |
 | SWITCH_DOOR and TRAP_DOOR open while signalled and close when not; only SWITCH_DOOR pushes the player out while closed (`sdoor_ai` passes T, `strap_door_ai` passes nil) | `world_objects.general_sdoor_ai`, `push_char` | `code`: `doors.lsp:29-62`, `duong.lsp:156-172`, `common.lsp:15-23` |
 | FORCE_FIELD pushes the player back 35 px while activated, and draws a random number every tick | `world_objects.ff_ai` | `code`: `doors.lsp:79-108` |
-| Hidden walls take damage only while activated, show cracks in proportion to damage, and explode (radius 50, 60 damage; big walls 110, 120) at 0 HP or when signalled | `world_objects.hwall_ai`, `big_wall_ai`, `hwall_damage` | `code`: `doors.lsp:130-166` (check: test )|
+| Hidden walls take damage only while activated, show cracks in proportion to damage, and explode (radius 50, 60 damage; big walls 110, 120) at 0 HP or when signalled | `world_objects.hwall_ai`, `big_wall_ai`, `hwall_damage` | `code`: `doors.lsp:130-166` (check: `test_hidden_wall_cracks_then_breaks_when_its_saved_hp_runs_out`, `test_linked_wall_ignores_damage_until_its_signal_then_explodes`) |
 | TELE2 teleports the player to its linked destination after its 15-frame animation; the player cannot be hurt meanwhile (`is_teleporting`) | `world_objects.tp2_ai` | `code`: `duong.lsp:231-266`, `people.lsp:330` |
 | TP_DOOR opens when the player is near; down at the door moves the player to the linked door | `world_objects.tpd_ai` | `code`: `teleport.lsp:36-58` |
 | SMART_PLAT_SMALL moves between its two linked markers when called (action key) or signalled, carrying the player | `world_objects.platform_ai` | `code`: `platform.lsp:28-95`, `level.c:2789-2838` |
@@ -135,12 +137,30 @@ l_caller case 39).
 | Ants: hang until the player passes below within 130 px (or a signal), fall, land, then run, shoot (aitype 0 fires yellow bolts), pounce, dodge and walk on ceilings | `enemies.ant_ai` | `code`: `abuse/src/ant.c:115-423`, `abuse/inc/ant.hpp` (compiled C) |
 | An ant crouching to pounce leaps once its `aistate_time` exceeds 6 (easy), 4 (medium), 2 (hard) or 1 (extreme) | `enemies._alien_wait_time` | `code`: `abuse/src/ant.c:78-88` |
 | `ant_congestion` compares x with the other ant's y (a typo in the original) | `enemies._ant_congestion` | `code`: `abuse/src/ant.c:45` |
-| Ant HP by aitype: 15, 50, 25, 35, 35, 20; ants are not hurt by ants or ant bullets, nor while hanging | `enemies.ant_ct`, `ant_damage` | `code`: `ant.lsp:398-449` (check: tests )|
+| Ant HP by aitype: 15, 50, 25, 35, 35, 20; ants are not hurt by ants or ant bullets, nor while hanging | `enemies.ant_ct`, `ant_damage` | `code`: `ant.lsp:398-449` (check: `test_ant_dies_after_fifteen_damage_and_flinches_when_hit`, `test_hanging_ant_ignores_damage`, `test_ants_do_not_hurt_each_other`) |
 | A dying ant usually drops its aitype's ammo; with chance 1/(2, 5, 8 or 20, by difficulty) it drops nothing, unless a 1-in-4 roll gives the next ammo type | `enemies.ant_damage` | `code`: `ant.lsp:420-427`, `guns.lsp:19-27` |
 | ANT_CRACK releases `create_total` ants once triggered (player within 50x70, or a signal) | `enemies.crack_ai` | `code`: `ant.lsp:524-570` |
 | SPRAY_GUN unfolds when activated and the player is within 450x400; it sweeps 270°→350° and back in 10° steps, firing `fire_object` of its aitype at each step; a step happens once `state_time` exceeds `fire_delay` (4), which with the reset and `decide`'s +1 is every 5 ticks (6 or 7 when the sweep turns round); it is only hurt while unfolded and is never pushed | `enemies.spray_gun_ai`, `guner_damage` | `code`: `guns.lsp:196-306`, `weapons.lsp:300-317` |
-| HEALTH gives 20 (scaled by difficulty) unless health is full, then disappears | `enemies.hp_up` | `code`: `powerup.lsp:9-15` (check: difficulty tests )|
-| Ammo icons fall to the floor, then give their `start_hp` as ammo. A weapon you did not have is selected at once (`change_on_pickup`) | `enemies.weapon_icon_ai`, `giver` | `code`: `weapons.lsp:161-237`, `options.lsp` (check: test )|
+| HEALTH gives 20 (scaled by difficulty) unless health is full, then disappears | `enemies.hp_up` | `code`: `powerup.lsp:9-15` (check: `test_health_pickup_is_scaled_by_difficulty`, `test_health_pickup_is_left_when_health_is_full`) |
+| Ammo icons fall to the floor, then give their `start_hp` as ammo. A weapon you did not have is selected at once (`change_on_pickup`) | `enemies.weapon_icon_ai`, `giver` | `code`: `weapons.lsp:161-237`, `options.lsp` (check: `test_ammo_pickup_gives_weapon_selects_it_and_adds_ammo`) |
+
+## Playing-agent interface (course choices, not rules of the game)
+
+These rows describe the evaluation harness. None of them changes a game rule; each is a choice
+made for the course and labelled as one. Details are in `docs/action-interface.md`,
+`docs/information-boundary.md` and `docs/budgets.md`.
+
+| Choice | Our code | Evidence |
+|---|---|---|
+| Death ends the episode as a loss; the original respawns the player at the last console | `agent/interface.py` `_status` | course choice. In the original, a dead player who presses a key is restarted by `cop_mover` (`abuse/src/cop.c:668-674`) through `restart_player`, which in single player reloads the level or the last console save (`data/original/lisp/people.lsp:503-521`). Our game app keeps that restart (`game/app.py`) |
+| A player sees the 316x162 play view: visible objects and their visible state, the HUD, on-screen tiles and on-screen events. Objects the original does not draw in play (`dev_draw`: sensors, gates, hidden ants before they drop) are never reported | `agent/observation.py` | course choice; the view size is `code` (Timing table). Checked by `test_observation_exposes_nothing_internal`, `test_only_on_screen_and_drawn_objects_are_visible`, `test_off_screen_events_are_not_reported` |
+| Tiles are reported as classes derived from each tile's collision outline | `observation.tile_class` | course choice; outlines are `code` (Data formats table) |
+| Actions are strings from `legal_actions()`. Each runs a deterministic controller that emits the original controls for 1 to 15 ticks and stops early when the player is hurt or a new threat comes into view | `interface.AbuseEpisode._execute` | course choice. Controls are `code`: `input.lsp`, `view.c:586-617` |
+| Navigation skills plan only over tiles the player has seen (the automap) | `agent/nav.py` | course choice modelled on `abuse/src/automap.c` |
+| A refused action changes nothing, takes no ticks, counts as invalid and spends one decision; the reason goes back in `last_result` | `interface.AbuseEpisode.step`, `_refuse` | course choice. Checked by `test_invalid_actions_are_refused_counted_and_change_nothing` |
+| Every accepted action takes at least one tick | `interface.AbuseEpisode._execute` | course choice, so a player cannot stall the clock |
+| Progress (`1 - d_best / d_start` over the full map, doors ignored) is computed by the runner and never shown to players | `agent/progress.py` | course choice |
+| Token and wall-clock budgets are enforced by the runner from the usage the player reports; a model request is one attempt with a 20 s timeout | `agent/runner.py` `budget_stop`, `agent/providers/` | course rule (no automatic paid retries) |
 
 ## Open questions
 

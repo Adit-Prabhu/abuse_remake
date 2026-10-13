@@ -49,9 +49,16 @@ GOTO_KINDS = {"health", "ammo_laser", "ammo_grenade", "ammo_rocket", "ammo_fireb
 
 @dataclass
 class Budgets:
+    """The episode enforces the tick, decision and per-action limits. The runner enforces the
+    token and wall-clock limits (0 = none) from the usage the player reports, and ends the
+    episode through ``stop``."""
+
     max_ticks: int = FULL_LEVEL_TICK_LIMIT
     max_decisions: int = 600
     max_action_ticks: int = 15
+    max_input_tokens: int = 0
+    max_output_tokens: int = 0
+    max_wall_s: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -99,8 +106,14 @@ class AbuseEpisode:
                          "shots_fired": 0, "teleports": 0}
         self._last_result = {"accepted": True, "action": None, "error": None}
         self._pending_events: list = []
+        self._stopped: str | None = None
         self._reveal()
         return self.observe(PLAYER_ID)
+
+    def stop(self, reason: str) -> None:
+        """Runner operation: end the episode for a budget the runner enforces."""
+        if self._status()[0] == "playing":
+            self._stopped = reason
 
     def outcome(self) -> dict:
         status, reason = self._status()
@@ -176,6 +189,8 @@ class AbuseEpisode:
             return "timeout", "tick limit"
         if self.decisions >= self.budgets.max_decisions:
             return "budget", "decision budget exhausted"
+        if self._stopped:
+            return "budget", self._stopped
         return "playing", ""
 
     def _reveal(self) -> None:

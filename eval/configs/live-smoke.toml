@@ -1,0 +1,27 @@
+# A cheap check that live calls work end to end: one scenario, one seed, 20 decisions.
+name = "live-smoke"
+scenarios = ["level01-cp1"]
+seeds = [0]
+difficulty = "hard"
+isolation = "process"
+decision_timeout = 60.0
+reference = "scripted"
+
+[budgets]
+max_decisions = 20
+max_input_tokens = 80000
+max_output_tokens = 25000
+
+[run]
+max_input_tokens = 80000
+max_output_tokens = 25000
+
+[[players]]
+label = "scripted"
+player = "scripted"
+
+[[players]]
+label = "model-M1"
+player = "model"
+args = ["--provider", "vertex", "--memory", "M1", "--timeout", "20", "--max-output-tokens", "2048"]
+live = true
