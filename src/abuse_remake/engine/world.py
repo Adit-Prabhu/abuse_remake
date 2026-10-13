@@ -645,8 +645,15 @@ class World:
     def emit(self, kind: str, **data) -> None:
         self.events.append(Event(kind, data))
 
+    def player_owned(self, obj) -> bool:
+        """The object is a player, or was fired by one (projectiles link their creator first)."""
+        if obj is None:
+            return False
+        owner = obj.objs[0] if obj.objs else None
+        return any(obj is v.focus or (owner is not None and owner is v.focus) for v in self.views)
+
     def note_damage(self, target: GameObject, amount: int, from_obj) -> None:
-        owner = from_obj.objs[0] if from_obj is not None and from_obj.objs else None
-        by_player = from_obj is not None and any(from_obj is v.focus or owner is v.focus for v in self.views)
+        # Output only: these fields feed statistics and effects, never a rule.
         self.emit("damage", target=target.uid, type=target.ctype.name, amount=amount,
-                  source=from_obj.ctype.name if from_obj is not None else None, by_player=by_player)
+                  source=from_obj.ctype.name if from_obj is not None else None,
+                  source_uid=from_obj.uid if from_obj is not None else None, by_player=self.player_owned(from_obj))

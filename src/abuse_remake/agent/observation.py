@@ -150,6 +150,7 @@ def visible_objects(game, ids: IdMap, x0, y0, w, h) -> list[dict]:
     out = []
     from ..engine.behaviors.lispfns import activated
 
+    found = []
     for o in game.world.objects:
         if o.deleted or o is p:
             continue
@@ -168,7 +169,7 @@ def visible_objects(game, ids: IdMap, x0, y0, w, h) -> list[dict]:
         if x2 < x0 or x1 > x0 + w - 1 or y2 < y0 or y1 > y0 + h - 1:
             continue
         cx, cy = o.x, o.y - cdiv(o.picture_height(), 2)
-        entry = {"id": ids.label(o.uid, kind), "kind": kind, "x": o.x, "y": o.y,
+        entry = {"kind": kind, "x": o.x, "y": o.y,
                  "dx": o.x - p.x, "dy": o.y - p.y, "dist": int(((cx - p.x) ** 2 + (cy - (p.y - 20)) ** 2) ** 0.5)}
         if kind == "alien":
             entry["state"] = ALIEN_STATES.get(o.state, "moving")
@@ -185,8 +186,12 @@ def visible_objects(game, ids: IdMap, x0, y0, w, h) -> list[dict]:
             entry["vx"], entry["vy"] = o.xvel, o.yvel
         elif kind == "lift":
             entry["moving"] = o.aistate == 3
-        out.append(entry)
-    out.sort(key=lambda e: e["dist"])
+        found.append((o.uid, entry))
+    # nearest first; new labels are given in that order, so they say nothing about the level file
+    found.sort(key=lambda ue: (ue[1]["dist"], ue[1]["x"], ue[1]["y"]))
+    for uid, entry in found:
+        entry["id"] = ids.label(uid, entry["kind"])
+        out.append({"id": entry.pop("id"), **entry})
     return out
 
 
@@ -196,7 +201,15 @@ EVENT_KINDS = {"pickup", "enemy_killed", "wall_destroyed", "door", "switch", "ch
                "player_died"}
 
 
+def event_on_screen(e, x0, y0, w, h) -> bool:
+    """An event with a position counts as seen or heard if it is within 40 px of the view."""
+    x, y = e.data.get("x"), e.data.get("y")
+    return x is None or y is None or (x0 - 40 <= x <= x0 + w + 40 and y0 - 40 <= y <= y0 + h + 40)
+
+
 def visible_events(game, events, ids: IdMap, x0, y0, w, h) -> list[dict]:
+    """``events`` are already filtered by the view at the tick each happened (see
+    ``AbuseEpisode._note_events``)."""
     out = []
     p = game.player
     for e in events:
@@ -207,9 +220,6 @@ def visible_events(game, events, ids: IdMap, x0, y0, w, h) -> list[dict]:
             continue
         if e.kind not in EVENT_KINDS:
             continue
-        x, y = e.data.get("x"), e.data.get("y")
-        if x is not None and y is not None and not (x0 - 40 <= x <= x0 + w + 40 and y0 - 40 <= y <= y0 + h + 40):
-            continue  # off screen: the player would not see it
         item = {"type": e.kind}
         for k in ("item", "type", "radius", "on", "opening"):
             if k in e.data and k != "type":

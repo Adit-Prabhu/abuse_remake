@@ -1,7 +1,7 @@
 """``abuse-replay``: watch an agent play, or replay a trace, on screen or into a video.
 
     uv run abuse-replay --player scripted --scenario level01-cp3 --seed 0          # watch live
-    uv run abuse-replay --trace evidence/traces/offline-v2/scripted-level01-cp3-s0.jsonl
+    uv run abuse-replay --trace evidence/traces/offline-v3/scripted-level01-cp3-s0.jsonl
     uv run abuse-replay --trace runs/x.jsonl --video evidence/video/demo.mp4 --headless
 
 The game runs under Classic rules through the same ``AbuseEpisode`` the evaluation uses. A
@@ -9,11 +9,16 @@ side panel shows what the player was given and what it chose: the decision, the 
 result, the player's note, health and ammo, the objects it could see, and for model players the
 tokens and latency. The object named by the current action is outlined in the view.
 
-A trace replays deterministically: same scenario, seed and actions give the same game. Every
-step's observation hash is checked against the trace, and the panel and the exit status report
-any divergence.
+A trace replays deterministically: same scenario, seed and actions give the same game. The
+replay checks every step's observation hash, that every step in the trace was replayed, and that
+the final outcome (status, reason, score, ticks, decisions, invalid actions) matches the trace's.
+An episode the runner ended early (a token, wall-clock or player-failure stop) is ended the same
+way when the trace's steps run out. Exit status: 0 for a full match, 1 for any mismatch, 2 when
+the replay was stopped before the end.
 
-The spectator sits on the runner side. Players still get only observations and legal actions.
+The spectator is a runner. Watching a live player, it enforces the same budgets and fatal-error
+stops as ``abuse-agent`` (``runner.stop_reason``), and it checks a model player's setup first.
+Players still get only observations and legal actions.
 """
 
 from __future__ import annotations
@@ -25,14 +30,17 @@ import os
 import shutil
 import subprocess
 import sys
+from dataclasses import asdict
 from pathlib import Path
 
 from ..agent.interface import PLAYER_ID, SCENARIOS, AbuseEpisode, Budgets
-from ..agent.runner import make_player
+from ..agent.runner import add_usage, make_player, new_usage, stop_reason
 from ..engine.view import VIEW_H, VIEW_W
 
 PANEL_W = 380
 FPS_PER_TICK = 2  # frames drawn per 15 Hz tick (30 fps video, interpolated)
+OUTCOME_KEYS = ("status", "reason", "score", "ticks", "decisions", "invalid_actions")
+RUNNER_STOPS = ("token budget exhausted", "wall-clock budget exhausted", "player failed")
 
 
 class TracePlayer:
@@ -55,7 +63,7 @@ class TracePlayer:
 
     def decide(self, observation, legal_actions):
         if self.i >= len(self.steps):
-            return {"action": None, "error": "trace ended"}
+            return {"action": None, "error": "trace ended", "trace_ended": True}
         r = self.steps[self.i]
         self.i += 1
         return {"action": r.get("action"), "note": r.get("note") or "", "meta": r.get("meta") or {},
@@ -202,15 +210,27 @@ class Spectator:
 
     # --- the episode ---------------------------------------------------------------------------
     def run(self) -> dict:
+        import time
+
         ep, player = self.ep, self.player
-        player.start({"player_id": PLAYER_ID, "scenario": ep.scenario.name, "seed": ep.seed,
-                      "difficulty": ep.difficulty})
+        player.start({"player_id": PLAYER_ID, "scenario": ep.scenario.name, "difficulty": ep.difficulty,
+                      "budgets": asdict(ep.budgets)})
         obs = ep.observe(PLAYER_ID)
         self.info["visible"] = obs["objects"]
         self.frame()
+        usage = new_usage()
+        started = time.time()
+        trace = player if isinstance(player, TracePlayer) else None
         while ep.outcome()["status"] == "ongoing" and not self.quit:
             legal = ep.legal_actions(PLAYER_ID)
             reply = player.decide(obs, legal)
+            if reply.get("trace_ended"):
+                reason = (trace.outcome or {}).get("reason")
+                if reason in RUNNER_STOPS:
+                    ep.stop(reason)  # the runner ended the recorded episode here; do the same
+                else:
+                    self.info["mismatches"] += 1  # the game goes on but the trace has no more steps
+                break
             expect = reply.get("expect_sha")
             if expect is not None:
                 self.info["replay_ok"] = True
@@ -221,6 +241,13 @@ class Spectator:
             self.info["tokens_out"] += int(meta.get("output_tokens") or 0)
             res = ep.step(PLAYER_ID, reply.get("action"))
             obs = res["observation"]
+            for late in reply.get("late_meta") or []:
+                add_usage(usage, late)
+            add_usage(usage, meta)
+            if trace is None:  # a live player: the runner's budgets and fatal stops apply
+                stop, _ = stop_reason(ep.budgets, usage, time.time() - started, reply)
+                if stop:
+                    ep.stop(stop)
             self.info["visible"] = obs["objects"]
             if res["accepted"]:
                 self.info["result"] = f"done in {res['ticks']} ticks"
@@ -232,9 +259,23 @@ class Spectator:
                 self.info["mismatches"] += int(obs_sha(obs) != expect)
         out = ep.outcome()
         player.end(out)
-        for _ in range(15 * FPS_PER_TICK if self.ffmpeg is not None else 0):  # hold the last frame for a second
-            self.frame()
-        return {**out, "replay_checked": self.info["checked"], "replay_mismatches": self.info["mismatches"]}
+        result = {**out, "complete": not self.quit}
+        if trace is not None:
+            if not self.quit:
+                if self.info["checked"] != len(trace.steps):
+                    self.info["mismatches"] += 1  # the game ended before the trace did
+                expected = trace.outcome or {}
+                diff = {k: (out.get(k), expected.get(k)) for k in OUTCOME_KEYS if out.get(k) != expected.get(k)}
+                result["outcome_mismatch"] = diff
+                self.info["mismatches"] += int(bool(diff))
+            result.update(replay_checked=self.info["checked"], replay_steps=len(trace.steps),
+                          replay_mismatches=self.info["mismatches"])
+        else:
+            result.update({k: usage[k] for k in ("input_tokens", "output_tokens", "model_calls", "model_errors")})
+        if not self.quit:
+            for _ in range(15 * FPS_PER_TICK if self.ffmpeg is not None else 0):  # hold the last frame a second
+                self.frame()
+        return result
 
     def close(self) -> None:
         if self.ffmpeg is not None:
@@ -251,6 +292,9 @@ def main(argv=None) -> int:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--difficulty", default="hard")
     ap.add_argument("--max-decisions", type=int, default=None)
+    ap.add_argument("--max-input-tokens", type=int, default=0, help="live players: per episode, 0 = no cap")
+    ap.add_argument("--max-output-tokens", type=int, default=0, help="live players: per episode, 0 = no cap")
+    ap.add_argument("--max-wall-s", type=float, default=0.0, help="live players: per episode, 0 = no cap")
     ap.add_argument("--isolation", choices=("process", "inprocess"), default="process")
     ap.add_argument("--scale", type=int, default=3)
     ap.add_argument("--speed", type=float, default=1.0, help="1.0 = the original 15 Hz")
@@ -270,9 +314,17 @@ def main(argv=None) -> int:
         label = f"replay of {h.get('label') or a.trace.name}"
     else:
         sc = SCENARIOS[a.scenario]
-        budgets = Budgets(max_ticks=sc.max_ticks)
+        budgets = Budgets(max_ticks=sc.max_ticks, max_input_tokens=a.max_input_tokens,
+                          max_output_tokens=a.max_output_tokens, max_wall_s=a.max_wall_s)
         if a.max_decisions:
             budgets.max_decisions = a.max_decisions
+        if a.player == "model":
+            from ..agent.players.model_player import check_config
+
+            problem = check_config(a.player_args)
+            if problem:
+                print(f"abuse-replay: {problem}", file=sys.stderr)
+                return 2
         player = make_player(a.player, a.isolation, a.player_args)
         ep = AbuseEpisode(a.scenario, a.seed, a.difficulty, budgets)
         label = a.player
@@ -282,7 +334,9 @@ def main(argv=None) -> int:
     finally:
         sp.close()
     print(json.dumps(out, indent=2))
-    return 1 if out.get("replay_mismatches") else 0
+    if out.get("replay_mismatches"):
+        return 1
+    return 0 if out["complete"] else 2
 
 
 if __name__ == "__main__":

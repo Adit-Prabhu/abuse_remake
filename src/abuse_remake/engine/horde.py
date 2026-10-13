@@ -1,15 +1,18 @@
 """Horde: a Remastered-only arena on the Level 1 map. A new rule set, so never in Classic mode.
 
-The arena is the longest flat floor in Level 1 with room above it (tile columns 56 to 79,
-row 109: x 1680 to 2400). The level's own objects are removed; only the map and its lights
-stay. Ants come in waves the way the original's wall cracks release them (``ant.lsp:524-551``):
-an ``ANT_ROOF`` set running and jumping (``run_jump``, aistate 6) toward the player. Each wave
-is bigger. Between waves there is a short break with health and ammo drops. The run ends when
-the player dies; the score is the waves cleared and the kills.
+The arena is the longest flat floor in Level 1 with room above it (tile columns 56 to 79, row
+109: x 1680 to 2400). The level's own objects are removed; only the map and its lights stay.
+Ants come in waves, set running and jumping (``run_jump``, aistate 6) toward the player as the
+original's wall cracks release them (``ant.lsp:524-551``). Unlike a crack, Horde spawns them at
+the arena's ends, at the front of the object list, at 12 px per tick rather than 20, and with
+its own aitype mix. Those numbers, like the wave sizes, breaks, drops and starting ammo, are
+Remastered design, not the original. Each wave is bigger. Between waves there is a short break
+with health and ammo drops. The run ends when the player dies; the score is the waves cleared
+and the kills.
 
 All state is in ``world.globals["horde"]``, so snapshots carry it. Horde draws its random
-numbers from its own generator seeded from the game seed, so it never moves the original
-random table more than the ants themselves do.
+numbers from its own generator seeded from the game seed, so it never moves the original random
+table more than the ants themselves do.
 """
 
 from __future__ import annotations

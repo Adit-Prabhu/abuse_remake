@@ -18,7 +18,9 @@ uv run abuse-agent --player "cmd:python my_player.py" --scenario level01 --seed 
 The scenarios are:
 - `level01`: the full level from START, 9000 ticks;
 - `level01-cp1`, `level01-cp2`, `level01-cp3`: segments starting at each restart console, 2700
-  ticks each.
+  ticks each. A segment places the player at the console in a fresh level: everything before it
+  (walls, switches, doors, pickups, enemies) is in its starting state, and the player has only
+  the laser. That differs from reaching the console in play.
 
 Any program that speaks the JSON-lines protocol in `agent/protocol.py` is a valid player.
 
@@ -97,7 +99,7 @@ set the repository variables listed at the top of the workflow.
 |---|---|
 | success | reached the exit and pressed down (score 1) |
 | progress | `1 - d_best / d_start`, where `d` is the A* distance to the exit over the full map with teleporters; 1 for a win. Evaluator only |
-| deaths, kills, damage taken | from game events |
+| deaths, kills, damage taken | from game events. Kills count every enemy that died while the episode ran, whatever killed it (almost always the player) |
 | invalid rate | refused actions / decisions |
 | decisions, ticks | used per episode |
 | model calls, errors, tokens, latency p50 | from the model player's per-decision reports |
@@ -129,13 +131,18 @@ abuse-eval run --config eval/configs/live.toml --live --out runs/live-1 --resume
 ## Evidence so far
 
 - The offline baseline run: `evidence/reports/offline-baselines.md`, with its results, config and
-  three traces in `evidence/traces/offline-v2/`.
-- The scripted baseline beats random in every scenario. Random's progress minus scripted's is
-  −0.218 pooled, with a cluster-bootstrap 95% interval of [−0.439, −0.029]. The interval is wide
-  because the gap differs a lot between scenarios: −0.025 on `level01-cp1` against −0.531 on
-  `level01-cp3`.
-- The scripted baseline is deterministic in practice: on `level01` it reaches 0.163 on every
-  seed, so its interval there has zero width.
+  three traces in `evidence/traces/offline-v3/`.
+- Progress is sampled on every tick (since the PR #5 review), and the random player seeds
+  itself from its first observation instead of the episode seed.
+- Pooled over the 4 scenarios, random's progress minus scripted's is −0.271, with a
+  cluster-bootstrap 95% interval of [−0.586, −0.014].
+- The scripted baseline clearly beats random on the three checkpoint segments: −0.031, −0.283 and
+  −0.767.
+- On the full level from the start the two are level: −0.002 [−0.044, 0.039]. The scripted
+  baseline stops at 0.163 on every seed, at the same place. Random dies on all five seeds, but
+  sometimes gets further first (up to 0.229).
+- The scripted baseline's weak spot is the full level's first section, which it does not solve.
+  It is a fixed rule set, and these numbers show where a stronger player has room to do better.
 - The live comparison has not been run yet. It needs the owner's Vertex setup and approval of
   the estimated cost.
 
