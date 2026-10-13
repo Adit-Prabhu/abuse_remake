@@ -2,8 +2,10 @@
 
 Port of historicalsource/abuse@01cce80 abuse/src/view.c and abuse/inc/view.hpp:
 - construction and defaults: view.c:189-262 (ambient 32, weapon 0 owned with 0 ammo)
-- camera offsets: view.c:98-187; the 311x151 play area: game.c:179-190 with F10's
-  make_screen_size(311,160) (game.c:1835)
+- camera offsets: view.c:98-187
+- the play area: recalc_local_view_space (view.c:636-676), run at start-up (game.c:1423), with
+  xres=319, yres=199 in 320x200 mode (imlib/port/dos4gw/video.c:333-334): one local player
+  gets cx 2..317, cy 5..166, a 316x162 view
 - ammo and weapons: view.c:40-96, 528-584; number keys and Ctrl/Insert: view.c:586-617
 - per-area ambient light and view offsets: view.c:1019-1068
 - inputs arrive as a packet and are applied before the step: view.c:447-512, game.c:2650-2670
@@ -17,7 +19,8 @@ from .cmath import cdiv
 
 SHIFT_DOWN_DEFAULT = 15
 SHIFT_RIGHT_DEFAULT = 0
-VIEW_W, VIEW_H = 311, 151  # make_screen_size(311,160) at 320x200: cx 5..315, cy 9..159
+VIEW_X1, VIEW_Y1 = 2, 5
+VIEW_W, VIEW_H = 316, 162  # h = yres/1 = 199; w = h*320/200 = 318 -> cx clamped to 2..317; cy2 = h-33
 MAX_AMMO = 999
 
 
@@ -40,7 +43,7 @@ class View:
         self.world = world
         self.focus = focus
         self.player_number = player_number
-        self.cx1, self.cy1 = 5, 9
+        self.cx1, self.cy1 = VIEW_X1, VIEW_Y1
         self.cx2, self.cy2 = self.cx1 + VIEW_W - 1, self.cy1 + VIEW_H - 1
         self.no_xleft = self.no_xright = self.no_ytop = self.no_ybottom = 0
         self.last_x = focus.x if focus else 0

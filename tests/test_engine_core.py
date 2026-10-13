@@ -5,8 +5,8 @@ import subprocess
 
 import pytest
 
-from abuse_remake.engine.cmath import JRand, cdiv, cmod, lisp_atan2, lisp_cos, lisp_sin
-from abuse_remake.engine.game import Game
+from abuse_remake.engine.cmath import RAND_TABLE, JRand, cdiv, cmod, lisp_atan2, lisp_cos, lisp_sin
+from abuse_remake.engine.game import Game, WeaponCommand
 from abuse_remake.engine.geometry import setback_intersect
 from abuse_remake.engine.view import Inputs
 
@@ -36,11 +36,15 @@ def test_trig_tables_and_atan2_quirk():
 
 
 def test_random_table_is_the_fixed_original_sequence():
-    a, b = JRand(0), JRand(0)
-    assert [a.jrand() for _ in range(5)] == [b.jrand() for _ in range(5)]
+    # jrand.c: rseed = 'FUCK'; rseed = rseed*0x41c64e6d + 12345; entry = (rseed >> 16) & 0xffff
+    assert RAND_TABLE[:5] == (976, 25285, 23126, 7218, 62995)
+    r = JRand(0)
+    assert [r.jrand() for _ in range(5)] == [976, 25285, 23126, 7218, 62995]
     r = JRand(1023)
     r.jrand()
     assert r.rand_on == 1024  # rand_on is an unsigned short; only the table index wraps
+    r.jrand()
+    assert RAND_TABLE[0] == 976  # index 1024 & 1023 == 0
 
 
 # --- collision: differential against the original C ---------------------------------------
@@ -130,14 +134,17 @@ def test_releasing_the_key_stops_within_one_tick():
 
 
 def test_jump_starts_at_jump_yvel():
+    # objects.c:1341-1352: yvel = jump_yvel (-15). On the first tick gravity's fraction (200/256)
+    # has not yet carried into yacel or yvel (objects.c:910-933), so yvel is still -15.
     g = Game(strict=False, object_filter=only_start)
     settle(g)
     for _ in range(8):  # walk out from under the low start ceiling
         g.step(Inputs(x=1, **aim(g)))
     y0 = g.player.y
     g.step(Inputs(y=-1, **aim(g)))
-    assert g.player.state in ("run_jump", "run_jump_fall") and g.player.gravity() == 1
-    assert g.player.y < y0
+    assert g.player.state == "run_jump" and g.player.gravity() == 1
+    assert g.player.yvel == -15
+    assert g.player.y == y0 - 15
 
 
 def test_fall_speed_grows_at_most_one_per_tick_past_ten():
@@ -166,30 +173,31 @@ def test_fall_speed_grows_at_most_one_per_tick_past_ten():
     assert max(below_ten) >= 2  # without the cap, gravity adds more than 1 per tick
 
 
+def zap_ticks(g, ticks):
+    out = []
+    for t in range(ticks):
+        g.step(Inputs(b2=1, **aim(g)))
+        if any(e.kind == "sound" and e.data["name"] == "ZAP_SND" for e in g.world.events):
+            out.append(t)
+    return out
+
+
 def test_laser_fires_without_ammo_every_five_ticks():
-    # cop.c:247-262: no ammo -> fire_delay1 = 5 and no ammo is taken
+    # cop.c:247-262: no ammo -> fire_delay1 = 5; top_ai counts it down each tick
     g = Game(strict=False, object_filter=only_start)
     settle(g)
-    shots = 0
-    for _ in range(30):
-        before = sum(1 for e in g.world.events if e.kind == "sound")
-        g.step(Inputs(b2=1, **aim(g)))
-        shots += sum(1 for e in g.world.events if e.kind == "sound" and e.data["name"] == "ZAP_SND")
-        del before
-    assert 5 <= shots <= 7
-    assert g.view.weapons[0] == 0
+    shots = zap_ticks(g, 30)
+    assert {b - a for a, b in zip(shots, shots[1:], strict=False)} == {5}
+    assert g.view.weapons[0] == 0  # nothing is taken
 
 
 def test_laser_with_ammo_fires_every_three_ticks_and_uses_ammo():
     g = Game(strict=False, object_filter=only_start)
     settle(g)
     g.view.weapons[0] = 20
-    zaps = 0
-    for _ in range(30):
-        g.step(Inputs(b2=1, **aim(g)))
-        zaps += sum(1 for e in g.world.events if e.kind == "sound" and e.data["name"] == "ZAP_SND")
-    assert 8 <= zaps <= 11
-    assert g.view.weapons[0] == 20 - zaps
+    shots = zap_ticks(g, 30)
+    assert {b - a for a, b in zip(shots, shots[1:], strict=False)} == {3}
+    assert g.view.weapons[0] == 20 - len(shots)
 
 
 @pytest.mark.parametrize("seed", [0, 5, 1023])
@@ -203,3 +211,126 @@ def test_same_seed_and_inputs_give_identical_state(seed):
             g.step(inp)
         return g.state_hash()
     assert run() == run()
+
+
+# --- weapons, ammo and damage rules ----------------------------------------------------------
+
+def test_ammo_is_capped_at_999_and_empty_weapon_switches_to_the_most_powerful():
+    # view.c:40-69: cap at 999; when the current weapon runs dry, switch_to_powerful picks the
+    # highest slot with ammo, skipping slot 3 (the firebomb)
+    g = Game(strict=False, object_filter=only_start)
+    v = g.view
+    v.give_weapon(1)
+    v.add_ammo(1, 5000)
+    assert v.weapons[1] == 999
+    v.give_weapon(3)
+    v.add_ammo(3, 5)
+    v.current_weapon = 1
+    v.add_ammo(1, -999)
+    assert v.pending_weapon == 0  # slot 3 is skipped, slot 2 is not owned -> back to the laser
+    v.give_weapon(2)
+    v.add_ammo(2, 4)
+    v.add_ammo(1, 1)
+    v.current_weapon = 1
+    v.add_ammo(1, -1)
+    assert v.pending_weapon == 2
+
+
+def test_ammo_for_a_weapon_you_do_not_have_is_ignored_and_empty_weapons_cannot_be_selected():
+    g = Game(strict=False, object_filter=only_start)
+    v = g.view
+    v.add_ammo(2, 10)  # view.c:47: no weapon, no ammo
+    assert v.weapons[2] == -1
+    assert v.select_weapon(2) is False and v.pending_weapon is None
+    v.give_weapon(2)
+    assert v.select_weapon(2) is False  # owned but empty: number keys need ammo (view.c:599)
+    v.add_ammo(2, 3)
+    assert v.select_weapon(2) is True and v.pending_weapon == 2
+
+
+@pytest.mark.parametrize("difficulty,taken", [("easy", 5), ("medium", 7), ("hard", 10), ("extreme", 30)])
+def test_player_damage_is_scaled_by_difficulty(difficulty, taken):
+    # people.lsp:330-336: easy /2, medium *3/4, hard *1, extreme *3
+    g = Game(strict=False, difficulty=difficulty, object_filter=only_start)
+    settle(g)
+    g.player.do_damage(10, None, g.player.x, g.player.y, 0, 0)
+    assert g.player.hp == 100 - taken
+
+
+def test_player_damage_draws_random_numbers_in_the_original_order():
+    # bottom_damage: (random 2) picks the flinch, damage_fun's do_flinch draws jrandom(2),
+    # and a hit of more than 8 picks a pain sound with (random 4) (people.lsp:338-368, objects.c:443)
+    g = Game(seed=17, strict=False, object_filter=only_start)
+    settle(g)
+    rng = g.world.rng
+    start = rng.rand_on
+    g.player.do_damage(20, None, g.player.x, g.player.y, 0, 0)
+    assert (rng.rand_on - start) & 0xFFFF == 3
+    pain = [e.data["name"] for e in g.world.events
+            if e.kind == "sound" and e.data["name"].startswith("PLAYER_PAIN")]
+    from abuse_remake.engine.cmath import RAND_TABLE
+    assert pain == [f"PLAYER_PAIN{RAND_TABLE[(start + 2) & 1023] % 4}"]
+
+
+@pytest.mark.parametrize("difficulty,gain", [("easy", 20), ("medium", 15), ("hard", 10), ("extreme", 4)])
+def test_give_player_health_scales_and_caps_at_100(difficulty, gain):
+    from abuse_remake.engine.behaviors.player import give_player_health
+    g = Game(strict=False, difficulty=difficulty, object_filter=only_start)
+    p = g.player
+    p.set_hp(50)
+    assert give_player_health(p, 20) is True and p.hp == 50 + gain
+    p.set_hp(98)
+    give_player_health(p, 20)
+    assert p.hp == 100
+    assert give_player_health(p, 20) is False  # full: the pickup stays
+
+
+def test_hurt_radius_falls_off_with_distance_and_pushes_away():
+    # level.c:2979-3019: damage (r - d) * m / r with an octagonal distance; push away from x,y
+    g = Game(strict=False, object_filter=only_start)
+    w = g.world
+    near = w.spawn("ANT_ROOF", 1000, 500)
+    far = w.spawn("ANT_ROOF", 1030, 500)
+    for a in (near, far):
+        a.set_hp(100)
+        a.set_aistate(2)
+        a.set_state("stopped")
+    w.active = [near, far]
+    w.hurt_radius(990, 500, 60, 40, None, None, 20)
+    # near: cx=10, cy1=0 -> d=10; far: cx=40 -> d=40 (the head distance is larger for both)
+    assert near.hp == 100 - (60 - 10) * 40 // 60
+    assert far.hp == 100 - (60 - 40) * 40 // 60
+    assert near.xvel > 0 and far.xvel > 0  # pushed away from the blast to the left
+
+
+def test_grenade_explodes_on_hitting_the_floor():
+    g = Game(strict=False, object_filter=only_start)
+    settle(g)
+    g.view.give_weapon(1)
+    g.view.add_ammo(1, 5)
+    g.step(Inputs(**aim(g)), WeaponCommand(select=1))
+    p = g.player
+    for _ in range(3):
+        g.step(Inputs(b2=1, pointer_x=p.x + 30, pointer_y=p.y + 40))  # throw at the floor
+    booms = 0
+    for _ in range(30):
+        g.step(Inputs(**aim(g)))
+        booms += sum(1 for e in g.world.events if e.kind == "explosion")
+    assert g.view.weapons[1] < 5 and booms >= 1
+
+
+def test_player_rocket_accelerates_by_two_up_to_fifteen():
+    # guns.lsp:96-99: player rockets start at 5 with max_speed 14; rocket_ai adds 2 while
+    # speed < max_speed, so the speed runs 7, 9, 11, 13, 15 and stops at 15
+    from abuse_remake.engine.behaviors.weapons import fire_object
+    g = Game(strict=False, object_filter=only_start)
+    settle(g)
+    r = fire_object(g.player, 3, g.player.x, g.player.y - 300, 90, None)  # straight up, in the air
+    speeds = []
+    from abuse_remake.engine.behaviors.weapons import rocket_ai
+    for _ in range(7):
+        if not rocket_ai(r):
+            break
+        speeds.append(r.lvars["speed"])
+    assert r.lvars["max_speed"] == 14
+    assert speeds[:5] == [7, 9, 11, 13, 15]

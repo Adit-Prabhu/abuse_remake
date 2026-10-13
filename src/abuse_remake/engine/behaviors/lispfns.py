@@ -52,7 +52,11 @@ def lsub(first, *rest) -> int:
 
 
 def lmul(*args):
-    """lisp.c case 28: fixed-point multiply when the first argument is fixed point."""
+    """lisp.c case 28: fixed-point multiply when the first argument is fixed point.
+
+    In the integer branch the original evaluates every argument twice and multiplies the
+    second values (lisp.c:1904-1931). Callers whose arguments have side effects, such as
+    ``(random n)``, must repeat them; see ``weapons.create_dead_parts``."""
     if isinstance(args[0], Fixed):
         s = 1 << 16
         for a in args:
