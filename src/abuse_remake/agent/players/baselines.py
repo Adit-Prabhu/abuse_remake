@@ -51,6 +51,8 @@ class ScriptedPlayer:
         self.teleported_at = -10_000
         self.attacks: dict[str, int] = {}  # consecutive attacks on a target that did not change it
         self.last_attack: tuple[str, bool] | None = None
+        self.approach: dict[str, tuple[int, int]] = {}  # target -> (best distance, tries without improving)
+        self.given_up: set[str] = set()
 
     def start(self, info: dict) -> None:
         self.__init__()
@@ -76,7 +78,22 @@ class ScriptedPlayer:
                 self.attacks.pop(tid, None)
             self.last_attack = None
 
+        def reachable(o) -> bool:
+            if o["id"] in self.given_up:
+                return False
+            best, tries = self.approach.get(o["id"], (10**9, 0))
+            if o["dist"] < best - 4:
+                self.approach[o["id"]] = (o["dist"], 0)
+            elif tries >= 3:
+                self.given_up.add(o["id"])
+                return False
+            return True
+
         def pick(action, why):
+            verb, _, tid = action.partition(" ")
+            if verb in ("goto", "use") and tid:
+                best, tries = self.approach.get(tid, (seen.get(tid, {}).get("dist", 10**9), 0))
+                self.approach[tid] = (min(best, seen.get(tid, {}).get("dist", best)), tries + 1)
             if action.startswith("attack "):
                 tid = action.split()[1]
                 self.last_attack = (tid, seen.get(tid, {}).get("damaged", False))
@@ -95,26 +112,28 @@ class ScriptedPlayer:
         # 2. heal
         if p["hp"] < 50:
             for o in objs:
-                if o["kind"] == "health" and f"goto {o['id']}" in legal_set:
+                if o["kind"] == "health" and f"goto {o['id']}" in legal_set and reachable(o):
                     return pick(f"goto {o['id']}", "low health")
         # 3. exit
         for o in objs:
-            if o["kind"] == "exit" and f"use {o['id']}" in legal_set:
+            if o["kind"] == "exit" and f"use {o['id']}" in legal_set and reachable(o):
                 return pick(f"use {o['id']}", "exit in sight")
         # 4. save once
         for o in objs:
-            if o["kind"] == "console" and o["id"] not in self.used and f"use {o['id']}" in legal_set:
+            if o["kind"] == "console" and o["id"] not in self.used and f"use {o['id']}" in legal_set \
+                    and reachable(o):
                 self.used.add(o["id"])
                 return pick(f"use {o['id']}", "save at console")
         # 5. switches
         for o in objs:
             if o["kind"] == "switch" and o.get("state") == "off" and o["id"] not in self.used \
-                    and f"use {o['id']}" in legal_set:
+                    and f"use {o['id']}" in legal_set and reachable(o):
                 self.used.add(o["id"])
                 return pick(f"use {o['id']}", "try switch")
         # 6. supplies
         for o in objs:
-            if o["kind"].startswith("ammo") and o["dist"] < 250 and f"goto {o['id']}" in legal_set:
+            if o["kind"].startswith("ammo") and o["dist"] < 250 and f"goto {o['id']}" in legal_set \
+                    and reachable(o):
                 return pick(f"goto {o['id']}", "pick up ammo")
         # 7. break through walls ahead or when stuck
         sign = 1 if self.direction == "right" else -1
@@ -126,7 +145,8 @@ class ScriptedPlayer:
         # 8. teleport when stuck
         if self.stuck >= 3 and obs["tick"] - self.teleported_at > 600:
             for o in objs:
-                if o["kind"] in ("teleporter", "door_teleporter") and f"use {o['id']}" in legal_set:
+                if o["kind"] in ("teleporter", "door_teleporter") and f"use {o['id']}" in legal_set \
+                        and reachable(o):
                     self.teleported_at = obs["tick"]
                     self.stuck = 0
                     return pick(f"use {o['id']}", "stuck: try teleporter")
