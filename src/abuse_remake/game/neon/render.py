@@ -132,6 +132,8 @@ class WorldRenderer:
 
     def note_tick(self, game) -> None:
         """Call after every simulation tick."""
+        if self.map_id != (game.map.name, id(game.map)):
+            self.reset(game)  # a campaign sector change loads a new map inside a tick
         self.prev, self.cur = self.cur, self._positions(game)
         p = game.player
         if self.explored is not None:
@@ -475,6 +477,8 @@ class WorldRenderer:
 
     # ------------------------------------------------------------ the frame
     def render(self, game, alpha: float) -> pg.Surface:
+        if self.map_id != (game.map.name, id(game.map)):
+            self.reset(game)
         scene, glow = self.scene, self.glow
         cx, cy = self.cam
         if self.shake:
