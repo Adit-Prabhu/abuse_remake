@@ -363,7 +363,10 @@ def test_training_messages_reach_the_hud_with_the_modern_keys(home):
 
     app.game.step = step_keeping_help
     app.tick(0)
-    assert app.hud.help_text == "Hold down the right mouse button to use special powers  (or Shift)"
+    assert app.hud.help_text == "Hold down the right mouse button to use special powers  (or left Shift)"
+    from abuse_remake.game.hud import POWER_IMAGES
+
+    assert all(app.sprites.image("art/misc.spe", name) is not None for name in POWER_IMAGES.values())
     app.game.player.lvars["special_power"] = HEALTH_POWER
     app.draw()  # the power icon and help line draw without error
 
@@ -391,7 +394,120 @@ def test_remastered_places_the_missing_power_ups_in_the_training_level_only():
     assert extras(Game(level="level00", remastered=True)) == sorted(EXTRA_OBJECTS["level00"])
     assert {k for k, _, _ in EXTRA_OBJECTS["level00"]} == {"POWER_FLY", "POWER_SNEAKY", "POWER_HEALTH"}
     assert extras(Game(level="level01", remastered=True)) == []  # Level 1 keeps its own objects
-    g = Game(level="level00", remastered=True)
-    snap = g.snapshot()
-    g.restore(snap)
-    assert len(extras(g)) == 3  # placed once, not again on a restore
+
+
+# --- review follow-ups: pinned flyer, rocket and lava timing -----------------------------------
+def frozen_flyer(g, monkeypatch, dx=100, dy=-60):
+    """A flyer that stays put, always sees the player and never jitters, so the firing logic can
+    be read tick by tick."""
+    import abuse_remake.engine.behaviors.campaign_objects as co
+
+    monkeypatch.setattr(co, "bounce_move", lambda *a, **k: True)
+    monkeypatch.setattr(co, "can_see", lambda *a: True)
+    monkeypatch.setattr(co, "random", lambda o, n: 1)  # (random 5) is never 0
+    shots = []
+    monkeypatch.setattr(co, "fire_object",
+                        lambda o, kind, x, y, angle, target: shots.append((g.frames, kind, x, y, angle)))
+    p = open_floor(g)
+    f = g.world.spawn("FLYER", p.x + dx, p.y + dy)
+    f.set_aistate(1)
+    f.set_state("running")
+    return f, shots
+
+
+def test_a_flyer_fires_one_rocket_then_bursts_of_burst_total(monkeypatch):
+    g = training()
+    f, shots = frozen_flyer(g, monkeypatch)
+    for _ in range(60):
+        ai("flyer_ai")(f)
+        g.frames += 1  # a tick counter for the shots; the world itself is not stepped
+    ticks = [t for t, *_ in shots]
+    # flyer.lsp:73-96: counters start at 0, so the first burst is one rocket; then fire_delay+1
+    # ticks to the next burst of burst_total rockets, burst_delay+1 ticks apart
+    fd, bd = f.lvars["fire_delay"], f.lvars["burst_delay"]
+    first = ticks[0]
+    assert ticks[:4] == [first, first + fd + 1, first + fd + 1 + bd + 1, first + 2 * (fd + 1) + bd + 1]
+    assert all(kind == 9 for _, kind, *_ in shots)
+
+
+def test_a_flyer_aims_where_the_player_will_be_and_only_within_150_px(monkeypatch):
+    from abuse_remake.engine.behaviors.lispfns import atan2
+
+    g = training()
+    f, shots = frozen_flyer(g, monkeypatch, dx=120)
+    p = g.player
+    p.xvel, p.yvel = 3, -2
+    ai("flyer_ai")(f)
+    _, _, firex, firey, angle = shots[0]
+    assert (firex, firey) == (f.x + f.direction * 10, f.y)
+    assert angle == atan2(firey - (p.y - 15 + p.yvel * 2), (p.x + p.xvel * 4) - firex)
+    g2 = training()
+    f2, shots2 = frozen_flyer(g2, monkeypatch, dx=160)
+    for _ in range(5):
+        ai("flyer_ai")(f2)
+    assert shots2 == []  # distx 160: too far
+
+
+@pytest.mark.parametrize("dy,change", [(-200, 1), (-60, 0), (0, -1)])
+def test_a_flyer_holds_between_50_and_70_px_above_the_player(monkeypatch, dy, change):
+    g = training()
+    f, _ = frozen_flyer(g, monkeypatch, dy=dy)
+    f.yvel = 0
+    ai("flyer_ai")(f)
+    assert f.yvel == change
+
+
+def test_a_straight_rocket_explodes_in_order_and_hurts_around_20_px_below(monkeypatch):
+    import abuse_remake.engine.behaviors.campaign_objects as co
+    from abuse_remake.engine.cmath import JRand
+
+    g = training(difficulty="hard")
+    p = open_floor(g)
+    calls = []
+    monkeypatch.setattr(co, "hurt_radius", lambda o, *args: calls.append(args))
+    r = g.world.spawn("STRAIT_ROCKET", p.x - 20, p.y - 15)
+    r.set_aistate(0)
+    rng = JRand(0)
+    rng.rand_on = g.world.rng.rand_on
+    before = len(g.world.objects)
+    assert ai("strait_rocket_ai")(r) is False  # hits the player this tick
+    made = [(o.ctype.name, o.aitype, o.x, o.y) for o in g.world.objects[before:] if o.ctype.name.startswith("EXPLODE")]
+    expected = []
+    for name, sign, aitype in (("EXPLODE3", 1, 0), ("EXPLODE2", 1, 2), ("EXPLODE3", -1, 1), ("EXPLODE3", -1, 2)):
+        ex = r.x + sign * rng.jrandom(5)
+        ey = r.y + sign * rng.jrandom(5)
+        expected.append((name, aitype, ex, ey))
+    assert sorted(made) == sorted(expected)  # x before y, in ant.lsp:77-80's order
+    assert calls == [(r.x, r.y + 20, 25, 15, None, 10)]
+
+
+def test_lava_burns_every_20_ticks_through_the_engines_own_timer():
+    g = training(difficulty="hard")
+    lava = obj(g, 85)
+    p = g.player
+    p.set_hp(200)
+    burns, changes = [], []
+    for t in range(80):
+        p.x, p.y = lava.x, lava.y
+        before = lava.aistate
+        hp = p.hp
+        lava.decide()
+        if lava.aistate != before:  # a bubble starting or ending restarts the timer (decide)
+            changes.append(t)
+        if hp - p.hp == 6:
+            burns.append(t)
+    gaps = [b - a for a, b in zip(burns, burns[1:], strict=False) if not any(a <= c < b for c in changes)]
+    assert burns and gaps and all(gap == 20 for gap in gaps)
+    assert all(c + 1 in burns for c in changes)  # each restart burns on the next tick (state time 0)
+
+
+def test_toward_and_facing():
+    from abuse_remake.engine.behaviors.lispfns import facing, toward
+
+    g = training()
+    w = g.world.spawn("WHO", g.player.x + 50, g.player.y)
+    assert toward(w) == -1
+    w.x = g.player.x - 50
+    assert toward(w) == 1
+    w.direction = -1
+    assert facing(w) == -1

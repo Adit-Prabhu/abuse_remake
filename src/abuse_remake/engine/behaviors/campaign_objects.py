@@ -125,7 +125,7 @@ def sball_damage(o, amount, from_obj, hitx, hity, push_xvel, push_yvel) -> None:
         o.set_state("running")
 
 
-# english.lsp:226-243 (get_train_msg). Checked against the file by tests/test_training_level.py.
+# english.lsp:226-246 (get_train_msg). Checked against the file by tests/test_training_level.py.
 TRAIN_MSGS = {
     0: "Aim gun with mouse, fire with left mouse button",
     1: "Collect ammo to increase firing speed",

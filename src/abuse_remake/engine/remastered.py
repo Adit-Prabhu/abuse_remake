@@ -35,12 +35,11 @@ class Remastered:
     def __init__(self, game):
         self.game = game
         _state(game.world)
-        if "extras_placed" not in game.world.globals:  # once per level; snapshots carry the flag
-            game.world.globals["extras_placed"] = True
-            from .campaign import EXTRA_OBJECTS
+        # Built once per Game, on its freshly loaded level (restores copy the world instead)
+        from .campaign import EXTRA_OBJECTS
 
-            for kind, x, y in EXTRA_OBJECTS.get(getattr(game, "level", None), ()):
-                game.world.spawn(kind, x, y)
+        for kind, x, y in EXTRA_OBJECTS.get(getattr(game, "level", None), ()):
+            game.world.spawn(kind, x, y)
 
     @property
     def state(self) -> dict:

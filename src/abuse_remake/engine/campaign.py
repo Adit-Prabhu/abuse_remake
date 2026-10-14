@@ -35,8 +35,8 @@ END_LEVEL = 22  # people.lsp:978: an exit with this number ends the game (reques
 # Remastered Level 1 still plays exactly like Classic. Each spot is on or beside a saved route
 # (evidence/routes), so it can be reached.
 EXTRA_OBJECTS: dict[str, tuple[tuple[str, int, int], ...]] = {
-    # the training level: on the saved route, so each one is picked up there; a new power
-    # replaces the last, and each is shown once before the portal room
+    # the training level: on the saved route, which picks each one up (tests/test_campaign_routes.py);
+    # a new power replaces the last
     "level00": (("POWER_SNEAKY", 1061, 196), ("POWER_FLY", 1885, 421), ("POWER_HEALTH", 1771, 931)),
     "level02": (),
 }

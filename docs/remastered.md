@@ -65,14 +65,17 @@ them itself (`campaign.EXTRA_OBJECTS`, a `remastered design` rule):
 - **Training level:** invisibility in the upper corridor past the lift, flight on the ledge before
   the teleport door, and ultra health in the portal room. All three are on the saved route, so
   you meet each one in turn; each replaces the power before.
-- **Level 1:** none. Its objects stay the original's, so Remastered Level 1 still plays exactly
-  like Classic.
+- **Level 1:** none. Its objects stay the original's, so Remastered Level 1, started fresh,
+  still plays exactly like Classic. Reached from the training level, it starts with whatever was
+  carried in. Ultra health can carry up to 200 health into Level 1; the power itself ends at
+  the level change, as the original's `set_player_defaults` clears it. The next heart there then
+  sets health back to the cap of 100 (`give_player_health` adds the cap minus health).
 
 **Proof the level can be finished.** `scripts/route_search.py` searches the engine for inputs
 that finish a level. `evidence/routes/level00.json` is the route it found through the training
 level: up the lift, across the upper rooms, through the teleporters, past all four power-ups and
 into the portal room's exit to Level 1, in 559 ticks (37 seconds) on hard.
-`tests/test_campaign_routes.py` replays it exactly.
+`tests/test_campaign_routes.py` replays it exactly, and checks that it picks up all four power-ups.
 
 ## Presentation (no rule changes)
 
@@ -136,3 +139,18 @@ this shows:
   Remastered can use them.
 - **A flyer saved with no health.** One of the training level's flyers is saved with 0 health,
   so it explodes as soon as it is switched on. That is what the data says, so it is kept.
+- **Flyers hurting flyers.** Without the registered flyer file, the 1995 Lisp makes FLYER and
+  GREEN_FLYER other names for WHO (`FLYER.LSP:123-128`). So in 1995 a WHO ignored rockets fired
+  by any WHO. In 2.0, which we port, only FLYER and GREEN_FLYER are spared. The training level's
+  flyers are all WHOs, so here they can hurt, and kill, each other and themselves.
+- **Kills.** The 1995 `flyer_ai` adds no kill when a flyer dies; 2.0 does.
+- **Flight and invisibility need the registered engine.** The C runs them only when the
+  registration file is present (`cop.c:444`, `cop.c:483`, `game.c:2545-2555`). Remastered
+  plays as the registered build. A shareware engine would ignore the special key for these two.
+- **Training message text.** The 1995 messages run 0 to 10, with different text for 2, 6, 7 and
+  8; message 6 was "Click with the RIGHT mouse button to select weapons". We show the 2.0 text
+  (`english.lsp`), which names the CTRL and INS keys our controls also have.
+- **Health and damage on extreme.** The 1995 `give_player_health` divides by 4 on extreme, and
+  its `bottom_damage` doubles damage; 2.0 divides by 5 and triples. This changes hearts, ultra
+  health and every hit on extreme, in every level (Level 1 already follows 2.0;
+  `docs/data-lineage.md`).

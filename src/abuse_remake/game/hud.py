@@ -8,7 +8,7 @@ import pygame
 WEAPON_NAMES = ("LASER", "GRENADE", "ROCKET", "FIREBOMB", "PLASMA", "SABER", "FRISBEE")
 WEAPON_COLORS = ((255, 80, 80), (120, 220, 90), (255, 170, 60), (255, 120, 30),
                  (140, 120, 255), (220, 220, 255), (255, 255, 120))
-# people.lsp:40-43: the power-up images the original puts at the view's top right (cop.c:816-878)
+# people.lsp:45-48: the power-up images the original puts at the view's top right (cop.c:816-878)
 POWER_IMAGES = {1: "fast_image", 2: "fly_image", 3: "sneaky_image", 4: "b_check_image"}
 POWER_NAMES = {1: "SPEED", 2: "FLIGHT", 3: "INVISIBILITY", 4: "ULTRA HEALTH"}
 
@@ -67,7 +67,8 @@ class Hud:
                 img = pygame.transform.scale(img, (img.get_width() * 3, img.get_height() * 3))
                 x -= img.get_width()
                 screen.blit(img, (x, 14))
-            label = self.small.render(f"{POWER_NAMES[power]}  (hold right mouse or Shift)", True, (200, 230, 255))
+            hint = "" if power == 4 else "  (hold right mouse or left Shift)"  # ultra health is always on
+            label = self.small.render(POWER_NAMES[power] + hint, True, (200, 230, 255))
             screen.blit(label, (x - label.get_width() - 10, 22))
         # help text
         if self.help_frames > 0 and self.help_text:

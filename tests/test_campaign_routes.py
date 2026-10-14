@@ -75,3 +75,21 @@ def test_playing_the_training_route_in_the_app_carries_on_and_the_trace_replays(
     out = replay_human(rec)
     assert out["mismatches"] == 0 and out["unverified_level_changes"] == 0 and out["checks"] == 2
     assert [(g["level"], g["reached_exit"]) for g in out["games"]] == [("level00", True), ("level01", False)]
+
+
+def test_the_training_route_picks_up_all_four_power_ups():
+    from abuse_remake.engine.game import Game
+    from abuse_remake.engine.view import Inputs
+
+    route = json.loads((Path(repo_root()) / "evidence" / "routes" / "level00.json").read_text())
+    g = Game(seed=route["seed"], difficulty=route["difficulty"], level="level00", remastered=True)
+    items = []
+    for n, x, y, special, fire, dx, dy in route["inputs"]:
+        for _ in range(n):
+            p = g.player
+            g.step(Inputs(x=x, y=y, b1=special, b2=fire, pointer_x=p.x + dx, pointer_y=p.y - 20 + dy))
+            items += [e.data["item"] for e in g.world.events if e.kind == "pickup"]
+            if g.world.globals.get("level_complete"):
+                break
+    powers = ["sneaky", "fast", "fly", "ultra health"]
+    assert [i for i in items if i in powers] == powers
