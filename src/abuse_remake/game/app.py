@@ -30,6 +30,7 @@ from pathlib import Path
 
 from ..engine import campaign
 from ..engine.game import Game, WeaponCommand
+from ..engine.horde import ARENAS, CARDS
 from ..engine.view import VIEW_H, VIEW_W, Inputs
 from ..engine.world import DIFFICULTIES
 
@@ -52,17 +53,20 @@ def parse_args(argv=None):
     p.add_argument("--no-audio", action="store_true")
     p.add_argument("--record", type=Path, help="write this session's inputs as a replayable trace")
     p.add_argument("--playtest", action="store_true", help="record into playtests/raw/ with a session id")
-    p.add_argument("--horde", action="store_true", help="Remastered's Horde arena: survive waves of ants")
+    p.add_argument("--horde", action="store_true", help="Remastered's Horde: survive waves of enemies")
+    p.add_argument("--arena", choices=sorted(ARENAS), default="prison", help="Horde's arena (A on the title)")
     p.add_argument("--level", choices=campaign.LEVELS, default="level01",
-                   help="where Remastered's campaign starts (Classic and Horde are Level 1)")
+                   help="where Remastered's campaign starts (Classic is Level 1; Horde uses --arena)")
     p.add_argument("--skip-title", action="store_true")
     p.add_argument("--frames", type=int, default=0, help="run N display frames with scripted input, then exit")
     p.add_argument("--screenshot", type=Path, help="save the last frame (with --frames)")
     args = p.parse_args(argv)
     if args.horde and args.mode == "classic":
         p.error("--horde is a Remastered rule set; it cannot run with --mode classic")
+    if args.arena != "prison" and not args.horde:
+        p.error("--arena is for Horde; add --horde")
     if args.level != "level01" and (args.mode == "classic" or args.playtest or args.horde):
-        p.error("--level is for Remastered's campaign; Classic mode, playtests and Horde are Level 1")
+        p.error("--level is for Remastered's campaign; Classic mode and playtests are Level 1, Horde uses --arena")
     if not campaign.playable(args.level):
         p.error(f"{campaign.title(args.level)} is not playable yet: its objects are not all ported")
     if args.mode is None:
@@ -103,7 +107,7 @@ class App:
         self.particles = Particles()
         self.seed = args.seed if args.seed is not None else int(time.time()) % 1024
         if not self.modern or getattr(args, "horde", False):
-            args.level = "level01"  # the campaign is Remastered only; Horde is on Level 1
+            args.level = "level01"  # the campaign is Remastered only; Horde picks its level by arena
         self.level = getattr(args, "level", "level01")
         self.Renderer = Renderer
         self.joystick = None
@@ -120,8 +124,10 @@ class App:
     def new_game(self):
         self.horde = bool(getattr(self.args, "horde", False)) and self.modern
         self.level = getattr(self.args, "level", "level01")
+        self.arena = getattr(self.args, "arena", "prison")
         self.game = Game(seed=self.seed, difficulty=self.args.difficulty, level=self.level, remastered=self.modern,
-                         horde=self.horde)
+                         horde=self.horde, arena=self.arena)
+        self.pending_card: int | None = None
         self.renderer = self.Renderer(self.game, self.sprites, self.view_w, self.view_h)
         self.renderer.modern = self.modern
         self.game.world.globals["save_hook"] = self._on_console_save
@@ -131,14 +137,16 @@ class App:
         self.pending_dash = False
         self.show_ghost = True
         self._write({"kind": "new_game", "seed": self.seed, "difficulty": self.args.difficulty,
-                     "mode": self.args.mode, "horde": self.horde, "level": self.level,
+                     "mode": self.args.mode, "horde": self.horde, "level": self.level, "arena": self.arena,
+                     "horde_version": 2,
                      "rules": "remastered" if self.modern else "classic"})
 
     def _level_started(self) -> None:
         """Per-level state: the restart points, the stats screen's counts, records and ghost."""
         from .remaster import GhostRecorder, load_ghost
 
-        self.pg.display.set_caption(f"Abuse — {campaign.title(self.level)} (remake)")
+        where = f"Horde: {ARENAS[self.arena].title}" if self.horde else campaign.title(self.level)
+        self.pg.display.set_caption(f"Abuse — {where} (remake)")
         self.level_start = self.game.snapshot()
         self.checkpoint = self.level_start
         self.stats = {"ticks": 0, "kills": 0, "secrets": 0, "deaths": 0, "shots": 0, "enemies_hit": 0,
@@ -281,6 +289,14 @@ class App:
                     self.pending_weapon = WeaponCommand(cycle=-1 if ev.y > 0 else 1)
                 elif ev.type == pg.JOYBUTTONDOWN and self.state == "play" and ev.button in (4, 5):
                     self.pending_weapon = WeaponCommand(cycle=-1 if ev.button == 4 else 1)
+                elif self._cards_up() and ev.type == pg.JOYBUTTONDOWN and ev.button in (0, 1, 2):
+                    self.pending_card = ev.button  # A, B, X choose a card while they are up
+                    self.card_masks_input = True
+                elif self._cards_up() and ev.type == pg.MOUSEBUTTONDOWN and ev.button == 1:
+                    hit = [i for i, r in enumerate(self.hud.card_rects) if r.collidepoint(ev.pos)]
+                    if hit:
+                        self.pending_card = hit[0]
+                        self.card_masks_input = True
                 elif ev.type == pg.JOYBUTTONDOWN and self.state == "play" and ev.button == 2 and self.modern:
                     self.pending_dash = True
             if self.state == "play":
@@ -325,6 +341,10 @@ class App:
                 i = DIFFICULTIES.index(self.args.difficulty)
                 self.args.difficulty = DIFFICULTIES[(i + 1) % len(DIFFICULTIES)]
                 self.new_game()
+            elif key == pg.K_a and self.horde:
+                keys = list(ARENAS)
+                self.args.arena = keys[(keys.index(self.arena) + 1) % len(keys)]
+                self.new_game()
             elif key == pg.K_l and self.modern and not self.horde and not self.args.playtest:
                 levels = campaign.playable_levels()
                 i = levels.index(self.level) if self.level in levels else -1
@@ -335,6 +355,8 @@ class App:
         elif self.state == "play":
             if key == pg.K_ESCAPE:
                 self.state = "paused"
+            elif self.horde and self.game.horde.state["cards"] and pg.K_1 <= key <= pg.K_3:
+                self.pending_card = key - pg.K_1  # while upgrade cards are up, 1/2/3 choose one
             elif pg.K_1 <= key <= pg.K_7:
                 self.pending_weapon = WeaponCommand(select=key - pg.K_1)
             elif key == pg.K_q:
@@ -397,6 +419,27 @@ class App:
             lines.append("Enter to continue")
         return lines
 
+    def _cards_up(self) -> bool:
+        return self.state == "play" and self.horde and bool(self.game.horde.state["cards"])
+
+    def horde_over_lines(self) -> list[str]:
+        st = self.game.horde.state
+        f = self.finish or {}
+        lines = [f"HORDE OVER - {ARENAS[self.arena].title}",
+                 f"score {st['score']}   waves cleared {st['cleared']}   kills {st['kills']}   "
+                 f"best combo x{st['best_combo']}"]
+        by = ", ".join(f"{n} {HORDE_NAMES.get(k, k)}" for k, n in sorted(st["kills_by"].items()))
+        if by:
+            lines.append(by)
+        if f.get("rank"):
+            lines.append(f"#{f['rank']} on this arena's top 10")
+        top = f.get("top") or []
+        if top:
+            lines.append("top 5 of the table:")
+        for i, r in enumerate(top[:5]):
+            lines.append(f"{i + 1}. {r['score']}  ({r['cleared']} waves, {r['kills']} kills)")
+        return lines + ["Enter to continue"]
+
     def _rebind(self):
         self.renderer.game = self.game
         self.renderer.reset_camera()
@@ -411,6 +454,12 @@ class App:
             self.pending_dash = False
             dash_asked = True  # recorded as asked; the replay gets the same answer from the engine
             self.stats["dashes"] += int(self.game.remastered.request_dash(inp.x))
+        card, self.pending_card = self.pending_card, None
+        if getattr(self, "card_masks_input", False):  # the click or button that chose a card
+            self.card_masks_input = False  # does not also fire, jump or act this tick
+            inp = Inputs(x=inp.x, pointer_x=inp.pointer_x, pointer_y=inp.pointer_y)
+        if card is not None and self.game.horde is not None:
+            self.game.horde.choose(card)  # recorded as asked, like a dash
         hp_before = self.game.player.hp
         self.game.step(inp, weapon)
         self.renderer.note_tick()
@@ -426,9 +475,12 @@ class App:
                 self.hit_uids.add(e.data["target"])
                 self.stats["enemies_hit"] = len(self.hit_uids)
             elif e.kind == "horde_wave":
-                self.hud.say(f"Wave {e.data['wave']}: {e.data['size']} incoming")
+                boss = "  - BOSS WAVE" if e.data.get("boss") else ""
+                self.hud.say(f"Wave {e.data['wave']}: {e.data['size']} incoming{boss}")
             elif e.kind == "horde_cleared":
-                self.hud.say(f"Wave {e.data['wave']} cleared - supplies dropped")
+                self.hud.say(f"Wave {e.data['wave']} cleared - supplies dropped. Pick an upgrade: 1, 2 or 3")
+            elif e.kind == "horde_card":
+                self.hud.say(f"Upgrade: {CARDS[e.data['card']]}")
             elif e.kind == "wall_destroyed":
                 self.stats["secrets"] += 1
             elif e.kind == "help":
@@ -452,12 +504,15 @@ class App:
                 rec["weapon"] = {"select": weapon.select, "cycle": weapon.cycle}
             if dash_asked:
                 rec["dash"] = 1
+            if card is not None:
+                rec["card"] = card
             self._write(rec)
         if self.horde and self.game.horde.state["over"]:
             from .remaster import record_horde
 
             st = self.game.horde.state
-            self.finish = record_horde(self.args.difficulty, st["cleared"], st["kills"])
+            self.finish = record_horde(self.args.difficulty, st["cleared"], st["kills"], arena=self.arena,
+                                       score=st["score"])
             self.state = "horde_over"
         elif self.game.player.aistate >= 3:
             self.stats["deaths"] += 1
@@ -494,10 +549,7 @@ class App:
         if self.state in ("play", "paused", "dead", "complete", "horde_over"):
             self.hud.draw(self.screen, self.game, self.stats)
         if self.horde and self.state == "play":
-            st = self.game.horde.state
-            text = f"WAVE {st['wave']}   kills {st['kills']}" + ("   (next wave soon)" if st["break"] else "")
-            img = self.hud.font.render(text, True, (255, 220, 120))
-            self.screen.blit(img, (self.screen.get_width() - img.get_width() - 14, 10))
+            self.hud.draw_horde(self.screen, self.game)
         if self.state == "play":
             mx, my = pg.mouse.get_pos()
             pg.draw.circle(self.screen, (255, 80, 80), (mx, my), 9, 1)
@@ -509,7 +561,8 @@ class App:
             self.hud.center(self.screen, ["ABUSE", "Level 1 — reconstructed" if not self.modern
                                           else f"Remastered — {levels}",
                                           f"Mode: {self.args.mode} (M)    Difficulty: {self.args.difficulty} (D)"
-                                          + ("    HORDE (H)" if self.horde else "    Horde: off (H)") + start,
+                                          + (f"    HORDE (H): {ARENAS[self.arena].title} (A)" if self.horde
+                                             else "    Horde: off (H)") + start,
                                           "Enter to start    Esc to quit"],
                             "Original game © 1996 Crack dot Com (public-domain code and shareware data)")
         elif self.state == "paused":
@@ -519,16 +572,12 @@ class App:
         elif self.state == "complete":
             self.hud.center(self.screen, self.stats_lines())
         elif self.state == "horde_over":
-            st = self.game.horde.state
-            f = self.finish or {}
-            best = f.get("best")
-            lines = ["HORDE OVER", f"waves cleared {st['cleared']}   kills {st['kills']}"]
-            if f.get("new_best"):
-                lines.append("NEW BEST" + (f" (was {best['cleared']} waves, {best['kills']} kills)" if best else ""))
-            elif best:
-                lines.append(f"best: {best['cleared']} waves, {best['kills']} kills")
-            self.hud.center(self.screen, lines + ["Enter to continue"])
+            self.hud.center(self.screen, self.horde_over_lines())
         pg.display.flip()
+
+
+HORDE_NAMES = {"ANT_ROOF": "ants", "FLYER": "flyers", "GREEN_FLYER": "green flyers", "ROB1": "robots",
+               "JUGGER": "juggernauts", "BOSS": "bosses"}
 
 
 def clock_text(ticks: int) -> str:

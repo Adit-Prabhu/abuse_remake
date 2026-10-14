@@ -4,7 +4,8 @@
 
 A trace (format ``human-trace-1``) is a header and then, for each game in the session:
 - a ``new_game`` row (seed, difficulty, rules, horde and, for Remastered's campaign, the level);
-- one ``input`` row per tick (the original controls, weapon keys and Remastered dash requests);
+- one ``input`` row per tick (the original controls, weapon keys, Remastered dash requests and
+  Horde's upgrade card choices);
 - ``restore`` rows (to the last console save or the level start);
 - a ``level`` row when Remastered's campaign goes on into the next level, keeping the player
   (``Game(carry=...)``); each level is reported as its own game. The replay checks that the
@@ -32,12 +33,21 @@ from ..engine.view import Inputs
 
 class _Session:
     def __init__(self, row: dict, carry: Game | None = None):
+        from ..engine.horde import ARENAS
+
         self.row = row
         self.rules = row.get("rules", "classic")
         self.horde = bool(row.get("horde"))
         self.level = row.get("level", "level01")
+        if self.horde:
+            arena = row.get("arena", "prison")
+            if arena not in ARENAS or row.get("horde_version") != 2:
+                raise SystemExit(f"this Horde game ({arena!r}) was recorded by another version of Horde; "
+                                 "it cannot be replayed")
+            self.level = ARENAS[arena].level
         self.game = Game(seed=row["seed"], difficulty=row.get("difficulty", "hard"), level=self.level,
-                         remastered=self.rules == "remastered", horde=self.horde, carry=carry)
+                         remastered=self.rules == "remastered", horde=self.horde, carry=carry,
+                         arena=row.get("arena", "prison"))
         self.game.world.globals["save_hook"] = self._save
         self.level_start = self.game.snapshot()
         self.checkpoint = self.level_start
@@ -60,6 +70,8 @@ class _Session:
         g = self.game
         if row.get("dash") and g.remastered is not None:
             g.remastered.request_dash(row.get("x", 0))
+        if row.get("card") is not None and g.horde is not None:
+            g.horde.choose(row["card"])
         w = row.get("weapon")
         weapon = WeaponCommand(select=w.get("select"), cycle=w.get("cycle", 0)) if w else None
         g.step(Inputs(x=row["x"], y=row["y"], b1=row["b1"], b2=row["b2"], pointer_x=row["px"], pointer_y=row["py"]),

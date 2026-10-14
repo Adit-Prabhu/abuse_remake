@@ -52,13 +52,13 @@ class WeaponCommand:
 class Game:
     def __init__(self, seed: int = 0, difficulty: str = DEFAULT_DIFFICULTY, level: str = LEVEL,
                  strict: bool = True, object_filter=None, remastered: bool = False, horde: bool = False,
-                 carry: Game | None = None):
+                 carry: Game | None = None, arena: str = "prison"):
         """``carry``: the game whose exit led here. Its player and view go on into this level, as
         they do when the original loads the next level (see ``_carry_over``)."""
         if horde:  # Remastered's Horde arena: the map without the level's objects
-            from .horde import keep_for_horde
+            from .horde import ARENAS, keep_for_horde
 
-            remastered, object_filter = True, keep_for_horde
+            remastered, object_filter, level = True, keep_for_horde, ARENAS[arena].level
         lf = _level(level)
         if carry is not None and lf.has_player_info:
             # a saved game restores its own views, weapons and rand_on instead (level.c:1695-1813)
@@ -83,6 +83,7 @@ class Game:
         self.carried = carry is not None
         self.seed = seed
         self.frames = 0
+        self.horde_arena = arena if horde else None  # Horde removes the level's objects; no extras either
         self.remastered = None
         if remastered:  # rule changes for --mode remastered only; Classic never builds this
             from .remastered import Remastered
@@ -92,7 +93,7 @@ class Game:
         if horde:
             from .horde import Horde
 
-            self.horde = Horde(self)
+            self.horde = Horde(self, arena)
 
     def step(self, inputs: Inputs | None = None, weapon: WeaponCommand | None = None) -> None:
         if weapon is not None:
@@ -166,6 +167,8 @@ class Game:
                       f"{o.direction},{sorted(o.lvars.items())}").encode())
         v = self.view
         h.update(f"{v.weapons},{v.current_weapon},{v.ambient},{v.pan_x},{v.pan_y}".encode())
+        if self.horde is not None:  # Horde's score, cards and timers (Classic never has them)
+            h.update(repr(sorted(self.horde.state.items())).encode())
         return h.hexdigest()
 
 

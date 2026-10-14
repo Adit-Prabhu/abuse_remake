@@ -35,11 +35,13 @@ class Remastered:
     def __init__(self, game):
         self.game = game
         _state(game.world)
-        # Built once per Game, on its freshly loaded level (restores copy the world instead)
+        # Built once per Game, on its freshly loaded level (restores copy the world instead);
+        # a Horde arena keeps only the map, so it gets no campaign extras
         from .campaign import EXTRA_OBJECTS
 
-        for kind, x, y in EXTRA_OBJECTS.get(getattr(game, "level", None), ()):
-            game.world.spawn(kind, x, y)
+        if getattr(game, "horde_arena", None) is None:
+            for kind, x, y in EXTRA_OBJECTS.get(getattr(game, "level", None), ()):
+                game.world.spawn(kind, x, y)
 
     @property
     def state(self) -> dict:
@@ -58,7 +60,7 @@ class Remastered:
         st["dash_dir"] = direction if direction in (-1, 1) else (1 if self.game.player.direction > 0 else -1)
         st["dash_left"] = DASH_TICKS
         st["iframes"] = DASH_IFRAMES
-        st["cooldown"] = DASH_COOLDOWN
+        st["cooldown"] = st.get("cooldown_max", DASH_COOLDOWN)  # Horde's dash card can shorten it
         st["dashes"] += 1
         st["announce"] = True  # emitted after the next step: World.step clears events at its start
         return True

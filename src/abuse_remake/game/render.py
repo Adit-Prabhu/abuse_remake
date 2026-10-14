@@ -159,7 +159,7 @@ class Renderer:
     def _pos(self, o, alpha):
         return _lerp(o.last_x, o.x, alpha), _lerp(o.last_y, o.y, alpha)
 
-    def _blit_figure(self, surf, o, x, y, xoff, yoff, fig=None, direction=None, alpha_mul=1.0, dy=0):
+    def _blit_figure(self, surf, o, x, y, xoff, yoff, fig=None, direction=None, alpha_mul=1.0, dy=0, tint=None):
         fig = fig or o.figure()
         d = o.direction if direction is None else direction
         fwd, back = self.sprites.figure(fig)
@@ -169,6 +169,9 @@ class Renderer:
         sx, sy = round(left - xoff), round(top - yoff)
         if sx > self.w or sy > self.h or sx + fig.width < 0 or sy + fig.height < 0:
             return
+        if tint is not None:
+            img = img.copy()
+            img.fill((*tint, 255), special_flags=pygame.BLEND_RGBA_MULT)
         if o.fade_count or alpha_mul < 1.0:
             a = max(0, 255 - o.fade_count * 255 // max(1, o.fade_max))
             img = img.copy()
@@ -220,6 +223,10 @@ class Renderer:
         if draw == "exp_draw":
             if o.aitype == 0:  # middle_draw: drawn half its height lower
                 self._blit_figure(surf, o, x, y, xoff, yoff, dy=o.picture_height() // 2)
+            return
+        horde = getattr(self.game, "horde", None)
+        if horde is not None and o.uid == horde.state.get("boss"):  # Horde's boss is drawn red
+            self._blit_figure(surf, o, x, y, xoff, yoff, tint=(255, 120, 110))
             return
         if draw == "on_draw":
             if activated(o):

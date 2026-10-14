@@ -19,7 +19,7 @@ Level 1's, with `code` rows in `docs/rule-source-map.md`. A level is offered onc
 it is ported (`campaign.playable`), and the title screen lists the playable ones.
 
 - **Where to start.** L on the title screen picks the start level among the playable ones, or
-  use `--level`. Classic mode, playtests and Horde stay on Level 1.
+  use `--level`. Classic mode and playtests stay on Level 1; Horde picks its map by arena.
 - **Exits lead on.** An exit loads the level its number names, as in the original
   (`engine/campaign.py`). The training level ends in the original portal room, with exits to
   Levels 1 to 4. Level 1's exit leads to Level 2, and Level 2's to Level 3.
@@ -118,7 +118,7 @@ show whether the level can be finished without the ultra health it picks up earl
 | Feature | Controls | What it does | Code |
 |---|---|---|---|
 | Dash | F, gamepad X | 4 ticks at +13 px per tick through the engine's own collision (it never passes walls), invulnerable for 7 ticks from the start, an 18-tick cooldown, not while teleporting or before play starts | `engine/remastered.py` |
-| Horde | `--horde`, or H on the title screen | An arena on the longest flat floor of Level 1 (x 1680-2400) with the level's objects removed. Ants come in growing waves, released the way the original's cracks release them; tougher ant types from wave 3. Health and ammo drop between waves, and the run ends on death | `engine/horde.py` |
+| Horde | `--horde`, or H on the title screen; A (or `--arena`) picks the arena; 1, 2, 3, a click, or gamepad A/B/X pick an upgrade | Waves of enemies in an arena: the prison floor of Level 1, Level 2's rooftop, or Level 2's Juggernaut floor. Ants first, then flyers, cleaner robots and Juggernauts, and a boss Juggernaut with extra lives every fifth wave. Between waves you get health and ammo, and choose one of three upgrade cards (a power-up for the next wave, full health, ammo, the rocket launcher, or a faster dash). Your kills score points times a combo; a wave without damage earns a bonus. The run ends on death, with a top-10 table per arena and difficulty. A Horde game recorded before Horde 2 cannot be replayed (`horde_version`) | `engine/horde.py` |
 
 ## Quality-of-life features (no rule changes)
 
@@ -129,7 +129,7 @@ show whether the level can be finished without the ultra health it picks up earl
 | Ghost race | G toggles it | Your best finished run is shown as a translucent figure at the same tick of the run timer. Unlike the player, it is not interpolated between ticks | `game/remaster.py` |
 | AI spectator and replay | `abuse-replay --player scripted` or `--trace FILE` | Watch any player (scripted, random, the model, or a `cmd:` program) under Classic rules, with a panel showing what it sees and chooses. A watched player gets the same budgets and fatal-error stops as in `abuse-agent`. Or replay a trace: every observation hash, every step and the final outcome must match. The output goes to the screen, or to MP4 with `--video` | `game/spectate.py` |
 
-Records and ghosts are kept per player in `~/.abuse_remake/`, never in the repo. Set
+Records, ghosts and Horde's high scores are kept per player in `~/.abuse_remake/`, never in the repo. Set
 `ABUSE_REMAKE_HOME` to keep them elsewhere.
 
 ## Tests
@@ -139,7 +139,7 @@ Records and ghosts are kept per player in `~/.abuse_remake/`, never in the repo.
 - Remastered without a dash gives the same state hash as Classic on Level 1 (the campaign never shuts Level 1's exit);
 - the dash's distance, its stop at walls, its invulnerability and cooldown, and that it survives a
   save and restore;
-- Horde's waves, drops and end, its determinism, and its app screen;
+- Horde's waves, drops and end, its determinism, and its app screen (and `tests/test_horde2.py`: the arenas, roster, boss, cards, combos, high scores, and a recorded card choice that replays);
 - records, the ghost's recording, saving and drawing, quick restart, and the stats screen;
 - replays (including detecting a tampered trace), that spectating leaves the game unchanged, and
   video output.
