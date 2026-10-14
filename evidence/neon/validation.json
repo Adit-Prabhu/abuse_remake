@@ -5,25 +5,25 @@
   "campaign": {
     "status": "won",
     "deaths_restored": 0,
-    "ticks": 8041,
-    "seconds": 268,
-    "kills": 77,
+    "ticks": 7573,
+    "seconds": 252,
+    "kills": 79,
     "secrets": 0,
-    "damage_taken": 295,
+    "damage_taken": 244,
     "sector_ticks": {
-      "0": 1443,
-      "1": 3420,
-      "2": 1308,
-      "3": 1870
+      "0": 1431,
+      "1": 2754,
+      "2": 1542,
+      "3": 1846
     }
   },
   "horde": {
-    "waves_cleared": 4,
-    "kills": 36,
-    "status": "running"
+    "waves_cleared": 3,
+    "kills": 35,
+    "status": "dead"
   },
   "trace_replay": {
-    "checks": 4,
+    "checks": 5,
     "mismatches": 0,
     "games": 3
   },
@@ -42,6 +42,7 @@
     "boss-laser.png",
     "campaign-complete.png",
     "horde-upgrade.png",
-    "horde.png"
+    "horde.png",
+    "horde-over.png"
   ]
 }

@@ -61,14 +61,14 @@ All gameplay is in `src/abuse_remake/engine/neon/`:
 | System | Design | Code |
 |---|---|---|
 | Maps | ASCII files of 16-px tiles, with a legend: walls `#`, one-way ledges `=`, ladders `H`, cracked walls `%`, energy floors `^`, elevator rails `\|`, doors, switches, keys, pads, consoles, lamps and enemies. Each sector is a vertical maze, from 72×40 (Core) up to 170×56 tiles (Hive) | `tilemap.py`, `maps/*.txt` |
-| Movement | Run at 3.5 px/tick with acceleration and friction. Jump −9.6 px/tick: up to 72 px, holding the button for full height. 5-tick coyote time and a 6-tick jump buffer. Ladders. Drop through ledges and ladder tops. Crouch to 26 px and crawl through 2-tile vents. Dash: 8 ticks × 9 px, invulnerable, 30-tick cooldown. Knock-back and stun when hit. The Vault Boots add one air jump. Movement steps one pixel at a time, so nothing tunnels | `player.py`, `physics.py` |
+| Movement | Run at 3.5 px/tick with acceleration and friction. Jump −9.6 px/tick: up to 72 px, holding the button for full height. 5-tick coyote time and a 6-tick jump buffer. Ladders at 2.5 px/tick both ways. Drop through ledges and ladder tops with S + jump. Crouch to 26 px and crawl through 2-tile vents. Dash: 8 ticks × 9 px, invulnerable, 30-tick cooldown. Knock-back and stun when hit. The Vault Boots add one air jump. Movement steps one pixel at a time, so nothing tunnels | `player.py`, `physics.py` |
 | Weapons | **Pulse Carbine**: unlimited cyan bolts. **Scatter Arc**: 5-way laser fan with knock-back. **Rail Lance**: hitscan, pierces every enemy, stops at walls. **Plasma Mortar**: arcs, bounces twice, bursts, breaks cracked walls. **Seeker Swarm**: 3 homing missiles. Firing makes noise that enemies hear | `weapons.py` |
 | Enemies | **Xeno Crawler** (the Abuse ant reimagined): hangs from ceilings and walks them, drops on you, climbs walls, spits acid, leaps gaps, crouches then pounces, dodges, retreats when hurt, and its scream wakes its neighbours. **Stinger**: circles, telegraphs, dives. **Sentry**: hides in walls and ceilings, pops out, shows a laser sight, fires a leading burst, armoured while hidden. **Strider**: frontal shield (pulse and scatter deflect; weak from behind), lobbed plasma, telegraphed stomp shockwave, slow turn. **Watcher drone**: searchlight; spotting you or being shot raises an alarm that opens vent nests. **Vent nest**: releases crawlers | `enemies.py` |
-| Boss | **Core Warden**, in three phases: (1) volleys and a telegraphed stomp; (2) roars, ceiling vents release crawlers; (3) a sweeping laser to jump over (low) or crouch under (high), after which its core is exposed and takes double damage | `enemies.py` `Warden` |
-| World | Save consoles (repair, ammo top-up, checkpoint). Switch doors, some timed. Red keycard gate. Elevators that carry riders and can be called. Teleport pads. Cracked-wall secrets. Timed energy floors | `objects.py` |
-| Power-ups | Health, ammo, Shield (absorbs 50), Overcharge (×2 damage), Haste, Phase (longer dash), Vault Boots (permanent), keycards | `game.py` `collect` |
+| Boss | **Core Warden**: dormant until the runner enters the arena, then three phases. (1) Volleys and a telegraphed stomp. (2) It roars and the ceiling vents release crawlers. (3) An 80-px laser segment sweeps across the arena at 22 px/tick: time a full jump over the low beam or crouch under the high one. Its core is then exposed and takes double damage | `enemies.py` `Warden` |
+| World | Save consoles (repair, ammo top-up, checkpoint). Switch doors, some timed (a timed door never closes on anyone). Red keycard gate. Elevators that stop flush with each floor, carry riders (not while dashing or climbing) and can be called from either end. Teleport pads. Cracked-wall secrets. Timed energy floors | `objects.py` |
+| Power-ups | Health, ammo, Shield (absorbs 50), Overcharge (×2 damage), Haste, Phase (the dash recharges 40% faster and protects 6 ticks longer), Vault Boots (permanent), keycards | `game.py` `collect` |
 | Campaign | Neon Transit → Reactor Stack (climbed bottom to top: elevator, boots, key, gate, teleporter, or a double-jump shaft) → The Hive (ceiling crawlers, crawl vent, the drone hall's 10-second timed door) → The Core (boss). Your arsenal and boots carry over between sectors | `game.py` |
-| Horde | A three-tier arena with vents and ladders. Waves grow: crawlers, then stingers from wave 2, striders from wave 4, elites every 5th wave. Each wave hostiles have +6% integrity and hit +3% harder. After each wave, pick 1 of 2 upgrades (each at most 3 times). A hostile stuck for 20 s returns to a vent | `horde.py` |
+| Horde | A three-tier arena with vents and ladders. Waves grow: crawlers, then stingers from wave 2, striders from wave 4, elites every 5th wave. Each wave hostiles have +6% integrity and hit +3% harder. After each wave, pick 1 of 2 upgrades, each at most 3 times; Nano Repair heals faster with each stack. Every hostile in the arena is always simulated. Walkers appear at floor vents, flyers at the flyer spawns. Any hostile stuck for 20 s is moved back to one, so a wave cannot stall | `horde.py` |
 | Training | 10 lessons: run, jump, ladder, drop, crawl, aim and fire, weapons, dash, switches, save. Nothing can hurt you | `training.py`, `maps/training.txt` |
 | Difficulty | Incoming damage ×50 / 75 / 100 / 140%; enemy integrity ×80 / 90 / 100 / 125% (easy, medium, hard, extreme) | `game.py` |
 
@@ -136,7 +136,18 @@ The autopilot (`engine/neon/autopilot.py`) has full map access. It is a developm
 proving the maps can be completed and for producing evidence. It is not a playing agent, a
 fair evaluation or a human playtest.
 
-During development it found real bugs, all fixed:
+The independent review (`docs/reviews/`) found ten should-fix items and a number of notes;
+all were addressed with tests that failed before the fixes:
+- the "restart sector" target;
+- Horde stalls;
+- the boss laser being unjumpable;
+- elevator riding;
+- weak tests.
+
+Re-checking the regenerated screenshots then found that the renderer kept the previous
+sector's art after a sector change, also fixed with a test.
+
+During development the autopilot also found real bugs, all fixed:
 - two holes in the Transit walls that let you bypass the security door;
 - a jump into the timed-door tunnel that was too tight;
 - an arena block the Strider could not fit under;

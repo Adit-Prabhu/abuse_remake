@@ -11,7 +11,7 @@ project ("AI in Practice: Game Design and Development").
   race, an AI spectator and a Horde arena (`docs/remastered.md`). Evaluations always run Classic
   rules.
 - **Neon Protocol** (`--mode neon`) is a separate game with a neon, Tron-style look:
-  - four vertical sectors and a boss;
+  - three vertical sectors and a boss arena;
   - alien enemies that hang from ceilings, climb walls and pounce;
   - five futuristic weapons and power-ups;
   - recorded sound and music;

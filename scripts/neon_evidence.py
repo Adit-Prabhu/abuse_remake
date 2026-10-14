@@ -100,7 +100,7 @@ def generate(out: Path, seed: int, difficulty: str) -> dict:
     app.start("horde")
     bot = Autopilot(app.game)
     bot.targets = []
-    for tick in range(2400):
+    for tick in range(20000):  # until the run ends
         g = app.game
         if app.state == "upgrade":
             if "horde-upgrade.png" not in shots:
