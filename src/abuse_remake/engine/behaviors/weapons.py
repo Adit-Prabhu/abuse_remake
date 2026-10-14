@@ -1,7 +1,7 @@
 """Projectiles, explosions and death debris.
 
 Sources (historicalsource/abuse@01cce80 and data/original/lisp):
-- fire_object: guns.lsp:34-193
+- fire_object: guns.lsp:34-193 (types 0-3, 5 and 10 for Level 1; type 9 for the campaign's flyers)
 - sgun_ai (the laser and turret bullets): abuse/src/cop.c:888-928 (compiled C; the Lisp
   version in weapons.lsp is commented out)
 - grenade_ai, firebomb_ai, rocket_ai: weapons.lsp:28-55, 356-394
@@ -107,7 +107,16 @@ def _fire_object(creator, wtype: int, x: int, y: int, angle: int, target):
             f.add_object(creator)
             f.yvel += creator.yvel
         return f
-    raise NotImplementedError(f"fire_object type {wtype} is outside the Level 1 scope")
+    if wtype == 9:  # guns.lsp:166-172: the flyers' straight rocket (Remastered campaign)
+        r = world.spawn("STRAIT_ROCKET", x, y)
+        play_sound(r, "MGUN_SND")
+        if creator is not None:
+            r.add_object(creator)
+        set_aistate(r, angle)
+        set_frame_angle(r, 0, 359, angle)
+        play_sound(r, "GRENADE_THROW")
+        return r
+    raise NotImplementedError(f"fire_object type {wtype} is not ported")
 
 
 @lisp("sgun_ai")

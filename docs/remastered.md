@@ -40,6 +40,40 @@ The shareware levels were built for the 1995 shareware Lisp, while the rules we 
 2.0-era Lisp (`docs/data-lineage.md`). Differences found in play are listed at the end of this
 page.
 
+## The training level and the four power-ups
+
+The training level teaches the controls with the original's own help messages. It has ladders,
+lava, springs, a switch ball to shoot, flying robots, and the speed power-up. Its objects and the
+power-ups are ported from the original Lisp (`engine/behaviors/campaign_objects.py`). Using a
+power was already ported for Level 1 (`cop.c`); Level 1 just never has one.
+
+Hold the special key (right mouse button or Shift) to use the power you carry:
+
+| Power-up | Holding the special key | Otherwise |
+|---|---|---|
+| Speed | You move twice per tick and leave an afterimage | The pickup flashes the screen white |
+| Flight | You rise, trailing clouds | |
+| Invisibility | You fade out over 15 ticks, and back in when you let go | |
+| Ultra health | | Your health cap is 200, and the pickup gives 100 health (scaled by difficulty) |
+
+The HUD shows the power's original icon at the top right. You keep a power until the level ends.
+Training messages appear above the HUD with the modern key in brackets, such as "(or Shift)".
+
+**Where the power-ups are.** The shareware levels have only the speed power-up. Flight,
+invisibility and ultra health were registered-version content in 1995. So Remastered places
+them itself (`campaign.EXTRA_OBJECTS`, a `remastered design` rule):
+- **Training level:** invisibility in the upper corridor past the lift, flight on the ledge before
+  the teleport door, and ultra health in the portal room. All three are on the saved route, so
+  you meet each one in turn; each replaces the power before.
+- **Level 1:** none. Its objects stay the original's, so Remastered Level 1 still plays exactly
+  like Classic.
+
+**Proof the level can be finished.** `scripts/route_search.py` searches the engine for inputs
+that finish a level. `evidence/routes/level00.json` is the route it found through the training
+level: up the lift, across the upper rooms, through the teleporters, past all four power-ups and
+into the portal room's exit to Level 1, in 559 ticks (37 seconds) on hard.
+`tests/test_campaign_routes.py` replays it exactly.
+
 ## Presentation (no rule changes)
 
 - A wider 16:9 view (480x270), 60 fps drawing interpolated between the 15 Hz ticks.
@@ -92,4 +126,13 @@ work, so Classic cannot drift.
 
 ## Known differences in the campaign levels
 
-None recorded yet.
+The shareware levels were built for the 1995 shareware Lisp; we port the 2.0-era rules. Where
+this shows:
+- **Training messages.** The 1995 `train_ai` also froze the player for 100 ticks while a message
+  appeared. The 2.0 version, ported here, does not.
+- **Registered content.** In the 1995 shareware, flyers (FLYER, GREEN_FLYER) and the flight,
+  invisibility and ultra health power-ups were registered-version content, loaded from files the
+  shareware lacks. The 2.0 Lisp defines them, and their art is in the shareware data, so
+  Remastered can use them.
+- **A flyer saved with no health.** One of the training level's flyers is saved with 0 health,
+  so it explodes as soon as it is switched on. That is what the data says, so it is kept.

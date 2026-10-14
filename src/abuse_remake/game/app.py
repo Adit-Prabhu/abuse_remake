@@ -34,6 +34,10 @@ from ..engine.view import VIEW_H, VIEW_W, Inputs
 from ..engine.world import DIFFICULTIES
 
 TICK = 1.0 / 15.0
+# The training level's messages name the original keys (english.lsp:226-243); the modern ones too
+MODERN_KEYS = {0: "  (or J)", 5: "  (or Shift)", 6: "  (or Q/E, the mouse wheel)", 7: "  (W or Up)",
+               8: "  (S or Down)", 2: "  (S or Down)", 3: "  (S or Down)", 4: "  (S or Down)",
+               11: "  (S or Down)"}
 MAX_CATCHUP = 4 * TICK  # after a stall, run at most 4 owed ticks instead of all of them
 
 
@@ -95,7 +99,7 @@ class App:
 
         self.sprites = SpriteCache()
         self.audio = Audio(enabled=not args.no_audio and not args.frames, modern=args.mode == "remastered")
-        self.hud = Hud()
+        self.hud = Hud(self.sprites)
         self.particles = Particles()
         self.seed = args.seed if args.seed is not None else int(time.time()) % 1024
         if not self.modern or getattr(args, "horde", False):
@@ -427,6 +431,8 @@ class App:
                 self.hud.say(f"Wave {e.data['wave']} cleared - supplies dropped")
             elif e.kind == "wall_destroyed":
                 self.stats["secrets"] += 1
+            elif e.kind == "help":
+                self.hud.show_help(e.data["text"] + MODERN_KEYS.get(e.data["number"], ""))
             elif e.kind == "level_locked" and self.stats["ticks"] - self.locked_said > 45:
                 self.locked_said = self.stats["ticks"]
                 name = e.data["level"]
