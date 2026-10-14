@@ -129,6 +129,25 @@ def test_restart_sector_goes_back_to_the_start_of_the_current_sector():
     assert app.game.sector == 1 and app.game.state_hash() == start
 
 
+def test_renderer_switches_map_art_and_theme_when_the_sector_changes():
+    app = make_app("--skip-title")
+    app.draw(1 / 60)
+    assert app.renderer.map_id[0] == "transit"
+    g = app.game
+    ex, ey = g.exit
+    p = g.player
+    p.x, p.y = ex - p.w // 2, ey - p.h
+    app.tick(NeonInput(interact=True, px=p.cx + 50, py=p.cy))
+    for _ in range(60):
+        app.tick(NeonInput(px=app.game.player.cx + 50, py=app.game.player.cy))
+        app.draw(1 / 60)
+    from abuse_remake.game.neon.render import THEMES
+
+    assert app.game.map.name == "reactor"
+    assert app.renderer.map_id[0] == "reactor" and app.renderer.theme is THEMES["reactor"]
+    assert all(c >= 0 for c in app.renderer.last_camera)
+
+
 def test_checkpoint_restores_exactly_every_time():
     app = make_app("--skip-title")
     g = app.game
