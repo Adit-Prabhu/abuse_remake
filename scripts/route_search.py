@@ -26,9 +26,11 @@ from abuse_remake.engine import campaign
 from abuse_remake.engine.game import Game
 from abuse_remake.engine.view import Inputs
 
-MACROS = {  # name: (x, y, special)
-    "R": (1, 0, 0), "L": (-1, 0, 0), "RJ": (1, -1, 0), "LJ": (-1, -1, 0), "U": (0, -1, 0),
-    "D": (0, 1, 0), "W": (0, 0, 0), "RD": (1, 1, 0), "LD": (-1, 1, 0),
+MACROS = {  # name: (x, y, special, ticks or None for --ticks)
+    "R": (1, 0, 0, None), "L": (-1, 0, 0, None), "RJ": (1, -1, 0, None), "LJ": (-1, -1, 0, None),
+    "U": (0, -1, 0, None), "D": (0, 1, 0, None), "W": (0, 0, 0, None), "RD": (1, 1, 0, None),
+    "LD": (-1, 1, 0, None),
+    "r": (1, 0, 0, 2), "l": (-1, 0, 0, 2),  # nudges, to stand on a ladder or a platform's sweet spot
 }
 TARGETS = ("HIDDEN_WALL", "SWITCH_BALL", "ANT_ROOF", "WHO", "FLYER", "GREEN_FLYER", "JUGGER", "ROB1",
            "TRACK_GUN", "SPRAY_GUN", "BOLDER")
@@ -68,25 +70,33 @@ MOVING = ("SMART_PLAT", "SWITCH_MOVER", "TELE", "TP_DOOR", "OBJ_MOVER")
 
 def signature(g) -> tuple:
     """Switches, doors and walls by state; platforms and teleporters also by position, so that
-    riding one counts as progress even while the player's own cell stays the same."""
+    riding one counts as progress even while the player's own cell stays the same; and the
+    enemies' health, so that a fight in place does too."""
     w = g.world
     states = tuple((o.ctype.name, o.aistate) for o in w.objects
                    if o.ctype.name.startswith(STATEFUL) and not o.deleted)
     moving = tuple((o.ctype.name, o.aistate, o.x // 16, o.y // 16) for o in w.objects
                    if o.ctype.name.startswith(MOVING) and not o.deleted)
     walls = sum(1 for o in w.objects if o.ctype.name.startswith("HIDDEN_WALL") and not o.deleted)
-    return states, moving, walls
+    # the health of active enemies, so that standing and shooting counts as progress
+    foes = sum(o.hp for o in w.active if not o.deleted and o.ctype.name.startswith(TARGETS[2:]))
+    return states, moving, walls, foes // 10
 
 
 def key(g, cell: int) -> tuple:
     p = g.player
-    return p.x // cell, p.y // cell, p.state == "climbing", signature(g)
+    return p.x // (cell // 2), p.y // cell, p.state == "climbing", signature(g)
 
 
 def search(level: str, goal: str, seed: int, difficulty: str, budget: int, cell: int, ticks: int,
-           to: tuple[int, int] | None = None):
+           to: tuple[int, int] | None = None, via: list[tuple[int, int]] | None = None,
+           prefix: list[list[int]] | None = None):
     """Search for inputs that end the level through an exit to ``goal``, or, with ``to``, that
-    bring the player within 24 px of that point."""
+    bring the player within 24 px of that point. ``via`` gives waypoints to pass in order on
+    the way (a hint for big looping levels; the route is still checked only at its end).
+    ``prefix``: saved rows to play first; the search continues from where they leave off, so a
+    long level can be found segment by segment."""
+    via = list(via or [])
     g = Game(seed=seed, difficulty=difficulty, level=level, remastered=True)
     if to is not None:
         points = [to]
@@ -96,9 +106,21 @@ def search(level: str, goal: str, seed: int, difficulty: str, budget: int, cell:
         if not points:
             raise SystemExit(f"{level} has no exit to {goal}")
 
-    def h(game) -> int:
+    def h(game, wi: int = len(via)) -> int:
         p = game.player
+        if wi < len(via):  # the next waypoint, then the rest of the way
+            rest = [via[wi], *via[wi + 1:]]
+            d = abs(p.x - rest[0][0]) + abs(p.y - rest[0][1])
+            for (ax, ay), (bx, by) in zip(rest, rest[1:], strict=False):
+                d += abs(ax - bx) + abs(ay - by)
+            return d + min(abs(rest[-1][0] - x) + abs(rest[-1][1] - y) for x, y in points)
         return min(abs(p.x - x) + abs(p.y - y) for x, y in points)
+
+    def advance(game, wi: int) -> int:
+        p = game.player
+        while wi < len(via) and abs(p.x - via[wi][0]) <= 32 and abs(p.y - via[wi][1]) <= 40:
+            wi += 1
+        return wi
 
     def done(game) -> bool:
         if to is not None:
@@ -108,33 +130,43 @@ def search(level: str, goal: str, seed: int, difficulty: str, budget: int, cell:
 
     counter = itertools.count()
     start_rows: list = []
-    for _ in range(3):
-        tick(g, 0, 0, 0, start_rows)
-    frontier = [(h(g), next(counter), g.snapshot(), start_rows)]
-    seen = {key(g, cell)}
+    if prefix:
+        for n, x, y, special, fire, dx, dy in prefix:
+            for _ in range(n):
+                p = g.player
+                g.step(Inputs(x=x, y=y, b1=special, b2=fire, pointer_x=p.x + dx, pointer_y=p.y - 20 + dy))
+        start_rows = [list(r) for r in prefix]
+    else:
+        for _ in range(3):
+            tick(g, 0, 0, 0, start_rows)
+    frontier = [(h(g, 0), next(counter), g.snapshot(), start_rows, 0)]
+    seen = {(key(g, cell), 0)}
     expanded = 0
     t0 = time.time()
     while frontier and expanded < budget:
-        _, _, snap, rows = heapq.heappop(frontier)
+        _, _, snap, rows, wi0 = heapq.heappop(frontier)
         expanded += 1
-        for x, y, special in MACROS.values():
+        for x, y, special, n in MACROS.values():
             g.restore(snap)
             new_rows = [r[:] for r in rows]
             hp0 = g.player.hp
-            for _ in range(ticks):
+            for _ in range(n or ticks):
                 tick(g, x, y, special, new_rows)
                 if done(g):
                     return new_rows, expanded, time.time() - t0
-                if g.player_dead:
-                    break
+                if g.player_dead or g.world.globals.get("level_complete"):
+                    break  # dead, or the level ended at another exit (the game would stop here)
+            if g.world.globals.get("level_complete"):
+                continue
             if g.player_dead or g.player.hp < min(hp0, 25):
                 continue
-            k = key(g, cell)
+            wi = advance(g, wi0)
+            k = (key(g, cell), wi)
             if k in seen:
                 continue
             seen.add(k)
             depth = sum(r[0] for r in new_rows)
-            heapq.heappush(frontier, (h(g) + depth // 4, next(counter), g.snapshot(), new_rows))
+            heapq.heappush(frontier, (h(g, wi) + depth // 4, next(counter), g.snapshot(), new_rows, wi))
         if expanded % 200 == 0:
             p = g.player
             print(f"  expanded {expanded}, frontier {len(frontier)}, seen {len(seen)}, "
@@ -152,12 +184,15 @@ def finished(game, goal: str) -> bool:
 
 
 def replay_route(route: dict) -> Game:
-    """Play a saved route; returns the game after its last tick."""
+    """Play a saved route as the app would: it stops at the first tick that ends the level.
+    Returns the game at that point (or after the last input)."""
     g = Game(seed=route["seed"], difficulty=route["difficulty"], level=route["level"], remastered=True)
     for n, x, y, special, fire, dx, dy in route["inputs"]:
         for _ in range(n):
             p = g.player
             g.step(Inputs(x=x, y=y, b1=special, b2=fire, pointer_x=p.x + dx, pointer_y=p.y - 20 + dy))
+            if g.world.globals.get("level_complete"):
+                return g
     return g
 
 
@@ -171,16 +206,22 @@ def main(argv=None) -> int:
     ap.add_argument("--cell", type=int, default=24, help="position grid for novelty, in pixels")
     ap.add_argument("--ticks", type=int, default=6, help="ticks per macro")
     ap.add_argument("--to", help="X,Y: reach this point instead of an exit (to check a spot is reachable)")
+    ap.add_argument("--via", help="X,Y;X,Y;...: waypoints to pass in order (a hint for looping levels)")
+    ap.add_argument("--prefix", type=Path, help="a saved route or reach file whose inputs are played first")
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args(argv)
     to = tuple(int(v) for v in args.to.split(",")) if args.to else None
+    via = [tuple(int(v) for v in p.split(",")) for p in args.via.split(";")] if args.via else None
+    prefix = json.loads(args.prefix.read_text())["inputs"] if args.prefix else None
     rows, expanded, secs = search(args.level, args.goal, args.seed, args.difficulty, args.budget,
-                                  args.cell, args.ticks, to)
+                                  args.cell, args.ticks, to, via, prefix)
     if rows is None:
         print(f"no route found after {expanded} nodes ({secs:.0f}s)")
         return 1
     route = {"format": "campaign-route-1", "level": args.level, "goal": args.goal, "seed": args.seed,
              "difficulty": args.difficulty, "ticks": sum(r[0] for r in rows), "inputs": rows}
+    if via:
+        route["via"] = [list(v) for v in via]
     if to is not None:
         route["format"], route["to"] = "campaign-reach-1", list(to)
     g = replay_route(route)

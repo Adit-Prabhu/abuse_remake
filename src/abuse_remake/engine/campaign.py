@@ -38,7 +38,9 @@ EXTRA_OBJECTS: dict[str, tuple[tuple[str, int, int], ...]] = {
     # the training level: on the saved route, which picks each one up (tests/test_campaign_routes.py);
     # a new power replaces the last
     "level00": (("POWER_SNEAKY", 1061, 196), ("POWER_FLY", 1885, 421), ("POWER_HEALTH", 1771, 931)),
-    "level02": (),
+    # Level 2: ultra health just after the first cleaner-robot fight, flight in the long hall, and
+    # invisibility on the way to the far-right ladders; all on the saved route
+    "level02": (("POWER_HEALTH", 364, 571), ("POWER_FLY", 2402, 631), ("POWER_SNEAKY", 2817, 1396)),
 }
 
 

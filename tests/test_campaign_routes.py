@@ -1,5 +1,6 @@
 """Each campaign level can be finished under the ported rules: every saved route in
-evidence/routes (found by scripts/route_search.py) replays to the level's end, exactly."""
+evidence/routes replays to the level's end, exactly. The training route was found by
+scripts/route_search.py; Level 2's was built from its searched and scripted segments."""
 
 import importlib.util
 import json
@@ -63,10 +64,10 @@ def test_playing_the_training_route_in_the_app_carries_on_and_the_trace_replays(
         app.tick(i)
         if app.state != "play":
             break
-    assert app.state == "complete" and app.next_level == "level01"
+    assert app.state == "complete" and app.next_level == route["goal"]
     hp = app.game.player.hp
     app.on_key(pygame.K_RETURN)
-    assert app.level == "level01" and app.game.player.hp == hp and app.game.carried
+    assert app.level == route["goal"] and app.game.player.hp == hp and app.game.carried
     app.scripted_inputs = lambda tick: Inputs(x=1, pointer_x=app.game.player.x + 100, pointer_y=app.game.player.y - 20)
     for i in range(30):
         app.tick(i)
@@ -74,7 +75,7 @@ def test_playing_the_training_route_in_the_app_carries_on_and_the_trace_replays(
     app.trace.close()
     out = replay_human(rec)
     assert out["mismatches"] == 0 and out["unverified_level_changes"] == 0 and out["checks"] == 2
-    assert [(g["level"], g["reached_exit"]) for g in out["games"]] == [("level00", True), ("level01", False)]
+    assert [(g["level"], g["reached_exit"]) for g in out["games"]] == [("level00", True), (route["goal"], False)]
 
 
 def test_the_training_route_picks_up_all_four_power_ups():
@@ -92,4 +93,22 @@ def test_the_training_route_picks_up_all_four_power_ups():
         if g.world.globals.get("level_complete"):
             break
     powers = ["sneaky", "fast", "fly", "ultra health"]
+    assert [i for i in items if i in powers] == powers
+
+
+def test_the_level_2_route_picks_up_its_three_placed_power_ups():
+    from abuse_remake.engine.game import Game
+    from abuse_remake.engine.view import Inputs
+
+    route = json.loads((Path(repo_root()) / "evidence" / "routes" / "level02.json").read_text())
+    g = Game(seed=route["seed"], difficulty=route["difficulty"], level="level02", remastered=True)
+    items = []
+    steps = [r[1:] for r in route["inputs"] for _ in range(r[0])]
+    for x, y, special, fire, dx, dy in steps:
+        p = g.player
+        g.step(Inputs(x=x, y=y, b1=special, b2=fire, pointer_x=p.x + dx, pointer_y=p.y - 20 + dy))
+        items += [e.data["item"] for e in g.world.events if e.kind == "pickup"]
+        if g.world.globals.get("level_complete"):
+            break
+    powers = ["ultra health", "sneaky", "fly"]
     assert [i for i in items if i in powers] == powers

@@ -384,7 +384,7 @@ def test_strict_mode_refuses_to_spawn_an_object_with_missing_behaviour():
     loose.world.spawn(silent, 0, 0)  # development and test worlds may still build anything
 
 
-def test_remastered_places_the_missing_power_ups_in_the_training_level_only():
+def test_remastered_places_the_missing_power_ups_in_the_training_level_not_level_1():
     from abuse_remake.engine.campaign import EXTRA_OBJECTS
 
     def extras(g):
