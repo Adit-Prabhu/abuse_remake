@@ -56,10 +56,28 @@ class Remastered:
         st["announce"] = True  # emitted after the next step: World.step clears events at its start
         return True
 
+    def _follow_exits(self) -> None:
+        """The campaign (``engine/campaign.py``): an exit that leads to a playable level in this
+        build ends the level and names the next one in ``world.globals["next_level"]``. Any
+        other exit stays shut, so the level goes on."""
+        from . import campaign
+
+        w = self.game.world
+        for e in list(w.events):
+            if e.kind != "level_complete":
+                continue
+            target = campaign.exit_level(e.data["next_level"])
+            if campaign.playable(target):
+                w.globals["next_level"] = target
+            else:
+                w.globals["level_complete"] = False
+                w.emit("level_locked", level=target)
+
     def before_step(self) -> None:
         self.game.world.globals["player_iframes"] = self.state["iframes"]
 
     def after_step(self) -> None:
+        self._follow_exits()
         st = self.state
         p = self.game.player
         if st.pop("announce", False):

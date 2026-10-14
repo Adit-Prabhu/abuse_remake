@@ -51,7 +51,10 @@ class WeaponCommand:
 
 class Game:
     def __init__(self, seed: int = 0, difficulty: str = DEFAULT_DIFFICULTY, level: str = LEVEL,
-                 strict: bool = True, object_filter=None, remastered: bool = False, horde: bool = False):
+                 strict: bool = True, object_filter=None, remastered: bool = False, horde: bool = False,
+                 carry: Game | None = None):
+        """``carry``: the game whose exit led here. Its player and view go on into this level, as
+        they do when the original loads the next level (see ``_carry_over``)."""
         if horde:  # Remastered's Horde arena: the map without the level's objects
             from .horde import keep_for_horde
 
@@ -68,9 +71,12 @@ class Game:
         player = w.create("DARNEL", start.x, start.y)
         self.view = View(w, player, 0, total_weapons=len(w.weapon_types))
         w.views.append(self.view)
+        if carry is not None:
+            _carry_over(carry, self.view, w)
         set_player_defaults(player)
         w.add_object_after(player, start)
         self.player = player
+        self.level = level
         self.seed = seed
         self.frames = 0
         self.remastered = None
@@ -157,6 +163,35 @@ class Game:
         v = self.view
         h.update(f"{v.weapons},{v.current_weapon},{v.ambient},{v.pan_x},{v.pan_y}".encode())
         return h.hexdigest()
+
+
+# The player's fields that a level change keeps. Its position, links, lights and place in the
+# object list belong to the level; the rest is the same object (see _carry_over).
+_PLAYER_FIELDS = ("direction", "state", "current_frame", "fade_dir", "fade_count", "fade_max", "flags",
+                  "grav_on", "targetable_on", "xvel", "yvel", "xacel", "yacel", "fx", "fy", "fxvel",
+                  "fyvel", "fxacel", "fyacel", "aitype", "aistate", "aistate_time", "hp", "mp", "fmp",
+                  "frame_dir")
+_VIEW_SKIP = {"world", "focus"}
+
+
+def _carry_over(old: Game, view: View, world: World) -> None:
+    """Take the old game's player and view into a newly loaded level.
+
+    The original keeps both when an exit loads the next level: ``game::load_level`` deletes only
+    the level (game.c:503-537), whose ``load_fail`` first takes each player out of the object
+    list (level.c:64-96). Taking it out unlinks its top half and lights (level.c:2523-2527). The
+    new level runs ``set_player_defaults`` (level.c:1817-1830) and puts the player at its START
+    (``insert_players``, level.c:3068-3088). The view keeps its weapons and ammo. ``rand_on`` is
+    a global, so the random table carries on where it was.
+    """
+    src, dst = old.player, view.focus
+    for name in _PLAYER_FIELDS:
+        setattr(dst, name, getattr(src, name))
+    dst.lvars = dict(src.lvars)
+    for name, value in vars(old.view).items():
+        if name not in _VIEW_SKIP:
+            setattr(view, name, list(value) if isinstance(value, list) else value)
+    world.rng.rand_on = old.world.rng.rand_on
 
 
 def _filtered(lf: LevelFile, keep) -> LevelFile:

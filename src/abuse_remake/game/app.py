@@ -1,10 +1,12 @@
-"""``abuse-remake``: play Level 1.
+"""``abuse-remake``: play Level 1, or Remastered mode's campaign.
 
 Rules run at a fixed 15 Hz, as in the original; drawing runs at the display rate with
-interpolation in between. Classic mode shows the original 316x162 view and the original rules.
-Remastered mode shows a wider 16:9 view with modern effects and adds a dash (F) with brief
-invulnerability, quick restart at the last console (R), a stats screen with your best time, and
-a ghost race against your best finished run.
+interpolation in between. Classic mode shows the original 316x162 view and the original rules,
+on Level 1 only. Remastered mode shows a wider 16:9 view with modern effects and adds a dash (F)
+with brief invulnerability, quick restart at the last console (R), a stats screen with your best
+time, a ghost race against your best finished run, and the campaign: the shareware training
+level, Level 1 and Level 2, each exit leading on to the next level (L on the title picks where
+to start).
 
 Controls (original defaults, plus modern ones):
   move A/D or arrows; jump W, Up or Space; action (switches, doors, consoles, exit) S or Down
@@ -26,6 +28,7 @@ import sys
 import time
 from pathlib import Path
 
+from ..engine import campaign
 from ..engine.game import Game, WeaponCommand
 from ..engine.view import VIEW_H, VIEW_W, Inputs
 from ..engine.world import DIFFICULTIES
@@ -46,12 +49,18 @@ def parse_args(argv=None):
     p.add_argument("--record", type=Path, help="write this session's inputs as a replayable trace")
     p.add_argument("--playtest", action="store_true", help="record into playtests/raw/ with a session id")
     p.add_argument("--horde", action="store_true", help="Remastered's Horde arena: survive waves of ants")
+    p.add_argument("--level", choices=campaign.LEVELS, default="level01",
+                   help="where Remastered's campaign starts (Classic and Horde are Level 1)")
     p.add_argument("--skip-title", action="store_true")
     p.add_argument("--frames", type=int, default=0, help="run N display frames with scripted input, then exit")
     p.add_argument("--screenshot", type=Path, help="save the last frame (with --frames)")
     args = p.parse_args(argv)
     if args.horde and args.mode == "classic":
         p.error("--horde is a Remastered rule set; it cannot run with --mode classic")
+    if args.level != "level01" and (args.mode == "classic" or args.playtest or args.horde):
+        p.error("--level is for Remastered's campaign; Classic mode, playtests and Horde are Level 1")
+    if not campaign.playable(args.level):
+        p.error(f"{campaign.title(args.level)} is not playable yet: its objects are not all ported")
     if args.mode is None:
         args.mode = "classic" if args.playtest else "remastered"
     return args
@@ -89,6 +98,10 @@ class App:
         self.hud = Hud()
         self.particles = Particles()
         self.seed = args.seed if args.seed is not None else int(time.time()) % 1024
+        if not self.modern or getattr(args, "horde", False):
+            args.level = "level01"  # the campaign is Remastered only; Horde is on Level 1
+        self.level = getattr(args, "level", "level01")
+        self.locked_said = 0
         self.Renderer = Renderer
         self.joystick = None
         self.clock = pygame.time.Clock()
@@ -102,28 +115,48 @@ class App:
 
     # --- game lifecycle ---
     def new_game(self):
-        from .remaster import GhostRecorder, load_ghost
-
         self.horde = bool(getattr(self.args, "horde", False)) and self.modern
-        self.game = Game(seed=self.seed, difficulty=self.args.difficulty, remastered=self.modern, horde=self.horde)
+        self.level = getattr(self.args, "level", "level01")
+        self.game = Game(seed=self.seed, difficulty=self.args.difficulty, level=self.level, remastered=self.modern,
+                         horde=self.horde)
         self.renderer = self.Renderer(self.game, self.sprites, self.view_w, self.view_h)
         self.renderer.modern = self.modern
         self.game.world.globals["save_hook"] = self._on_console_save
+        self._level_started()
+        self.acc = 0.0
+        self.pending_weapon: WeaponCommand | None = None
+        self.pending_dash = False
+        self.show_ghost = True
+        self._write({"kind": "new_game", "seed": self.seed, "difficulty": self.args.difficulty,
+                     "mode": self.args.mode, "horde": self.horde, "level": self.level,
+                     "rules": "remastered" if self.modern else "classic"})
+
+    def _level_started(self) -> None:
+        """Per-level state: the restart points, the stats screen's counts, records and ghost."""
+        from .remaster import GhostRecorder, load_ghost
+
+        self.pg.display.set_caption(f"Abuse — {campaign.title(self.level)} (remake)")
         self.level_start = self.game.snapshot()
         self.checkpoint = self.level_start
         self.stats = {"ticks": 0, "kills": 0, "secrets": 0, "deaths": 0, "shots": 0, "enemies_hit": 0,
                       "damage_taken": 0, "dashes": 0}
         self.hit_uids: set[int] = set()
-        self.acc = 0.0
-        self.pending_weapon: WeaponCommand | None = None
-        self.pending_dash = False
         self.finish: dict | None = None
+        self.next_level: str | None = None
         self.ghost_rec = GhostRecorder() if self.modern and not self.horde else None
-        self.ghost = load_ghost(self.args.difficulty) if self.modern and not self.horde else None
-        self.show_ghost = True
-        self._write({"kind": "new_game", "seed": self.seed, "difficulty": self.args.difficulty,
-                     "mode": self.args.mode, "horde": self.horde,
-                     "rules": "remastered" if self.modern else "classic"})
+        self.ghost = load_ghost(self.args.difficulty, self.level) if self.modern and not self.horde else None
+
+    def change_level(self, name: str) -> None:
+        """Go on into the level an exit led to, keeping the player and weapons (Remastered's
+        campaign; ``Game(carry=...)`` follows the original's level change)."""
+        self.level = name
+        self.game = Game(seed=self.seed, difficulty=self.args.difficulty, level=name, remastered=True,
+                         carry=self.game)
+        self.game.view.update_scroll()  # the camera only: the first tick snaps the view the same way
+        self._rebind()
+        self._level_started()
+        self._write({"kind": "level", "level": name})
+        self.hud.say(campaign.title(name))
 
     def _open_trace(self):
         path = self.args.record
@@ -134,8 +167,8 @@ class App:
             return
         path.parent.mkdir(parents=True, exist_ok=True)
         self.trace = open(path, "w")  # noqa: SIM115 - closed on exit
-        self._write({"kind": "header", "game": "abuse_remake", "level": "level01", "player": "human",
-                     "format": "human-trace-1"})
+        self._write({"kind": "header", "game": "abuse_remake", "level": getattr(self.args, "level", "level01"),
+                     "player": "human", "format": "human-trace-1"})
 
     def _write(self, row: dict) -> None:
         """Human traces (game/human_replay.py replays them): a header, then for each game a
@@ -281,6 +314,11 @@ class App:
                 i = DIFFICULTIES.index(self.args.difficulty)
                 self.args.difficulty = DIFFICULTIES[(i + 1) % len(DIFFICULTIES)]
                 self.new_game()
+            elif key == pg.K_l and self.modern and not self.horde:
+                levels = campaign.playable_levels()
+                i = levels.index(self.level) if self.level in levels else -1
+                self.args.level = levels[(i + 1) % len(levels)]
+                self.new_game()
             elif key == pg.K_ESCAPE:
                 return False
         elif self.state == "play":
@@ -317,6 +355,9 @@ class App:
             if key == pg.K_SPACE:  # the original waits for space (cop.c:668-674)
                 self._restore("checkpoint")
                 self.state = "play"
+        elif self.state == "complete" and self.next_level and key in (pg.K_RETURN, pg.K_SPACE):
+            self.change_level(self.next_level)
+            self.state = "play"
         elif self.state in ("complete", "horde_over"):
             if key in (pg.K_RETURN, pg.K_SPACE, pg.K_ESCAPE):
                 self.seed = (self.seed + 1) % 1024
@@ -326,7 +367,8 @@ class App:
 
     def stats_lines(self) -> list[str]:
         s = self.stats
-        lines = ["LEVEL COMPLETE", f"time {clock_text(s['ticks'])}",
+        lines = [f"{campaign.title(self.level).upper()} COMPLETE" if self.modern else "LEVEL COMPLETE",
+                 f"time {clock_text(s['ticks'])}",
                  f"kills {s['kills']}   secrets {s['secrets']}   deaths {s['deaths']}"]
         if self.modern:
             lines.append(f"damage taken {s['damage_taken']}   shots fired {s['shots']}   enemies hit "
@@ -338,7 +380,10 @@ class App:
                              + " - saved as your ghost")
             elif best:
                 lines.append(f"best {clock_text(best['ticks'])}")
-        lines.append("Enter to continue")
+        if self.next_level:
+            lines.append(f"Enter: on to {campaign.title(self.next_level)}    Esc: back to the title")
+        else:
+            lines.append("Enter to continue")
         return lines
 
     def _rebind(self):
@@ -375,6 +420,9 @@ class App:
                 self.hud.say(f"Wave {e.data['wave']} cleared - supplies dropped")
             elif e.kind == "wall_destroyed":
                 self.stats["secrets"] += 1
+            elif e.kind == "level_locked" and self.stats["ticks"] - self.locked_said > 45:
+                self.locked_said = self.stats["ticks"]
+                self.hud.say(f"{campaign.title(e.data['level'])} is not part of this remake")
             elif e.kind == "shot" and e.data.get("by_player"):  # the player's own shots only
                 self.stats["shots"] += 1
         self.stats["damage_taken"] += max(0, hp_before - self.game.player.hp)
@@ -406,9 +454,10 @@ class App:
             if self.modern:
                 from .remaster import record_finish
 
-                self.finish = record_finish(self.args.difficulty, self.stats)
+                self.next_level = w.globals.get("next_level")
+                self.finish = record_finish(self.args.difficulty, self.stats, self.level)
                 if self.finish["new_best"] and self.ghost_rec is not None:
-                    self.ghost_rec.save(self.args.difficulty)
+                    self.ghost_rec.save(self.args.difficulty, self.level)
 
     def draw(self):
         pg = self.pg
@@ -440,9 +489,11 @@ class App:
             pg.draw.line(self.screen, (255, 80, 80), (mx - 13, my), (mx - 5, my))
             pg.draw.line(self.screen, (255, 80, 80), (mx + 5, my), (mx + 13, my))
         if self.state == "title":
-            self.hud.center(self.screen, ["ABUSE", "Level 1 — reconstructed",
+            start = f"    Start: {campaign.title(self.level)} (L)" if self.modern and not self.horde else ""
+            self.hud.center(self.screen, ["ABUSE", "Level 1 — reconstructed" if not self.modern
+                                          else "Remastered — Training, Level 1 and Level 2",
                                           f"Mode: {self.args.mode} (M)    Difficulty: {self.args.difficulty} (D)"
-                                          + ("    HORDE (H)" if self.horde else "    Horde: off (H)"),
+                                          + ("    HORDE (H)" if self.horde else "    Horde: off (H)") + start,
                                           "Enter to start    Esc to quit"],
                             "Original game © 1996 Crack dot Com (public-domain code and shareware data)")
         elif self.state == "paused":

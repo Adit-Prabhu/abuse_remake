@@ -3,9 +3,11 @@
     uv run abuse-replay --human-trace playtests/raw/session-....jsonl
 
 A trace (format ``human-trace-1``) is a header and then, for each game in the session:
-- a ``new_game`` row (seed, difficulty, rules, horde);
+- a ``new_game`` row (seed, difficulty, rules, horde and, for Remastered's campaign, the level);
 - one ``input`` row per tick (the original controls, weapon keys and Remastered dash requests);
 - ``restore`` rows (to the last console save or the level start);
+- a ``level`` row when Remastered's campaign goes on into the next level, keeping the player
+  (``Game(carry=...)``); each level is reported as its own game;
 - ``check`` rows holding the state hash at deaths, the level's end, restores and the session's end.
 
 The replay makes the same console saves the game made (the engine calls the save hook at the
@@ -26,16 +28,19 @@ from ..engine.view import Inputs
 
 
 class _Session:
-    def __init__(self, row: dict):
+    def __init__(self, row: dict, carry: Game | None = None):
+        self.row = row
         self.rules = row.get("rules", "classic")
         self.horde = bool(row.get("horde"))
-        self.game = Game(seed=row["seed"], difficulty=row.get("difficulty", "hard"),
-                         remastered=self.rules == "remastered", horde=self.horde)
+        self.level = row.get("level", "level01")
+        self.game = Game(seed=row["seed"], difficulty=row.get("difficulty", "hard"), level=self.level,
+                         remastered=self.rules == "remastered", horde=self.horde, carry=carry)
         self.game.world.globals["save_hook"] = self._save
         self.level_start = self.game.snapshot()
         self.checkpoint = self.level_start
         p = self.game.player
-        self.tracker = None if self.horde else ProgressTracker(p.x, p.y)
+        # the evaluator's progress measure is defined on Level 1 only
+        self.tracker = None if self.horde or self.level != "level01" else ProgressTracker(p.x, p.y)
         self.ticks = 0
         self.deaths = 0
         self.dead = False
@@ -64,6 +69,9 @@ class _Session:
         if g.world.globals.get("level_complete"):
             self.won = True
 
+    def next_level(self, name: str) -> _Session:
+        return _Session({**self.row, "level": name}, carry=self.game)
+
     def restore(self, to: str) -> None:
         self.game.restore(self.level_start if to == "level_start" else self.checkpoint)
         if to == "level_start":
@@ -71,7 +79,7 @@ class _Session:
         self.dead = False
 
     def summary(self) -> dict:
-        out = {"seed": self.seed, "rules": self.rules, "horde": self.horde, "ticks": self.ticks,
+        out = {"seed": self.seed, "rules": self.rules, "horde": self.horde, "level": self.level, "ticks": self.ticks,
                "deaths": self.deaths, "console_saves": self.saves, "reached_exit": self.won}
         if self.tracker is not None:
             out["progress"] = round(self.tracker.value(self.won), 4)
@@ -95,6 +103,9 @@ def replay_human(path: Path) -> dict:
             continue
         elif kind == "input":
             session.step(row)
+        elif kind == "level":
+            games.append(session.summary())
+            session = session.next_level(row["level"])
         elif kind == "restore":
             session.restore(row.get("to", "checkpoint"))
         elif kind == "check":

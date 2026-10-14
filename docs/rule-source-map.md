@@ -189,6 +189,23 @@ evaluation run without them (`test_classic_games_and_agent_episodes_never_build_
 | Dash: 4 ticks at +13 px per tick with feet and head collision (the top half moves with it), 7 ticks without damage, an 18-tick cooldown; a teleport or death cancels it | `engine/remastered.py`; the damage check is in `player.bottom_damage` behind `player_iframes`, which Classic never sets | remastered design, not the original. Checked by the dash tests in `tests/test_remastered.py`, including a run where the player is hurt in both modes with identical results |
 | Horde: the arena is the longest flat floor with headroom in Level 1 (x 1680-2400). Ants start in `run_jump` with aistate 6, the state a crack releases them in. Waves are 2 + 2n ants, one every 18 ticks, with a 45-tick start and 90-tick breaks; aitype 0 until wave 3, then a mix. Ants spawn 30 px above the floor at the arena's ends, at the front of the object list, moving at 12 px per tick. After wave n, 2 + n//2 drops: health, then ammo. The player starts with 100 laser rounds and 6 grenades | `engine/horde.py` | remastered design. Only the release state follows `code`: `ant.lsp:524-551` (`crack_ai`). A crack instead adds the ant after itself, moving at 20 px per tick, with the crack's aitype. Checked by `test_horde_waves_drops_and_the_end` |
 
+## Remastered campaign (original rules for the levels after Level 1)
+
+Remastered mode plays the shareware training level, Level 1 and Level 2 in a row (added
+2026-10-14). The levels are the shareware v1.01 files (`data/original/PROVENANCE.md`); their
+objects follow the same `code` sources as Level 1's. None of this runs in Classic mode or an
+evaluation, and `tests/test_classic_golden.py` pins Classic state hashes computed on `main` before
+the work began.
+
+| Rule | Our code | Evidence |
+|---|---|---|
+| An exit loads the level named by its `aistate`: `levels/level` + two digits + `.spe`. The training level's portal room has exits to Levels 1 to 4 | `engine/campaign.py` `exit_level` | `code`: `people.lsp:915-923` (`next_level_ai`). The four exits are checked in `test_the_training_level_ends_in_the_original_portal_room` |
+| A level change keeps the player object and the view: health, weapons, ammo and the chosen weapon go on. The player is taken out of the old level, which unlinks its top half and lights; the new level runs `set_player_defaults` (so a power-up ends) and puts the player at START. The random table position is global, so it carries on | `engine/game.py` `_carry_over` | `code`: `abuse/src/game.c:503-537` (`load_level` deletes only the level), `abuse/src/level.c:64-96` (`load_fail` removes each player first), `level.c:2523-2527` (unlink), `level.c:1817-1830` (`set_player_defaults`), `level.c:3068-3088` (`insert_players`), `imlib/jrand.c:8-21` (`rand_on`). Checked by `test_a_level_change_keeps_health_weapons_and_the_random_table` |
+| The new top half takes the chosen weapon one tick after the level starts | `cop_mover`, `top_ai` | `code`: `abuse/src/cop.c:613-618` makes the top half during the player's move; it joins the active list on the next tick |
+| An exit to a level outside this build, or to one whose objects are not all ported yet, stays shut and the level goes on (with a message) | `Remastered._follow_exits` | remastered design. The original would try to load the file and show its `no_file` help when it is missing (`game.c:510-518`) |
+| Loading in strict mode refuses any level whose object types name a behaviour with no Python port | `World._load_objects`, `campaign.unported` | course choice: a development check, so no level runs with silent objects |
+| The human game's restart after death returns to the last console save in this level, or to the start of this level with the health and weapons carried in | `game/app.py` `change_level` | course choice, as for Level 1 (`SCOPE.md`) |
+
 ## Open questions
 
 - `assumed`: the fixed 15 Hz tick. See the timing table.
