@@ -161,7 +161,7 @@ def _door_blocked(game, door: DoorGroup) -> bool:
 def update_elevators(game) -> None:
     riders = [game.player, *[e for e in game.enemies if e.surface == "floor"]]
     for i, el in enumerate(game.elevators):
-        on = [b for b in riders if b.riding == i or _standing_on(b, el)]
+        on = [b for b in riders if _standing_on(b, el)]
         player_on = game.player in on
         if el.target < 0 or el.target == el.y:
             el.target = -1
@@ -186,10 +186,7 @@ def update_elevators(game) -> None:
             continue
         el.y += dy
         for b in on:
-            if dy < 0:
-                step_y(game, b, dy)
-            else:
-                b.y += dy
+            step_y(game, b, dy)  # with collision both ways: a rider over a solid edge stays on it
             b.riding = i
         if el.y == el.target:
             el.target = -1
@@ -202,6 +199,8 @@ def free_above(game, b, n: int) -> bool:
 
 
 def _standing_on(b, el: Elevator) -> bool:
+    if getattr(b, "dash_t", 0) or getattr(b, "climbing", False):
+        return False
     return b.bottom == el.y and b.x < el.x + el.w and b.x + b.w > el.x
 
 

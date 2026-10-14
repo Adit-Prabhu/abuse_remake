@@ -108,6 +108,27 @@ def test_trace_round_trip_replays_with_restores_and_sector_change(tmp_path):
     assert result["games"][-1]["rules"] == "neon" and result["games"][-1]["sector"] == 1
 
 
+def test_restart_sector_goes_back_to_the_start_of_the_current_sector():
+    app = make_app("--skip-title")
+    g = app.game
+    ex, ey = g.exit
+    p = g.player
+    p.x, p.y = ex - p.w // 2, ey - p.h
+    app.tick(NeonInput(interact=True, px=p.cx + 50, py=p.cy))
+    start = None
+    for _ in range(60):
+        app.tick(NeonInput(px=app.game.player.cx + 50, py=app.game.player.cy))
+        if any(e["kind"] == "sector_start" for e in app.game.events):
+            start = app.game.state_hash()  # the moment the new sector began
+            break
+    assert app.game.sector == 1 and start
+    for _ in range(40):
+        app.tick(NeonInput(x=1, fire=True, px=app.game.player.cx + 80, py=app.game.player.cy))
+    app.on_key(pygame.K_ESCAPE)
+    app.on_key(pygame.K_n)  # pause menu: restart sector
+    assert app.game.sector == 1 and app.game.state_hash() == start
+
+
 def test_checkpoint_restores_exactly_every_time():
     app = make_app("--skip-title")
     g = app.game
@@ -123,28 +144,44 @@ def test_checkpoint_restores_exactly_every_time():
         assert app.game.state_hash() == saved
 
 
-def test_horde_upgrade_choice_is_offered_and_recorded(tmp_path):
+def test_horde_upgrade_choice_and_weapon_cycling_replay_exactly(tmp_path):
+    """Played through real inputs only: clear wave 1, pick an upgrade, cycle weapons, then replay."""
+    from abuse_remake.engine.neon.autopilot import Autopilot
     from abuse_remake.game.human_replay import replay_human
 
     path = tmp_path / "horde.jsonl"
     app = make_app("--horde", "--skip-title", "--record", str(path))
     g = app.game
-    for _ in range(95):
-        app.tick(NeonInput(px=g.player.cx + 50, py=g.player.cy))
-    for e in g.enemies:
-        if e.kind != "nest":
-            e.dead = True
-    g.horde.queue.clear()
-    app.tick(NeonInput(px=g.player.cx + 50, py=g.player.cy))
-    app.tick(NeonInput(px=g.player.cx + 50, py=g.player.cy))
-    assert app.state == "upgrade"
-    app.draw(1 / 60)
-    app.on_key(pygame.K_2)
-    assert app.state == "play" and len(g.horde.taken) == 1
+    bot = Autopilot(g)
+    bot.targets = []
+    chose = cycled = False
+    for tick in range(3000):
+        if app.state == "upgrade":
+            app.draw(1 / 60)
+            app.on_key(pygame.K_2)
+            chose = True
+            continue
+        aim, fire = bot._combat()
+        p = g.player
+        sx, sy = p.shoulder()
+        px, py = aim if aim else (sx + 100, sy)
+        if tick % 97 == 0:
+            app.on_key(pygame.K_q)  # weapon cycle, recorded as an input
+            cycled = True
+        app.tick(NeonInput(x=1 if (tick // 70) % 2 == 0 else -1, jump=tick % 45 < 10, fire=fire,
+                           dash=tick % 120 == 0, px=px, py=py))
+        if chose and g.horde.wave >= 2:
+            break
+        assert app.state in ("play", "upgrade")
+    assert chose and cycled and len(g.horde.taken) == 1
+    final = g.state_hash()
     app.close_trace()
-    # direct state edits above (killing the wave) are not inputs, so only check the format here
-    assert any(json.loads(r).get("upgrade") == 1 for r in path.read_text().splitlines()[1:])
-    assert replay_human(path)["games"][0]["rules"] == "neon"
+    rows = [json.loads(r) for r in path.read_text().splitlines()[1:]]
+    assert any(r.get("upgrade") == 1 for r in rows) and any(r.get("cycle") for r in rows)
+    result = replay_human(path)
+    assert result["mismatches"] == 0 and result["checks"] >= 1
+    assert result["games"][-1]["waves_cleared"] >= 1
+    assert final  # the session-end check above compared the replayed hash with this state
 
 
 def test_art_keeps_transparency_and_the_hero_is_recoloured_not_boxed():

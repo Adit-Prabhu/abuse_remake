@@ -3,8 +3,10 @@
 Nodes are tiles the runner's feet can rest in. Edges are walking, crawling, falling, jumping
 (rise up to 4 tiles; 7 with the boots), climbing ladders, dropping through ledges, elevator
 rides and teleporter pads. Switch doors open once their switch is reachable, keycard gates
-once their key is, and the boots apply once they are picked up. The real physics can do more
-than this (it is a lower bound), which is what a map check needs.
+once their key is, and the boots apply once they are picked up. Movement is modelled
+conservatively (the real physics can jump further), but doors are optimistic: a timed door is
+treated as staying open once its switch is reachable, so the Hive's 10-second door is checked by
+the autopilot test, not by this model.
 """
 
 from __future__ import annotations
@@ -66,8 +68,8 @@ class NavGrid:
             ends = []
             for row in {up, down, e.ty}:
                 for c in (e.tx - 1, e.tx, e.tx + 1):
-                    self.extra_support.add((c, row))
-                ends.append((e.tx, row - 1))
+                    self.extra_support.add((c, row + 1))
+                ends.append((e.tx, row))
             for a in ends:
                 for b in ends:
                     if a != b:

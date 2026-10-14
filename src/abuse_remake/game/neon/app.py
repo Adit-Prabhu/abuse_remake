@@ -269,7 +269,8 @@ class NeonApp:
             self.checkpoint = self.game.snapshot()
             say("CHECKPOINT SAVED · systems restored", GREEN)
         elif k == "sector_start":
-            self.checkpoint = self.game.snapshot()
+            # the new sector's start is both the checkpoint and where "restart sector" goes
+            self.checkpoint = self.level_start = self.game.snapshot()
             say(f"SECTOR {self.game.sector + 1} · {e['title']}", CYAN, 3.5)
         elif k == "sector_clear":
             say(f"{e['title']} CLEARED", GREEN, 3)
@@ -296,6 +297,8 @@ class NeonApp:
             say(f"UPGRADE · {UPGRADES[e['upgrade']][0]}", AMBER)
         elif k == "boss_phase":
             say("THE WARDEN IS ENRAGED" if e["phase"] == 2 else "OVERLOAD · watch the laser", RED, 3)
+        elif k == "boss_wake":
+            say("THE CORE WARDEN WAKES", RED, 3)
         elif k == "boss_dead":
             say("CORE WARDEN DESTROYED · get to the exit", GREEN, 4)
         elif k == "lesson":

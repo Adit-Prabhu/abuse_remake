@@ -157,24 +157,37 @@ def _unstick(game, hostiles) -> None:
             continue
         w[2] += 1
         if w[2] > STUCK_TICKS:
-            spots = [(n.cx, n.bottom) for n in game.enemies if n.kind == "nest"]
-            if spots and e.kind != "stinger":
+            spots = _spots(game, e.kind)
+            if spots:
                 x, y = game.rng.choice(spots)
                 e.x, e.y = x - e.w // 2, y - e.h
                 e.vx = e.vy = 0
+                if e.kind == "stinger":
+                    e.y = y - e.h // 2
+                    e.home_x, e.home_y = e.cx, e.cy
+                    e.state = "stalk"
                 game.emit("enemy_spawn", e.cx, e.cy, enemy=e.kind)
             h.watch[e.uid] = [e.x, e.y, 0]
     for uid in [u for u in h.watch if u not in seen]:
         del h.watch[uid]
 
 
+def _spots(game, kind: str) -> list[tuple[int, int]]:
+    """Where a hostile of this kind may appear: flyers at the flyer spawns, walkers at floor vents."""
+    if kind == "stinger" and game.flyer_spawns:
+        return list(game.flyer_spawns)
+    g = game.grid
+    nests = [n for n in game.enemies if n.kind == "nest"]
+    floor = [(n.cx, n.bottom) for n in nests if g.at(n.cx >> 4, n.bottom >> 4) in (1, 2)]
+    if kind == "crawler":
+        return floor + [(n.cx, n.bottom) for n in nests if (n.cx, n.bottom) not in floor]
+    return floor
+
+
 def _spawn(game, spec: str) -> None:
     kind, *rest = spec.split()
     p = game.player
-    if kind == "stinger" and game.flyer_spawns:
-        spots = game.flyer_spawns
-    else:
-        spots = [(n.cx, n.bottom) for n in game.enemies if n.kind == "nest"]
+    spots = _spots(game, kind)
     far = [s for s in spots if dist(s[0] - p.cx, s[1] - p.cy) > 180] or spots
     x, y = game.rng.choice(far)
     e = game.spawn_enemy(kind, x, y, tuple(rest))

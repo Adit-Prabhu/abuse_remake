@@ -64,7 +64,8 @@ ENEMY_NOTES = (
 )
 SYSTEM_NOTES = (
     ("SAVE CONSOLES", "Press E: full repair, ammo top-up and a checkpoint. R reloads it."),
-    ("POWER-UPS", "Shield absorbs damage · Overcharge doubles damage · Haste · Phase (longer dash)."),
+    ("POWER-UPS", "Shield absorbs damage · Overcharge doubles damage · Haste · Phase: the dash recharges "
+                  "faster and protects you longer."),
     ("VAULT BOOTS", "A double jump, found in the Reactor. Opens new routes."),
     ("KEYCARDS", "A red gate needs the red keycard. Walk into the gate with it."),
     ("SWITCHES", "Open doors. Some doors are timed: run."),

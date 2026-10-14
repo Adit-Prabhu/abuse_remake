@@ -233,6 +233,9 @@ class WorldRenderer:
                 for _ in range(6):
                     self.particles.append([x, y - 2, d * r.uniform(60, 200), -r.uniform(10, 60), 0.5, 0.5,
                                            (160, 150, 140), "dust", 3])
+        elif k == "boss_wake":
+            self.shake = max(self.shake, 10)
+            self.lights.append([x, y, 260, (255, 60, 80), 0.8, 0.8])
         elif k in ("alarm", "boss_phase"):
             self.lights.append([x, y, 200, (255, 60, 60), 0.8, 0.8])
             self.shake = max(self.shake, 4 if k == "alarm" else 12)
@@ -893,12 +896,25 @@ class WorldRenderer:
                 pg.draw.line(self.glow, (255, 60, 60) if v else (120, 20, 20), (x0, y1), (x1, y1))
                 self._label("JUMP!" if not e.laser_high else "CROUCH!", cx, y0 - 10, (255, 120, 120))
             else:
-                beam = pg.Surface((x1 - x0, y1 - y0))
-                beam.fill((255, 60, 110))
-                self.glow.blit(beam, (x0, y0), special_flags=pg.BLEND_RGB_ADD)
-                core_line = pg.Surface((x1 - x0, max(2, (y1 - y0) // 3)))
-                core_line.fill((255, 240, 250))
-                self.scene.blit(core_line, (x0, (y0 + y1) // 2 - core_line.get_height() // 2))
+                from ...engine.neon.enemies import SWEEP_HALF
+
+                # a faint guide along the whole lane, and the hot segment sweeping out from the Warden
+                pg.draw.line(self.glow, (90, 20, 40), (x0, (y0 + y1) // 2), (x1, (y0 + y1) // 2))
+                sx0 = max(x0, round(e.sweep_x - SWEEP_HALF - ox))
+                sx1 = min(x1, round(e.sweep_x + SWEEP_HALF - ox))
+                if sx1 > sx0:
+                    beam = pg.Surface((sx1 - sx0, y1 - y0))
+                    beam.fill((255, 60, 110))
+                    self.glow.blit(beam, (sx0, y0), special_flags=pg.BLEND_RGB_ADD)
+                    core_line = pg.Surface((sx1 - sx0, max(2, (y1 - y0) // 3)))
+                    core_line.fill((255, 240, 250))
+                    self.scene.blit(core_line, (sx0, (y0 + y1) // 2 - core_line.get_height() // 2))
+                    # the trail it leaves behind, fading
+                    back = -e.sweep_dir
+                    tail = pg.Surface((60, max(2, (y1 - y0) // 2)))
+                    tail.fill((120, 30, 60))
+                    tx = sx0 - 60 if back < 0 else sx1
+                    self.glow.blit(tail, (tx, (y0 + y1) // 2 - tail.get_height() // 2), special_flags=pg.BLEND_RGB_ADD)
 
     def _player(self, game, alpha, ox, oy):
         p = game.player
