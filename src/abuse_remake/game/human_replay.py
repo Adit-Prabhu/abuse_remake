@@ -7,7 +7,9 @@ A trace (format ``human-trace-1``) is a header and then, for each game in the se
 - one ``input`` row per tick (the original controls, weapon keys and Remastered dash requests);
 - ``restore`` rows (to the last console save or the level start);
 - a ``level`` row when Remastered's campaign goes on into the next level, keeping the player
-  (``Game(carry=...)``); each level is reported as its own game;
+  (``Game(carry=...)``); each level is reported as its own game. The replay checks that the
+  level before really ended at an exit leading there; a level row that does not follow such an
+  exit is counted in ``unverified_level_changes`` and fails the replay like a mismatch;
 - ``check`` rows holding the state hash at deaths, the level's end, restores and the session's end.
 
 The replay makes the same console saves the game made (the engine calls the save hook at the
@@ -97,7 +99,7 @@ def replay_human(path: Path) -> dict:
         raise SystemExit(f"{path}: not a human trace (format human-trace-1)")
     games: list[dict] = []
     session: _Session | None = None
-    checks = mismatches = 0
+    checks = mismatches = unverified = 0
     for row in rows[1:]:
         kind = row.get("kind")
         if kind == "new_game":
@@ -109,6 +111,8 @@ def replay_human(path: Path) -> dict:
         elif kind == "input":
             session.step(row)
         elif kind == "level":
+            w = session.game.world
+            unverified += int(not (session.won and w.globals.get("next_level") == row["level"]))
             games.append(session.summary())
             session = session.next_level(row["level"])
         elif kind == "restore":
@@ -118,4 +122,4 @@ def replay_human(path: Path) -> dict:
             mismatches += int(session.game.state_hash() != row.get("state_hash"))
     if session is not None and session.ticks:
         games.append(session.summary())
-    return {"games": games, "checks": checks, "mismatches": mismatches}
+    return {"games": games, "checks": checks, "mismatches": mismatches, "unverified_level_changes": unverified}

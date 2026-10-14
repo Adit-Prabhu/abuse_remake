@@ -310,7 +310,7 @@ def main(argv=None) -> int:
 
         result = replay_human(a.human_trace)
         print(json.dumps(result, indent=2))
-        return 1 if result["mismatches"] or not result["checks"] else 0
+        return 1 if result["mismatches"] or result.get("unverified_level_changes") or not result["checks"] else 0
     if (a.trace is None) == (a.player is None):
         ap.error("give exactly one of --trace, --human-trace or --player")
     if a.trace is not None:

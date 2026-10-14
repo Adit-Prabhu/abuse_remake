@@ -77,6 +77,8 @@ def exits(name: str) -> tuple[int, ...]:
 
 def exit_result(level: str, n: int) -> str:
     """"open", "locked" or "end" for an exit with ``aistate`` n in ``level`` (see the module)."""
+    if n == END_LEVEL:
+        return "end"  # request_end_game (people.lsp:917-918), whatever other exits there are
     if playable(exit_level(n)):
         return "open"
     if level in LEVELS and any(playable(exit_level(m)) for m in exits(level)):

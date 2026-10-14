@@ -35,9 +35,12 @@ Label: `observed` (re-run the script to reproduce).
    level) and `levels/level02.spe`, added on 2026-10-14 for Remastered mode only, are
    byte-identical to the 1995 shareware v1.01 release and differ from the 2.00 data set. The
    upstream repository's copies (`Xenoveritas/abuse@9d1f66f`, `data/levels/`) have the 2.00
-   bytes: SHA-256 `46002eb0…08679c7` for level00 and `bdd22091…db24d95c` for level02, the same as
-   `abuse-lib-2.00.tar.gz` (checked by hand on 2026-10-14). So the shareware copies are the ones
-   vendored.
+   bytes, the same as `abuse-lib-2.00.tar.gz`:
+   - level00: SHA-256 `46002eb0c4a3d90d1b6644b49604b805e455517c57bd7e28feb04fa3d08679c7`;
+   - level02: SHA-256 `bdd22091d8683b9a9a4fffa31e6ac82f87a80704b529feeab97ee082db24d95c`.
+   This one point is `observed` by hand (2026-10-14: the upstream files fetched with `gh api` and
+   hashed next to the files in the 2.00 archive); the script does not download the upstream
+   repository. So the shareware copies are the ones vendored.
 5. **The 1995 shareware Lisp is an earlier design.** 54 definitions differ from it, including
    `ANT_ROOF`, `SPRAY_GUN`, `SENSOR` and `RESTART_POSITION`. The C engine we port (from the
    public-domain release) is the 2.0-era engine; for example, it compiles `ant_ai`, `top_ai` and

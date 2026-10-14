@@ -18,6 +18,7 @@ from abuse_remake.paths import level_path, repo_root
 from abuse_remake.scope import LEVEL00_TYPES, LEVEL01_TYPES, LEVEL02_TYPES
 
 # SHA-256 of LEVELS/LEVEL00.SPE and LEVELS/LEVEL02.SPE inside the pinned shareware v1.01 zip
+SHAREWARE_101_ZIP = "4e3db6ca92e53d9cd5037127fb0d4d061f017ded8426fdb2a1e80f888ba5a4df"
 SHAREWARE_101 = {
     "level00": "e10aa633ab8b44f5fbe04f09bb1dfb6fd344582964d111204206c527a4c4ae39",
     "level02": "1118ff4af411fb600ec9ed4058a4ae259a49d3a113e3d0ad44299f85277dffd3",
@@ -47,14 +48,19 @@ def press_down_at_exit(g, aistate=None, ticks=6):
 
 
 # --- the data ----------------------------------------------------------------------------------
-def test_the_new_levels_are_the_shareware_101_files():
-    """The pinned hashes are those of LEVELS/LEVEL00.SPE and LEVEL02.SPE in the shareware zip.
-    When the zip is cached (scripts/compare_original_data.py fetches it), compare the bytes."""
+def test_the_new_levels_have_the_pinned_hashes():
+    # the hashes of LEVELS/LEVEL00.SPE and LEVEL02.SPE in the shareware zip (see the next test)
     for name, digest in SHAREWARE_101.items():
         assert hashlib.sha256(level_path(name).read_bytes()).hexdigest() == digest
+
+
+def test_the_new_levels_are_the_bytes_in_the_shareware_zip():
+    """Runs where scripts/compare_original_data.py has cached the release (the cache is not in
+    git, so CI skips it)."""
     zip_path = repo_root() / "cache" / "original-releases" / "ABUSE101.zip"
     if not zip_path.exists():
         pytest.skip("the shareware zip is not cached; run scripts/compare_original_data.py")
+    assert hashlib.sha256(zip_path.read_bytes()).hexdigest() == SHAREWARE_101_ZIP
     with zipfile.ZipFile(zip_path) as z:
         for name in SHAREWARE_101:
             assert z.read(f"LEVELS/{name.upper()}.SPE") == level_path(name).read_bytes()
@@ -93,6 +99,7 @@ def test_what_each_exit_does():
     assert campaign.exit_result("level01", 2) == (two or "end")  # Level 1 can always be finished
     assert campaign.exit_result("level02", 3) == "end"  # the end of this build's campaign
     assert campaign.exit_result("level02", campaign.END_LEVEL) == "end"
+    assert campaign.exit_result("level00", campaign.END_LEVEL) == "end"  # even beside open exits
 
 
 # --- strict loading ----------------------------------------------------------------------------
@@ -298,6 +305,8 @@ def test_app_trace_replay_round_trip_across_a_level_change_and_a_restart(home, t
     app.trace.close()
     out = replay_human(rec)
     assert out["checks"] == 3 and out["mismatches"] == 0  # level end, before the restart, session end
+    # the level's end was set by hand above, not reached through an exit, and the replay says so
+    assert out["unverified_level_changes"] == 1
     assert [g["level"] for g in out["games"]] == ["level01", "level01"]
     assert "progress" in out["games"][0] and "progress" not in out["games"][1]  # carried: not scored
 
