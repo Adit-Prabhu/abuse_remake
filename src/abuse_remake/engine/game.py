@@ -60,6 +60,9 @@ class Game:
 
             remastered, object_filter = True, keep_for_horde
         lf = _level(level)
+        if carry is not None and lf.has_player_info:
+            # a saved game restores its own views, weapons and rand_on instead (level.c:1695-1813)
+            raise ValueError(f"{level} holds saved player info; only a fresh level can be carried into")
         if object_filter is not None:
             lf = _filtered(lf, object_filter)
         self.world = World(lf, _tiles(), registry(), seed=seed, difficulty=difficulty,
@@ -77,6 +80,7 @@ class Game:
         w.add_object_after(player, start)
         self.player = player
         self.level = level
+        self.carried = carry is not None
         self.seed = seed
         self.frames = 0
         self.remastered = None
@@ -179,10 +183,11 @@ def _carry_over(old: Game, view: View, world: World) -> None:
 
     The original keeps both when an exit loads the next level: ``game::load_level`` deletes only
     the level (game.c:503-537), whose ``load_fail`` first takes each player out of the object
-    list (level.c:64-96). Taking it out unlinks its top half and lights (level.c:2523-2527). The
-    new level runs ``set_player_defaults`` (level.c:1817-1830) and puts the player at its START
+    list (level.c:64-96). Taking it out unlinks its top half and lights (level.c:2521-2525). A
+    level with no saved player info (every campaign level; checked when loading) runs
+    ``set_player_defaults`` (level.c:1815-1835) and puts the player at its START
     (``insert_players``, level.c:3068-3088). The view keeps its weapons and ammo. ``rand_on`` is
-    a global, so the random table carries on where it was.
+    a global (imlib/jrand.c:6), so the random table carries on where it was.
     """
     src, dst = old.player, view.focus
     for name in _PLAYER_FIELDS:

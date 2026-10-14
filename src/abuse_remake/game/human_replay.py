@@ -23,6 +23,7 @@ import json
 from pathlib import Path
 
 from ..agent.progress import ProgressTracker
+from ..engine import campaign
 from ..engine.game import Game, WeaponCommand
 from ..engine.view import Inputs
 
@@ -39,8 +40,9 @@ class _Session:
         self.level_start = self.game.snapshot()
         self.checkpoint = self.level_start
         p = self.game.player
-        # the evaluator's progress measure is defined on Level 1 only
-        self.tracker = None if self.horde or self.level != "level01" else ProgressTracker(p.x, p.y)
+        # the evaluator's progress measure is defined on a fresh start of Level 1 only
+        fresh_level01 = not self.horde and self.level == "level01" and carry is None
+        self.tracker = ProgressTracker(p.x, p.y) if fresh_level01 else None
         self.ticks = 0
         self.deaths = 0
         self.dead = False
@@ -73,7 +75,10 @@ class _Session:
         return _Session({**self.row, "level": name}, carry=self.game)
 
     def restore(self, to: str) -> None:
-        self.game.restore(self.level_start if to == "level_start" else self.checkpoint)
+        snap = self.level_start if to == "level_start" else self.checkpoint
+        self.game.restore(snap)
+        if snap is self.level_start:
+            campaign.restart_health(self.game)
         if to == "level_start":
             self.checkpoint = self.level_start
         self.dead = False

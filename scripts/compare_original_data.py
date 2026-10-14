@@ -116,6 +116,10 @@ def main() -> int:
         print(f"Source: `{RELEASES[name][0]}` (SHA-256 `{RELEASES[name][1][:16]}…`)\n")
         lv = files.get("levels/level01.spe")
         print(f"- `levels/level01.spe` byte-identical: **{lv == ours['levels/level01.spe']}**")
+        for rel in ("levels/level00.spe", "levels/level02.spe"):  # Remastered's campaign levels
+            got = files.get(rel)
+            print(f"- `{rel}` byte-identical: **{got == ours[rel]}**" if got is not None
+                  else f"- `{rel}`: not in this release")
         print(f"- palette in `art/back/backgrnd.spe` identical: **{palette(files) == palette(ours)}**")
         art_same, art_diff, art_missing = [], [], []
         for rel in sorted(k for k in files if k.startswith("art/") and k.endswith(".spe")):

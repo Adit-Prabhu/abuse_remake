@@ -379,6 +379,7 @@ def set_player_defaults(o) -> None:
     if o.controller is not None:
         o.controller.ambient = 35
     o.set_aistate(0)
+    o.set_aistate_time(0)  # the Lisp set_aistate also zeroes the time (clisp.c:1074-1078)
     o.set_fade_count(0)
     for name in ("in_climbing_area", "disable_top_draw", "just_hit", "used_special_power",
                  "has_saved_this_level", "r_ramp", "g_ramp", "b_ramp", "is_teleporting",

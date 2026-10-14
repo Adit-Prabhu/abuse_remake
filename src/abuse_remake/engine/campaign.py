@@ -2,13 +2,19 @@
 
 The original loads the next level from the exit's ``aistate`` (people.lsp:915-923,
 ``next_level_ai``: ``(request_level_load (concatenate 'string "levels/level" (digstr (aistate) 2)
-".spe"))``). The shareware training level (``level00``) ends in a room of four exits to Levels 1
-to 4, Level 1's exit leads to Level 2, and Level 2's to Level 3.
+".spe"))``), and ends the game at ``end_level`` (22, people.lsp:978). The shareware training
+level (``level00``) ends in a room of four exits to Levels 1 to 4. Level 1's exit leads to Level 2
+and Level 2's to Level 3.
 
-This build has the training level, Level 1 and Level 2. An exit to any other level is locked in
-Remastered mode (``Remastered.after_step``). So is an exit to a level whose objects are not all
-ported yet: the level must load in strict mode before it can be played. Classic mode is Level 1
-only and never reads this module.
+This build has the training level, Level 1 and Level 2. A level is playable once every object
+type in it has its behaviours ported (it must load in strict mode). What an exit does in
+Remastered mode (``Remastered._follow_exits``, ``exit_result``):
+- to a playable level: the level ends and the next one follows;
+- to a level that cannot be played, from a level that has another exit to a playable level (the
+  training level's portals to Levels 3 and 4): the exit stays shut;
+- otherwise: the level ends and so does the campaign (Level 2's exit to Level 3).
+Whether a level is playable depends only on the code and the vendored data, never on the run.
+Classic mode is Level 1 only and never reads this module.
 """
 
 from __future__ import annotations
@@ -20,19 +26,22 @@ from ..scope import LEVEL_TYPES
 
 LEVELS = ("level00", "level01", "level02")  # campaign order
 TITLES = {"level00": "Training", "level01": "Level 1", "level02": "Level 2"}
+END_LEVEL = 22  # people.lsp:978: an exit with this number ends the game (request_end_game)
 
 
-def title(name: str) -> str:
+def title(name: str | None) -> str:
+    if name is None:
+        return "the end"
     return TITLES.get(name) or f"Level {int(name[5:])}"
 
 
-def exit_level(n: int) -> str:
-    """The level an exit with ``aistate`` n loads (people.lsp:921)."""
-    return f"level{n:02d}"
+def exit_level(n: int) -> str | None:
+    """The level an exit with ``aistate`` n loads (people.lsp:917-921), or None for the end."""
+    return None if n == END_LEVEL else f"level{n:02d}"
 
 
-def in_build(name: str) -> bool:
-    return name in LEVELS and level_path(name).exists()
+def in_build(name: str | None) -> bool:
+    return name in LEVELS
 
 
 @cache
@@ -42,14 +51,41 @@ def unported(name: str) -> dict[str, list[str]]:
     from .chardefs import load_chardefs
     from .world import missing_behaviours
 
+    if name not in LEVEL_TYPES:
+        return {"*": ["not in this build"]}
     defs, reg = load_chardefs(), registry()
-    missing = {t: missing_behaviours(defs[t].funs, reg) for t in sorted(LEVEL_TYPES[name]) if t in defs}
+    missing = {t: missing_behaviours(defs[t].funs, reg) if t in defs else ["undefined type"]
+               for t in sorted(LEVEL_TYPES[name])}
     return {t: m for t, m in missing.items() if m}
 
 
-def playable(name: str) -> bool:
+def playable(name: str | None) -> bool:
     return in_build(name) and not unported(name)
 
 
 def playable_levels() -> list[str]:
     return [n for n in LEVELS if playable(n)]
+
+
+@cache
+def exits(name: str) -> tuple[int, ...]:
+    """The ``aistate`` of each exit (NEXT_LEVEL) in a level of this build."""
+    from ..formats.level_file import load_level
+
+    return tuple(sorted({o.vars.get("aistate", 0) for o in load_level(level_path(name)).objects_of("NEXT_LEVEL")}))
+
+
+def exit_result(level: str, n: int) -> str:
+    """"open", "locked" or "end" for an exit with ``aistate`` n in ``level`` (see the module)."""
+    if playable(exit_level(n)):
+        return "open"
+    if level in LEVELS and any(playable(exit_level(m)) for m in exits(level)):
+        return "locked"
+    return "end"
+
+
+def restart_health(game) -> None:
+    """A restart with no console save reloads the level with full health
+    (``restart_player``, people.lsp:515-520). Level 1 starts at full health anyway; a level
+    entered from the one before starts with whatever health was carried in."""
+    game.player.set_hp(100)

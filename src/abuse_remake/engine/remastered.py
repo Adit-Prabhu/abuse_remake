@@ -1,8 +1,10 @@
 """Remastered-only mechanics. They change rules, so they live behind ``--mode remastered``.
 
 Classic mode never creates this object, and no fidelity test or evaluation runs with it
-(AGENTS.md). The one hook into the Classic code is a flag in ``world.globals`` that is never set
-in Classic mode: ``bottom_damage`` ignores damage while ``player_iframes`` is above zero.
+(AGENTS.md). It touches the Classic code in two places, both through ``world.globals``:
+``bottom_damage`` ignores damage while ``player_iframes`` is above zero, and the campaign
+(``_follow_exits``) may keep a level going after its exit sets ``level_complete``, when that exit
+leads to a level that cannot be played and another exit can. Level 1's exit is never kept shut.
 
 The dash: a short burst along the ground or through the air in the direction you face (or are
 pressing). It moves with the engine's own collision (``try_move`` with feet and head checks), so
@@ -57,20 +59,25 @@ class Remastered:
         return True
 
     def _follow_exits(self) -> None:
-        """The campaign (``engine/campaign.py``): an exit that leads to a playable level in this
-        build ends the level and names the next one in ``world.globals["next_level"]``. Any
-        other exit stays shut, so the level goes on."""
+        """The campaign (``engine/campaign.py``): an exit to a playable level ends the level and
+        names the next one in ``world.globals["next_level"]``; an exit that ends the campaign
+        ends the level with no next one; a locked exit stays shut, so the level goes on. If
+        exits of different kinds are touched in the same tick, an open one wins."""
         from . import campaign
 
         w = self.game.world
-        for e in list(w.events):
-            if e.kind != "level_complete":
-                continue
-            target = campaign.exit_level(e.data["next_level"])
-            if campaign.playable(target):
-                w.globals["next_level"] = target
-            else:
-                w.globals["level_complete"] = False
+        found = [(campaign.exit_result(self.game.level, e.data["next_level"]),
+                  campaign.exit_level(e.data["next_level"]))
+                 for e in w.events if e.kind == "level_complete"]
+        if not found:
+            return
+        w.globals.pop("next_level", None)
+        results = {r for r, _ in found}
+        if "open" in results:
+            w.globals["next_level"] = next(t for r, t in found if r == "open")
+        elif "end" not in results:
+            w.globals["level_complete"] = False
+            for _, target in found:
                 w.emit("level_locked", level=target)
 
     def before_step(self) -> None:

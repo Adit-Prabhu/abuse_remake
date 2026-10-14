@@ -15,7 +15,9 @@ The two shareware levels were added on 2026-10-14 for Remastered mode's campaign
 level and Level 2; see `docs/remastered.md`). They are copied byte for byte from the release zip,
 which `scripts/compare_original_data.py` already downloads and pins. The upstream repository also
 has these levels, but its copies are the 2.00 versions, which match the `abuse-lib-2.00` data set
-this repository treats as retail and never commits. So the shareware copies are used. They were
+this repository treats as retail and never commits (`docs/data-lineage.md`, point 4, gives the
+hashes). So the shareware copies are used; `scripts/compare_original_data.py` checks them against
+both releases. They were
 built against the 1995 shareware Lisp, while the rules we port are the 2.0-era Lisp (see
 `docs/data-lineage.md`); Remastered labels any difference this causes.
 

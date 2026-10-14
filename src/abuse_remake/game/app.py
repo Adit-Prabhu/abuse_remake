@@ -101,7 +101,6 @@ class App:
         if not self.modern or getattr(args, "horde", False):
             args.level = "level01"  # the campaign is Remastered only; Horde is on Level 1
         self.level = getattr(args, "level", "level01")
-        self.locked_said = 0
         self.Renderer = Renderer
         self.joystick = None
         self.clock = pygame.time.Clock()
@@ -143,8 +142,14 @@ class App:
         self.hit_uids: set[int] = set()
         self.finish: dict | None = None
         self.next_level: str | None = None
+        self.locked_said = -1000
         self.ghost_rec = GhostRecorder() if self.modern and not self.horde else None
-        self.ghost = load_ghost(self.args.difficulty, self.level) if self.modern and not self.horde else None
+        self.ghost = load_ghost(self.args.difficulty, self.record_level) if self.modern and not self.horde else None
+
+    @property
+    def record_level(self) -> str:
+        """Records and ghosts keep a level reached from the one before apart from fresh starts."""
+        return f"campaign-{self.level}" if self.game.carried else self.level
 
     def change_level(self, name: str) -> None:
         """Go on into the level an exit led to, keeping the player and weapons (Remastered's
@@ -190,6 +195,8 @@ class App:
         self._check(f"before restore to {which}")
         snap = self.level_start if which == "level_start" else self.checkpoint
         self.game.restore(snap)
+        if snap is self.level_start:
+            campaign.restart_health(self.game)  # no console save: the level restarts at full health
         if which == "level_start":
             self.checkpoint = self.level_start  # a restarted level has no console save yet
         self._rebind()
@@ -314,7 +321,7 @@ class App:
                 i = DIFFICULTIES.index(self.args.difficulty)
                 self.args.difficulty = DIFFICULTIES[(i + 1) % len(DIFFICULTIES)]
                 self.new_game()
-            elif key == pg.K_l and self.modern and not self.horde:
+            elif key == pg.K_l and self.modern and not self.horde and not self.args.playtest:
                 levels = campaign.playable_levels()
                 i = levels.index(self.level) if self.level in levels else -1
                 self.args.level = levels[(i + 1) % len(levels)]
@@ -422,7 +429,9 @@ class App:
                 self.stats["secrets"] += 1
             elif e.kind == "level_locked" and self.stats["ticks"] - self.locked_said > 45:
                 self.locked_said = self.stats["ticks"]
-                self.hud.say(f"{campaign.title(e.data['level'])} is not part of this remake")
+                name = e.data["level"]
+                why = "is not ready yet" if campaign.in_build(name) else "is not part of this remake"
+                self.hud.say(f"{campaign.title(name)} {why}")
             elif e.kind == "shot" and e.data.get("by_player"):  # the player's own shots only
                 self.stats["shots"] += 1
         self.stats["damage_taken"] += max(0, hp_before - self.game.player.hp)
@@ -455,9 +464,9 @@ class App:
                 from .remaster import record_finish
 
                 self.next_level = w.globals.get("next_level")
-                self.finish = record_finish(self.args.difficulty, self.stats, self.level)
+                self.finish = record_finish(self.args.difficulty, self.stats, self.record_level)
                 if self.finish["new_best"] and self.ghost_rec is not None:
-                    self.ghost_rec.save(self.args.difficulty, self.level)
+                    self.ghost_rec.save(self.args.difficulty, self.record_level)
 
     def draw(self):
         pg = self.pg
@@ -490,8 +499,9 @@ class App:
             pg.draw.line(self.screen, (255, 80, 80), (mx + 5, my), (mx + 13, my))
         if self.state == "title":
             start = f"    Start: {campaign.title(self.level)} (L)" if self.modern and not self.horde else ""
+            levels = ", ".join(campaign.title(n) for n in campaign.playable_levels())
             self.hud.center(self.screen, ["ABUSE", "Level 1 — reconstructed" if not self.modern
-                                          else "Remastered — Training, Level 1 and Level 2",
+                                          else f"Remastered — {levels}",
                                           f"Mode: {self.args.mode} (M)    Difficulty: {self.args.difficulty} (D)"
                                           + ("    HORDE (H)" if self.horde else "    Horde: off (H)") + start,
                                           "Enter to start    Esc to quit"],
