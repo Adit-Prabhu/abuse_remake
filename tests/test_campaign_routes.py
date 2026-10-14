@@ -84,12 +84,12 @@ def test_the_training_route_picks_up_all_four_power_ups():
     route = json.loads((Path(repo_root()) / "evidence" / "routes" / "level00.json").read_text())
     g = Game(seed=route["seed"], difficulty=route["difficulty"], level="level00", remastered=True)
     items = []
-    for n, x, y, special, fire, dx, dy in route["inputs"]:
-        for _ in range(n):
-            p = g.player
-            g.step(Inputs(x=x, y=y, b1=special, b2=fire, pointer_x=p.x + dx, pointer_y=p.y - 20 + dy))
-            items += [e.data["item"] for e in g.world.events if e.kind == "pickup"]
-            if g.world.globals.get("level_complete"):
-                break
+    steps = [r[1:] for r in route["inputs"] for _ in range(r[0])]
+    for x, y, special, fire, dx, dy in steps:
+        p = g.player
+        g.step(Inputs(x=x, y=y, b1=special, b2=fire, pointer_x=p.x + dx, pointer_y=p.y - 20 + dy))
+        items += [e.data["item"] for e in g.world.events if e.kind == "pickup"]
+        if g.world.globals.get("level_complete"):
+            break
     powers = ["sneaky", "fast", "fly", "ultra health"]
     assert [i for i in items if i in powers] == powers

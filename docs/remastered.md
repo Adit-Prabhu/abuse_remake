@@ -141,7 +141,7 @@ this shows:
   so it explodes as soon as it is switched on. That is what the data says, so it is kept.
 - **Flyers hurting flyers.** Without the registered flyer file, the 1995 Lisp makes FLYER and
   GREEN_FLYER other names for WHO (`FLYER.LSP:123-128`). So in 1995 a WHO ignored rockets fired
-  by any WHO. In 2.0, which we port, only FLYER and GREEN_FLYER are spared. The training level's
+  by any WHO. In 2.0, which we port, only rockets fired by a FLYER or GREEN_FLYER are ignored. The training level's
   flyers are all WHOs, so here they can hurt, and kill, each other and themselves.
 - **Kills.** The 1995 `flyer_ai` adds no kill when a flyer dies; 2.0 does.
 - **Flight and invisibility need the registered engine.** The C runs them only when the

@@ -34,7 +34,7 @@ from ..engine.view import VIEW_H, VIEW_W, Inputs
 from ..engine.world import DIFFICULTIES
 
 TICK = 1.0 / 15.0
-# The training level's messages name the original keys (english.lsp:226-243); the modern ones too
+# The training level's messages name the original keys (english.lsp:226-246); the modern ones too
 MODERN_KEYS = {0: "  (or J)", 5: "  (or left Shift)", 6: "  (or Q/E, the mouse wheel)", 7: "  (W or Up)",
                8: "  (S or Down)", 2: "  (S or Down)", 3: "  (S or Down)", 4: "  (S or Down)",
                11: "  (S or Down)"}

@@ -441,11 +441,28 @@ def test_a_flyer_aims_where_the_player_will_be_and_only_within_150_px(monkeypatc
     _, _, firex, firey, angle = shots[0]
     assert (firex, firey) == (f.x + f.direction * 10, f.y)
     assert angle == atan2(firey - (p.y - 15 + p.yvel * 2), (p.x + p.xvel * 4) - firex)
-    g2 = training()
-    f2, shots2 = frozen_flyer(g2, monkeypatch, dx=160)
-    for _ in range(5):
+    for dx, fires in ((149, True), (150, False)):  # (< (distx) 150)
+        g2 = training()
+        f2, shots2 = frozen_flyer(g2, monkeypatch, dx=dx)
         ai("flyer_ai")(f2)
-    assert shots2 == []  # distx 160: too far
+        assert bool(shots2) is fires, dx
+
+
+def test_a_flyer_holds_fire_without_a_clear_line(monkeypatch):
+    import abuse_remake.engine.behaviors.campaign_objects as co
+
+    for blocked in (0, 1):  # the barrel's own line, then the line to the player (flyer.lsp:86)
+        g = training()
+        f, shots = frozen_flyer(g, monkeypatch)
+        calls = []
+
+        def see(*args, blocked=blocked, calls=calls):
+            calls.append(args)
+            return len(calls) - 1 != blocked
+
+        monkeypatch.setattr(co, "can_see", see)
+        ai("flyer_ai")(f)
+        assert shots == [] and len(calls) == blocked + 1
 
 
 @pytest.mark.parametrize("dy,change", [(-200, 1), (-60, 0), (0, -1)])
@@ -486,9 +503,14 @@ def test_lava_burns_every_20_ticks_through_the_engines_own_timer():
     lava = obj(g, 85)
     p = g.player
     p.set_hp(200)
+    from abuse_remake.engine.behaviors.lispfns import set_aistate
+
     burns, changes = [], []
     for t in range(80):
         p.x, p.y = lava.x, lava.y
+        if t == 30 and lava.aistate == 0:
+            set_aistate(lava, 1)  # start a bubble, as a 1-in-100 draw would
+            changes.append(t - 1)  # the timer restarts as from a change on the tick before
         before = lava.aistate
         hp = p.hp
         lava.decide()
@@ -498,7 +520,7 @@ def test_lava_burns_every_20_ticks_through_the_engines_own_timer():
             burns.append(t)
     gaps = [b - a for a, b in zip(burns, burns[1:], strict=False) if not any(a <= c < b for c in changes)]
     assert burns and gaps and all(gap == 20 for gap in gaps)
-    assert all(c + 1 in burns for c in changes)  # each restart burns on the next tick (state time 0)
+    assert changes and all(c + 1 in burns for c in changes)  # each restart burns on the next tick
 
 
 def test_toward_and_facing():
