@@ -31,6 +31,7 @@ from pathlib import Path
 from ..engine import campaign
 from ..engine.game import Game, WeaponCommand
 from ..engine.horde import ARENAS, CARDS
+from ..engine.horde import VERSION as HORDE_VERSION
 from ..engine.view import VIEW_H, VIEW_W, Inputs
 from ..engine.world import DIFFICULTIES
 
@@ -92,8 +93,11 @@ class App:
         scale = args.scale or max(2, min((info.current_w or 1600) // self.view_w,
                                          ((info.current_h or 900) - 80) // self.view_h))
         self.scale = scale
-        flags = pygame.FULLSCREEN if args.fullscreen else 0
-        self.screen = pygame.display.set_mode((self.view_w * scale, self.view_h * scale), flags)
+        from .display import opaque_surface, window_flags
+
+        size = (self.view_w * scale, self.view_h * scale)
+        self.window = pygame.display.set_mode(size, window_flags(args))
+        self.screen = opaque_surface(size)  # every frame is drawn here, then copied to the window
         pygame.display.set_caption("Abuse — Level 1 (remake)")
         from .audio import Audio
         from .hud import Hud
@@ -138,7 +142,7 @@ class App:
         self.show_ghost = True
         self._write({"kind": "new_game", "seed": self.seed, "difficulty": self.args.difficulty,
                      "mode": self.args.mode, "horde": self.horde, "level": self.level, "arena": self.arena,
-                     "horde_version": 2,
+                     "horde_version": HORDE_VERSION,
                      "rules": "remastered" if self.modern else "classic"})
 
     def _level_started(self) -> None:
@@ -274,31 +278,7 @@ class App:
         while running:
             dt = self.clock.tick(60) / 1000.0
             for ev in pg.event.get():
-                if ev.type == pg.QUIT:
-                    running = False
-                elif ev.type == pg.JOYDEVICEADDED and self.joystick is None:
-                    self.joystick = pg.joystick.Joystick(ev.device_index)
-                    self.joy_rest = [self.joystick.get_axis(i) for i in range(self.joystick.get_numaxes())]
-                elif ev.type == pg.JOYDEVICEREMOVED:
-                    self.joystick, self.joy_rest = None, []
-                elif ev.type == pg.MOUSEBUTTONDOWN and ev.button == 2 and self.state == "play":
-                    self.pending_weapon = WeaponCommand(cycle=-1)  # middle button: previous weapon
-                elif ev.type == pg.KEYDOWN:
-                    running = self.on_key(ev.key) and running
-                elif ev.type == pg.MOUSEWHEEL and self.state == "play":
-                    self.pending_weapon = WeaponCommand(cycle=-1 if ev.y > 0 else 1)
-                elif ev.type == pg.JOYBUTTONDOWN and self.state == "play" and ev.button in (4, 5):
-                    self.pending_weapon = WeaponCommand(cycle=-1 if ev.button == 4 else 1)
-                elif self._cards_up() and ev.type == pg.JOYBUTTONDOWN and ev.button in (0, 1, 2):
-                    self.pending_card = ev.button  # A, B, X choose a card while they are up
-                    self.card_masks_input = True
-                elif self._cards_up() and ev.type == pg.MOUSEBUTTONDOWN and ev.button == 1:
-                    hit = [i for i, r in enumerate(self.hud.card_rects) if r.collidepoint(ev.pos)]
-                    if hit:
-                        self.pending_card = hit[0]
-                        self.card_masks_input = True
-                elif ev.type == pg.JOYBUTTONDOWN and self.state == "play" and ev.button == 2 and self.modern:
-                    self.pending_dash = True
+                running = self.on_event(ev) and running
             if self.state == "play":
                 self.advance(dt if not self.args.frames else TICK / 2, frames)
             self.draw()
@@ -312,6 +292,55 @@ class App:
             self.trace.close()
         pg.quit()
         return 0
+
+    def on_event(self, ev) -> bool:
+        """Handle one window event; False asks to quit."""
+        pg = self.pg
+        if ev.type == pg.QUIT:
+            return False
+        if ev.type == pg.KEYDOWN:
+            from .display import is_fullscreen_key
+
+            if is_fullscreen_key(ev.key, getattr(ev, "mod", 0)):
+                self.toggle_fullscreen()  # in every state, and nothing else: no start, no dash
+                return True
+            return self.on_key(ev.key)
+        if ev.type == pg.JOYDEVICEADDED and self.joystick is None:
+            self.joystick = pg.joystick.Joystick(ev.device_index)
+            self.joy_rest = [self.joystick.get_axis(i) for i in range(self.joystick.get_numaxes())]
+        elif ev.type == pg.JOYDEVICEREMOVED:
+            self.joystick, self.joy_rest = None, []
+        elif ev.type == pg.MOUSEBUTTONDOWN and ev.button == 2 and self.state == "play":
+            self.pending_weapon = WeaponCommand(cycle=-1)  # middle button: previous weapon
+        elif ev.type == pg.MOUSEWHEEL and self.state == "play":
+            self.pending_weapon = WeaponCommand(cycle=-1 if ev.y > 0 else 1)
+        elif ev.type == pg.JOYBUTTONDOWN and self.state == "play" and ev.button in (4, 5):
+            self.pending_weapon = WeaponCommand(cycle=-1 if ev.button == 4 else 1)
+        elif self._cards_up() and ev.type == pg.JOYBUTTONDOWN and ev.button in (0, 1, 2):
+            self.pending_card = ev.button  # A, B, X choose a card while they are up
+            self.card_masks_input = True
+        elif self._cards_up() and ev.type == pg.MOUSEBUTTONDOWN and ev.button == 1:
+            hit = [i for i, r in enumerate(self.hud.card_rects) if r.collidepoint(ev.pos)]
+            if hit:
+                self.pending_card = hit[0]
+                self.card_masks_input = True
+        elif ev.type == pg.JOYBUTTONDOWN and self.state == "play" and ev.button == 2 and self.modern:
+            self.pending_dash = True
+        return True
+
+    def toggle_fullscreen(self) -> None:
+        """Full screen on or off. The frame keeps its size; SDL scales it (``pygame.SCALED``)."""
+        pg = self.pg
+        self.args.fullscreen = not getattr(self.args, "fullscreen", False)
+        if self.args.frames:
+            return  # headless: there is no window
+        try:
+            pg.display.toggle_fullscreen()
+        except pg.error:
+            from .display import window_flags
+
+            pg.display.set_mode(self.screen.get_size(), window_flags(self.args))
+        self.window = pg.display.get_surface()
 
     def advance(self, dt: float, frame_no: int = 0) -> None:
         """Run the 15 Hz ticks that ``dt`` seconds of display time owe, and none after the end."""
@@ -573,7 +602,12 @@ class App:
             self.hud.center(self.screen, self.stats_lines())
         elif self.state == "horde_over":
             self.hud.center(self.screen, self.horde_over_lines())
-        pg.display.flip()
+        self.present()
+
+    def present(self) -> None:
+        """Copy the drawn frame to the window and show it."""
+        self.window.blit(self.screen, (0, 0))
+        self.pg.display.flip()
 
 
 HORDE_NAMES = {"ANT_ROOF": "ants", "FLYER": "flyers", "GREEN_FLYER": "green flyers", "ROB1": "robots",

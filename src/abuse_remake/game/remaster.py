@@ -115,6 +115,7 @@ class GhostPainter:
     """Draws a recorded row as a translucent, tinted figure."""
 
     TINT = (120, 220, 255)
+    ALPHA = 110
 
     def __init__(self, pygame, sprites):
         self.pg = pygame
@@ -127,8 +128,9 @@ class GhostPainter:
         if img is None:
             fwd, back = self.sprites.figure(fig)
             img = (fwd if direction > 0 else back).copy()
-            img.fill((*self.TINT, 255), special_flags=self.pg.BLEND_RGBA_MULT)
-            img.set_alpha(110)
+            # tint and fade in the pixels themselves: a surface alpha on top of per-pixel alpha
+            # takes pygame-ce's own blitter, which painted the whole rectangle on macOS
+            img.fill((*self.TINT, self.ALPHA), special_flags=self.pg.BLEND_RGBA_MULT)
             self.cache[key] = img
         return img
 

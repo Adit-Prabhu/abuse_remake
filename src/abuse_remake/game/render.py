@@ -26,6 +26,7 @@ import pygame
 from ..engine.behaviors.lispfns import activated
 from ..engine.view import VIEW_H, VIEW_W
 from ..formats.tiles import BACK_H, BACK_W, FORE_H, FORE_W
+from .display import opaque_surface
 from .lighting import flash_map, light_levels
 from .sprites import SpriteCache
 
@@ -57,7 +58,7 @@ class Renderer:
         self.game = game
         self.sprites = sprites or SpriteCache()
         self.w, self.h = width, height
-        self.surface = pygame.Surface((width, height))
+        self.surface = opaque_surface((width, height))  # see display.py: never an alpha channel
         self.flashes: list[list] = []  # dynamic lights: [x, y, radius, strength, ttl]
         self.lighting = True
         self.modern = True
