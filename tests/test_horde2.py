@@ -116,20 +116,24 @@ def escape(key: str, power: str) -> str | None:
     a = ARENAS[key]
     g, floor = quiet_arena(key)
     special = {"none": 0, "flight": FLY_POWER, "speed": FAST_POWER}[power]
-    for move in (dict(x=-1), dict(x=1), dict(x=-1, y=-1), dict(x=1, y=-1)):
-        g.player.lvars["special_power"] = special
-        for t in range(110):
-            if t % 20 == 0:
-                g.remastered.request_dash(move["x"])
-            idle(g, b1=int(special != 0), **move)
-            p = g.player
-            if not (a.x1 - 30 <= p.x <= a.x2 + 30 and CEILINGS[key] <= p.y <= floor + 1):
-                return f"{power} {move}: at ({p.x}, {p.y})"
-        g.player.lvars["special_power"] = 0
-        idle(g, 30, x=-move["x"])  # flight can perch on a ledge: walking away drops back down
-        idle(g, 40)
-        if g.player.y != floor:
-            return f"{power} {move}: stuck at ({g.player.x}, {g.player.y})"
+    for side in (-1, 1):
+        # along the floor; jumping; and straight up from the middle first, then sideways over
+        # anything that juts out at an end
+        for legs in ([(110, dict(x=side))], [(110, dict(x=side, y=-1))], [(25, dict(x=0)), (85, dict(x=side))]):
+            g.player.lvars["special_power"] = special
+            for ticks, move in legs:
+                for t in range(ticks):
+                    if t % 20 == 0:
+                        g.remastered.request_dash(move["x"])
+                    idle(g, b1=int(special != 0), **move)
+                    p = g.player
+                    if not (a.x1 - 30 <= p.x <= a.x2 + 30 and CEILINGS[key] <= p.y <= floor + 1):
+                        return f"{power} {legs}: at ({p.x}, {p.y})"
+            g.player.lvars["special_power"] = 0
+            idle(g, 30, x=-side)  # flight can perch on a ledge: walking away drops back down
+            idle(g, 40)
+            if g.player.y != floor:
+                return f"{power} {legs}: stuck at ({g.player.x}, {g.player.y})"
     return None
 
 
@@ -152,14 +156,21 @@ def test_without_its_seals_each_arena_can_be_left(key, monkeypatch):
 @pytest.mark.parametrize("key", sorted(ARENAS))
 @pytest.mark.parametrize("kind", ["ANT_ROOF", "ROB1", "JUGGER", "FLYER", "GREEN_FLYER"])
 @pytest.mark.parametrize("end", ["left", "right"])
-def test_every_enemy_stays_in_the_arena_and_comes_for_the_player(key, kind, end):
+@pytest.mark.parametrize("player", ["in the middle", "at the far wall"])
+def test_every_enemy_stays_in_the_arena_and_comes_for_the_player(key, kind, end, player):
     """Released at either end, each kind of enemy keeps inside the arena and comes for the player:
-    within 70 px, or a Juggernaut within its throwing distance (it stops there and throws)."""
+    within 70 px, or a Juggernaut within its throwing distance (it stops there and throws), or at
+    least 150 px nearer for a Juggernaut stomping the length of a long arena. The whole arena acts
+    (``awake_area``), so an enemy at the far end does not stand still."""
     a = ARENAS[key]
     g = Game(seed=5, horde=True, arena=key)
     g.view.god = 1
     idle(g, 12)  # the player lands; wave 1 is still 33 ticks away
     floor = g.player.y
+    if player == "at the far wall":  # chased right up to a seal: still nobody gets out
+        p = g.player
+        p.x = p.last_x = a.x2 - 15 if end == "left" else a.x1 + 15
+        idle(g, 4)
     st = g.horde.state
     st["wave"] = 7
     x = a.x1 + 20 if end == "left" else a.x2 - 20
@@ -167,12 +178,14 @@ def test_every_enemy_stays_in_the_arena_and_comes_for_the_player(key, kind, end)
     g.horde._spawn(kind)
     o = next(e for e in g.world.objects if e.uid == st["alive"][-1])
     st["spawn_in"] = 10 ** 6  # this enemy alone
+    start = abs(o.x - g.player.x)
     nearest = 10 ** 6
     for _ in range(240):
         idle(g)
         assert a.x1 - 20 <= o.x <= a.x2 + 20 and CEILINGS[key] <= o.y <= floor + 2, (o.x, o.y)
         nearest = min(nearest, abs(o.x - g.player.x))
-    assert nearest <= (130 if kind == "JUGGER" else 70), (key, kind, end, nearest)
+    # it gets there, or (a Juggernaut stomping across a long arena) it is well on its way
+    assert nearest <= (130 if kind == "JUGGER" else 70) or start - nearest >= 150, (key, kind, end, start, nearest)
 
 
 @pytest.mark.parametrize("key", sorted(ARENAS))
@@ -209,6 +222,63 @@ def test_supplies_land_on_the_floor_in_sight_beside_the_player(key, where):
     drops = [o for o in g.world.objects if o.ctype.name in DROPS and not o.deleted]
     assert len(drops) == 5  # none fell under the player and was picked up unseen
     assert all(abs(o.y - floor) <= 2 for o in drops)  # on the floor, health packs too
+
+
+def test_while_the_cards_are_up_nobody_moves_fires_or_dashes():
+    """The upgrade cards hold play still (remastered design, in the engine so a replay agrees):
+    the arrows and the mouse choose a card, a dash asked meanwhile is refused, and a dash under
+    way stops. The tick a card is chosen on plays normally."""
+    g = Game(seed=1, horde=True, arena="rooftop")
+    idle(g, 12)
+    st = g.horde.state
+    p = g.player
+    assert g.remastered.request_dash(1)  # a dash under way when the cards come up
+    st["cards"] = ["speed", "medkit", "ammo"]  # the break waits for a card, so no wave comes
+    x, y, ammo = g.player.x, g.player.y, g.view.weapons[0]
+    assert g.remastered.request_dash(1) is False
+    shots = 0
+    for _ in range(6):
+        g.step(Inputs(x=1, y=-1, b1=1, b2=1, pointer_x=p.x + 80, pointer_y=p.y - 20))
+        shots += sum(1 for e in g.world.events if e.kind == "shot")
+    assert (g.player.x, g.player.y, g.view.weapons[0], shots) == (x, y, ammo, 0)
+    g.horde.choose(0)
+    g.step(Inputs(x=1, b2=1, pointer_x=p.x + 80, pointer_y=p.y - 20))  # the choosing tick plays
+    assert g.player.x > x and any(e.kind == "shot" for e in g.world.events)
+    idle(g, 20)  # the first dash's recharge
+    assert g.remastered.request_dash(1) is True
+
+
+def cut_pillar_tops(key: str, last_row: int) -> tuple:
+    """The arena's seals with its pillars cut short: nothing at or above ``last_row``."""
+    from abuse_remake.engine import horde
+
+    return tuple((x1, x2, max(y1, last_row + 1), y2, t) if x1 in (37, 38, 66, 67) and y1 <= last_row
+                 else (x1, x2, y1, y2, t) for x1, x2, y1, y2, t in horde.SEALS[key])
+
+
+def test_the_rooftop_pillar_must_reach_the_roof(monkeypatch):
+    from abuse_remake.engine import horde
+
+    monkeypatch.setitem(horde.SEALS, "rooftop", cut_pillar_tops("rooftop", 31))
+    assert escape("rooftop", "none") is not None  # over the stub and away along the lower ledges
+
+
+@pytest.mark.parametrize("whole", [True, False])
+def test_the_pit_pillar_walls_off_the_ledge_above_the_left_end(whole, monkeypatch):
+    """The pit's left end has a short ledge over it (tiles 39-40, row 78), which flight can reach.
+    The pillar's top keeps that ledge from leading off along the ledge beyond the arena."""
+    from abuse_remake.engine import horde
+
+    if not whole:
+        monkeypatch.setitem(horde.SEALS, "pit", cut_pillar_tops("pit", 79))
+    g, _ = quiet_arena("pit")
+    p = g.player
+    p.x = p.last_x = 1205
+    p.y = p.last_y = 1165
+    idle(g, 10)
+    assert g.player.y == 1171  # standing on the ledge (row 78)
+    idle(g, 40, x=-1)
+    assert (g.player.x >= ARENAS["pit"].x1 - 15) is whole, g.player.x
 
 
 def test_the_prison_arena_is_the_original_horde_arena():

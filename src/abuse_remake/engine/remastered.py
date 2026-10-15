@@ -97,8 +97,9 @@ class Remastered:
         p = self.game.player
         if st.pop("announce", False):
             self.game.world.emit("dash", x=p.x, y=p.y, direction=st["dash_dir"])
-        if st["dash_left"] > 0 and (p.aistate != NORMAL_PLAY or p.lvars.get("is_teleporting")):
-            st["dash_left"] = 0  # a teleport or death cancels the rest of the dash
+        cards = self.game.world.globals.get("horde", {}).get("cards")
+        if st["dash_left"] > 0 and (p.aistate != NORMAL_PLAY or p.lvars.get("is_teleporting") or cards):
+            st["dash_left"] = 0  # a teleport, death or Horde's upgrade cards cancel the rest of the dash
         if st["dash_left"] > 0:
             _, xv, _ = p.try_move(p.x, p.y, DASH_SPEED * st["dash_dir"], 0, 3)
             p.x += xv

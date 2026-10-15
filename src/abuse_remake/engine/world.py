@@ -349,6 +349,9 @@ class World:
                 h = v.cy2 - v.cy1 + 1
                 xo, yo = v.xoff(), v.yoff()
                 self.add_actives(xo - cdiv(w, 4), yo - cdiv(h, 4), xo + w + cdiv(w, 4), yo + h + cdiv(h, 4))
+        awake = self.globals.get("awake_area")  # Remastered's Horde only: its whole arena acts
+        if awake is not None:
+            self.add_actives(*awake)
 
     # --- the tick (level.c:596-760) ---
     def step(self) -> None:

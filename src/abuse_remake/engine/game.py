@@ -11,6 +11,7 @@ This mirrors the start of play in historicalsource/abuse@01cce80:
 from __future__ import annotations
 
 import hashlib
+import sys
 from array import array
 from dataclasses import dataclass
 from functools import cache
@@ -173,7 +174,10 @@ class Game:
         h.update(f"{v.weapons},{v.current_weapon},{v.ambient},{v.pan_x},{v.pan_y}".encode())
         if self.horde is not None:  # Horde's score, cards and timers, and its sealed map (never Classic)
             h.update(repr(sorted(self.horde.state.items())).encode())
-            h.update(array("H", self.world.tiles.cells).tobytes())
+            cells = array("H", self.world.tiles.cells)
+            if sys.byteorder != "little":
+                cells.byteswap()  # the same hash on every machine
+            h.update(cells.tobytes())
         return h.hexdigest()
 
 

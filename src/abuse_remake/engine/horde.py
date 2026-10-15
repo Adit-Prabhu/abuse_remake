@@ -9,7 +9,9 @@ Arenas. The level's own objects are removed; only the map and its lights stay.
 Each arena is a room cut out of a real level, and the ladders and lifts that lead out of it are
 objects, which Horde removes. So each arena is sealed when it loads (``SEALS``): walls and floors
 built from the level's own tiles close every drop and every way out, so that nobody can fall,
-walk, dash or fly out of it, and every enemy can reach the player.
+walk, dash or fly out of it. The whole arena acts each tick (``world.globals["awake_area"]``), not
+only what is near the view as in the original (``game::step``), so every enemy comes for the
+player wherever it was released.
 
 Waves. Wave n has 2 + 2n enemies, released one every 18 ticks at the arena's ends. Waves 1 and 2
 are ants only, as in the first Horde. From wave 3 each slot is drawn from a growing roster:
@@ -35,7 +37,8 @@ scores its enemy's points times the combo, which grows by one (up to 5) for each
 player took no damage in it. The run ends when the player dies.
 
 While the cards are up, play holds still: ``Game.step`` passes the player only the aim (``hold``),
-so the arrows and the mouse choose a card instead of walking or firing, and a dash is refused.
+so the arrows and the mouse choose a card instead of walking, jumping or firing; a dash is refused
+and one under way stops. Switching weapons still works.
 
 All state is in ``world.globals["horde"]``, except the sealed cells, which are in the world's own
 tile map; snapshots carry both, and ``Game.state_hash`` covers both. Horde draws its random numbers
@@ -178,6 +181,9 @@ class Horde:
                 game.view.add_ammo(wtype, n)
         seal(w, self.state["arena"])
         a = self.arena
+        # the whole sealed arena acts, not only what is near the view: an enemy released at the far
+        # end of a long arena would otherwise stand still until the player came near it
+        w.globals["awake_area"] = (a.x1 - 60, a.floor_y - 400, a.x2 + 60, a.floor_y + 60)
         p = game.player
         p.x, p.y = (a.x1 + a.x2) // 2, a.floor_y
         p.last_x, p.last_y = p.x, p.y
