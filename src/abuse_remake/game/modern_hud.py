@@ -79,7 +79,9 @@ class ModernHud:
         if heart is not None:
             screen.blit(heart, (box.left + 4 * u, box.top + 6 * u))
         t.text(screen, "HEALTH", (box.left + 23 * u, box.top + 3 * u), DIM)
-        t.text(screen, f"{p.hp}/{cap}", (box.right - 4 * u, box.top + 3 * u), TEXT, align="right")
+        # over the limit (ultra health's extra, kept after another power replaced it): the number alone
+        t.text(screen, f"{p.hp}/{cap}" if p.hp <= cap else str(p.hp), (box.right - 4 * u, box.top + 3 * u), TEXT,
+               align="right")
         color = GREEN if hp > 40 else (AMBER if hp > 15 else RED)
         t.bar(screen, pygame.Rect(box.left + 23 * u, box.top + 12 * u, 91 * u, 7 * u), hp / cap, color)
         x = box.right + 4 * u
@@ -128,13 +130,14 @@ class ModernHud:
                 screen.blit(img, (slot.left + 2 * u, slot.top + u))
             if sel:
                 pygame.draw.rect(screen, AMBER, slot, u)
-            label = chr(236) if i == 0 and ammo == 0 else str(ammo)  # the laser never runs out
+            endless = i == 0 and ammo == 0  # the laser never runs out
+            label, size = (chr(236), "big") if endless else (str(ammo), "small")
             t.text(screen, str(i + 1), (slot.left + 3 * u, slot.top + 2 * u), AMBER if sel else DIM)
-            aw, ah = t.measure(label)
+            aw, ah = t.measure(label, size)
             badge = pygame.Rect(slot.right - aw - 5 * u, slot.bottom - ah - 4 * u, aw + 4 * u, ah + 3 * u)
             pygame.draw.rect(screen, ui.DEEP[2], badge)
-            t.text(screen, label, (badge.right - 2 * u, badge.top + 2 * u), TEXT if sel else DIM, align="right",
-                   shadow=False)
+            t.text(screen, label, (badge.right - 2 * u, badge.top + 2 * u), TEXT if sel else DIM, size=size,
+                   align="right", shadow=False)
             x = slot.right + 2 * u
         return x
 
@@ -233,13 +236,17 @@ class ModernHud:
         if app.horde and app.game.horde.state["break"]:
             self._drop_labels(screen, app)
         hud.messages = hud.messages[-3:]  # the newest three; older ones have been read
+        room = w - 2 * 140 * u  # between the panels at the top left and right
         for m in hud.messages:
-            text = m[0].upper()
-            tw, th = t.measure(text)
-            box = pygame.Rect(w // 2 - tw // 2 - 6 * u, y, tw + 12 * u, th + 6 * u)
+            lines = t.wrap(m[0].upper(), room)
+            th = t.measure("X")[1]
+            tw = max(t.measure(line)[0] for line in lines)
+            box = pygame.Rect(w // 2 - tw // 2 - 6 * u, y, tw + 12 * u, len(lines) * (th + 3 * u) + 3 * u)
             t.plate(screen, box, alpha=190)
-            t.text(screen, text, (w // 2, y + 3 * u), AMBER if m[0].isupper() else TEXT, align="center")
-            y += th + 9 * u
+            for k, line in enumerate(lines):
+                t.text(screen, line, (w // 2, y + 3 * u + k * (th + 3 * u)), AMBER if m[0].isupper() else TEXT,
+                       align="center")
+            y = box.bottom + 3 * u
             m[1] -= 1
         hud.messages = [m for m in hud.messages if m[1] > 0]
         if self.banner is not None:
@@ -249,16 +256,23 @@ class ModernHud:
         """Between Horde waves, name each pickup lying in the arena."""
         t, u = self.t, self.u
         xoff, yoff = app.renderer.last_cam
-        shown = set()
+        w = screen.get_width()
+        shown, boxes = set(), []
         for o in app.game.world.objects:
             name = drop_name(o.ctype.name)
             if name is None or o.deleted or (name, o.x // 30, o.y // 30) in shown:
                 continue
             shown.add((name, o.x // 30, o.y // 30))  # one label for a pile of the same thing
-            sx = int((o.x - xoff) * app.scale)
-            sy = int((o.y - yoff) * app.scale) - 26 * u
             tw, th = t.measure(name)
+            sx = int((o.x - xoff) * app.scale)
+            if not tw // 2 + 4 * u <= sx <= w - tw // 2 - 4 * u:
+                continue  # at or past the screen's edge: a label only ever sits right above its pickup
+            sy = int((o.y - yoff) * app.scale) - 26 * u
             box = pygame.Rect(sx - tw // 2 - 3 * u, sy - 2 * u, tw + 6 * u, th + 4 * u)
+            while any(box.colliderect(b) for b in boxes):  # neighbours stack instead of overlapping
+                box.move_ip(0, -(th + 6 * u))
+                sy -= th + 6 * u
+            boxes.append(box)
             t.plate(screen, box, alpha=200)
             t.text(screen, name, (sx, sy), GREEN if name == "HEALTH" else TEXT, align="center", shadow=False)
 

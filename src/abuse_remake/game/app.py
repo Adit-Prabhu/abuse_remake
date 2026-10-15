@@ -679,9 +679,11 @@ class App:
                 self.card_focus = 0  # the cards screen says the rest
             elif e.kind == "horde_card":
                 from .modern_hud import CARDS as CARD_ART
+                from .modern_hud import POWER_CARDS
 
                 name, _, what, _ = CARD_ART.get(e.data["card"], (e.data["card"], None, CARDS[e.data["card"]], 0))
-                self.hud.say(f"{name}: {what}")
+                if e.data["card"] not in POWER_CARDS:  # a power's own prompt says what it does
+                    self.hud.say(f"{name}: {what}")
             elif e.kind == "boss_life":
                 self.hud.say(f"THE BOSS GETS BACK UP - {e.data['lives'] + 1} LIVES LEFT")
             elif e.kind == "wall_destroyed":
