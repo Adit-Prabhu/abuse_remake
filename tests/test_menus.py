@@ -81,6 +81,19 @@ def test_the_menu_works_with_the_mouse(home):
     assert app.state == "play"
 
 
+def test_a_gamepad_drives_the_menus(home):
+    app = make_app()
+    app._to_title()
+    app.on_event(pygame.event.Event(pygame.JOYHATMOTION, value=(0, -1), joy=0, instance_id=0, hat=0))
+    assert app._menu_key() == "horde"
+    app.on_event(pygame.event.Event(pygame.JOYBUTTONDOWN, button=0, joy=0, instance_id=0))
+    assert app.state == "briefing"
+    app.on_event(pygame.event.Event(pygame.JOYBUTTONDOWN, button=1, joy=0, instance_id=0))
+    assert app.state == "title"
+    app.on_event(pygame.event.Event(pygame.JOYBUTTONDOWN, button=1, joy=0, instance_id=0))
+    assert app.state == "title"  # B never quits from the title
+
+
 def test_switching_mode_keeps_the_menu_on_the_mode_line(home):
     app = make_app()
     app._to_title()

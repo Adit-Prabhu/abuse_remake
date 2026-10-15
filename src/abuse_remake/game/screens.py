@@ -28,7 +28,8 @@ CONTROLS = (
     ("PAUSE", [("key", "ESC")]),
     ("FULL SCREEN", [("key", "F11"), "OR", ("key", "CMD"), ("key", "F")]),
 )
-GAMEPAD = "Gamepad: left stick moves, right stick aims, A jumps, B acts, X dashes, RT fires, LB and RB switch weapons."
+GAMEPAD = ("Gamepad: left stick moves, right stick aims, A jumps, B acts, X dashes, RT fires, LB and RB switch "
+           "weapons. On menus: the D-pad, A to choose, B to go back.")
 LEGEND = (
     ("HEALTH  (bottom left)", "Your health, and its limit: 200 with ultra health."),
     ("DASH", "Refills after each dash. Dash when it is full."),
@@ -173,7 +174,7 @@ class Screens:
         t, u = self.t, self.u
         w, h = screen.get_size()
         t.dim(screen, 190)
-        pw, ph = min(456 * u, w - 12 * u), min(206 * u, h - 8 * u)
+        pw, ph = min(456 * u, w - 12 * u), min(218 * u, h - 8 * u)
         panel = pygame.Rect((w - pw) // 2, (h - ph) // 2, pw, ph)
         t.panel(screen, panel)
         left = panel.left + 10 * u

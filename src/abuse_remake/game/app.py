@@ -327,6 +327,9 @@ class App:
                 self.toggle_fullscreen()  # in every state, and nothing else: no start, no dash
                 return True
             return self.on_key(ev.key)
+        if self.state in ("title", "briefing", "help", "horde_over", "complete", "dead") and (
+                ev.type in (pg.JOYHATMOTION, pg.JOYBUTTONDOWN)):
+            return self._pad_menu(ev)  # the D-pad and A, B drive the menus and screens
         if ev.type == pg.JOYDEVICEADDED and self.joystick is None:
             self.joystick = pg.joystick.Joystick(ev.device_index)
             self.joy_rest = [self.joystick.get_axis(i) for i in range(self.joystick.get_numaxes())]
@@ -365,6 +368,20 @@ class App:
             return self.on_key(pg.K_RETURN)
         elif ev.type == pg.JOYBUTTONDOWN and self.state == "play" and ev.button == 2 and self.modern:
             self.pending_dash = True
+        return True
+
+    def _pad_menu(self, ev) -> bool:
+        """A gamepad on the menus: the D-pad is the arrow keys, A is Enter (Space after a death,
+        as the original asks), B is Esc."""
+        pg = self.pg
+        if ev.type == pg.JOYHATMOTION:
+            hx, hy = ev.value
+            k = pg.K_UP if hy > 0 else pg.K_DOWN if hy < 0 else pg.K_LEFT if hx < 0 else pg.K_RIGHT if hx > 0 else None
+            return self.on_key(k) if k is not None else True
+        if ev.button == 0:
+            return self.on_key(pg.K_SPACE if self.state == "dead" else pg.K_RETURN)
+        if ev.button == 1 and self.state != "title":  # B backs out; on the title it does not quit
+            return self.on_key(pg.K_ESCAPE)
         return True
 
     def toggle_fullscreen(self) -> None:
