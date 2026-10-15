@@ -101,7 +101,9 @@ BREAK_TICKS = 90  # ticks between waves, once a card is chosen
 SPAWN_EVERY = 18  # ticks between enemies within a wave
 DROPS = ("HEALTH", "MBULLET_ICON20", "GRENADE_ICON10", "ROCKET_ICON5", "FBOMB_ICON5")
 BOSS_EVERY = 5
-VERSION = 3  # human traces name it: 2 added cards and arenas, 3 sealed the arenas and moved drops
+# human traces name it: 2 added cards and arenas; 3 sealed the arenas, moved drops, holds play
+# still under the cards (stopping a dash) and keeps the whole arena awake
+VERSION = 3
 COMBO_TICKS = 45
 MAX_COMBO = 5
 POINTS = {"ANT_ROOF": 100, "FLYER": 150, "GREEN_FLYER": 200, "ROB1": 250, "JUGGER": 400, "BOSS": 2500}

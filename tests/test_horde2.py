@@ -117,8 +117,8 @@ def escape(key: str, power: str) -> str | None:
     g, floor = quiet_arena(key)
     special = {"none": 0, "flight": FLY_POWER, "speed": FAST_POWER}[power]
     for side in (-1, 1):
-        # along the floor; jumping; and straight up from the middle first, then sideways over
-        # anything that juts out at an end
+        # along the floor; jumping; and straight up first (from where the last leg left the player,
+        # near that side's wall), then sideways over anything that juts out at an end
         for legs in ([(110, dict(x=side))], [(110, dict(x=side, y=-1))], [(25, dict(x=0)), (85, dict(x=side))]):
             g.player.lvars["special_power"] = special
             for ticks, move in legs:
@@ -159,8 +159,8 @@ def test_without_its_seals_each_arena_can_be_left(key, monkeypatch):
 @pytest.mark.parametrize("player", ["in the middle", "at the far wall"])
 def test_every_enemy_stays_in_the_arena_and_comes_for_the_player(key, kind, end, player):
     """Released at either end, each kind of enemy keeps inside the arena and comes for the player:
-    within 70 px, or a Juggernaut within its throwing distance (it stops there and throws), or at
-    least 150 px nearer for a Juggernaut stomping the length of a long arena. The whole arena acts
+    within 70 px, or a Juggernaut within its throwing distance (it stops there and throws), or, for
+    a Juggernaut stomping the length of a long arena (about 0.8 px a tick), at least 150 px nearer. The whole arena acts
     (``awake_area``), so an enemy at the far end does not stand still."""
     a = ARENAS[key]
     g = Game(seed=5, horde=True, arena=key)
@@ -180,12 +180,14 @@ def test_every_enemy_stays_in_the_arena_and_comes_for_the_player(key, kind, end,
     st["spawn_in"] = 10 ** 6  # this enemy alone
     start = abs(o.x - g.player.x)
     nearest = 10 ** 6
-    for _ in range(240):
+    # long enough for a cleaner robot (2 px a tick) to roll the length of the longest arena
+    for _ in range(360 if player == "at the far wall" else 240):
         idle(g)
         assert a.x1 - 20 <= o.x <= a.x2 + 20 and CEILINGS[key] <= o.y <= floor + 2, (o.x, o.y)
         nearest = min(nearest, abs(o.x - g.player.x))
-    # it gets there, or (a Juggernaut stomping across a long arena) it is well on its way
-    assert nearest <= (130 if kind == "JUGGER" else 70) or start - nearest >= 150, (key, kind, end, start, nearest)
+    # it gets there; only a Juggernaut stomping the length of a long arena may still be on its way
+    near = nearest <= (130 if kind == "JUGGER" else 70)
+    assert near or (kind == "JUGGER" and start - nearest >= 150), (key, kind, end, start, nearest)
 
 
 @pytest.mark.parametrize("key", sorted(ARENAS))
@@ -235,6 +237,7 @@ def test_while_the_cards_are_up_nobody_moves_fires_or_dashes():
     assert g.remastered.request_dash(1)  # a dash under way when the cards come up
     st["cards"] = ["speed", "medkit", "ammo"]  # the break waits for a card, so no wave comes
     x, y, ammo = g.player.x, g.player.y, g.view.weapons[0]
+    g.remastered.state["cooldown"] = 0  # recharged: only the cards can refuse the next dash
     assert g.remastered.request_dash(1) is False
     shots = 0
     for _ in range(6):

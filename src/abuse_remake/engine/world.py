@@ -2,7 +2,8 @@
 
 Port of historicalsource/abuse@01cce80:
 - level::tick, add_actives, pull_actives, unactivate_all: abuse/src/level.c:162-242, 596-760
-- game::step (active area = view +/- a quarter of its size): abuse/src/game.c:1980-2000
+- game::step (active area = view +/- a quarter of its size): abuse/src/game.c:1980-2000; Remastered's
+  Horde alone adds its whole arena (``globals["awake_area"]``, see engine/horde.py)
 - boundary_setback, all_boundary_setback: level.c:461-563
 - check_collisions: abuse/src/collide.c
 - hurt_radius, find_*, crush, platform_push, push_characters, send_signal: level.c:2742-3020

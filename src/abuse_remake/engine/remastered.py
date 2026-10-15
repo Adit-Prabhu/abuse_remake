@@ -5,6 +5,8 @@ Classic mode never creates this object, and no fidelity test or evaluation runs 
 ``bottom_damage`` ignores damage while ``player_iframes`` is above zero, and the campaign
 (``_follow_exits``) may keep a level going after its exit sets ``level_complete``, when that exit
 leads to a level that cannot be played and another exit can. Level 1's exit is never kept shut.
+Horde (``horde.py``) adds a third: ``World.activate_for_views`` also activates
+``world.globals["awake_area"]``, the whole arena, which only Horde sets.
 
 The dash: a short burst along the ground or through the air in the direction you face (or are
 pressing). It moves with the engine's own collision (``try_move`` with feet and head checks), so
