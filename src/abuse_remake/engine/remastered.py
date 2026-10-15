@@ -49,8 +49,9 @@ class Remastered:
 
     def can_dash(self) -> bool:
         p = self.game.player
+        cards = self.game.world.globals.get("horde", {}).get("cards")  # Horde's cards hold play still
         return self.state["cooldown"] == 0 and p.aistate == NORMAL_PLAY and p.state not in ("dieing", "dead") \
-            and not p.lvars.get("is_teleporting")
+            and not p.lvars.get("is_teleporting") and not cards
 
     def request_dash(self, direction: int = 0) -> bool:
         """Start a dash toward ``direction`` (-1 or 1), or the way the player faces if 0."""

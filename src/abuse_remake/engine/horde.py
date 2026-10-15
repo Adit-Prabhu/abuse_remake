@@ -34,7 +34,11 @@ scores its enemy's points times the combo, which grows by one (up to 5) for each
 45 ticks of the last. A cleared wave adds 200 per wave number, and 300 more per wave number if the
 player took no damage in it. The run ends when the player dies.
 
-All state is in ``world.globals["horde"]``, so snapshots carry it. Horde draws its random numbers
+While the cards are up, play holds still: ``Game.step`` passes the player only the aim (``hold``),
+so the arrows and the mouse choose a card instead of walking or firing, and a dash is refused.
+
+All state is in ``world.globals["horde"]``, except the sealed cells, which are in the world's own
+tile map; snapshots carry both, and ``Game.state_hash`` covers both. Horde draws its random numbers
 from its own generator seeded from the game seed, so it never moves the original random table more
 than the enemies themselves do.
 """
@@ -62,15 +66,15 @@ class Arena:
 
 ARENAS = {
     "prison": Arena("prison", "level01", "Prison floor (Level 1)", 1680, 2400, 1640, 24),  # ceiling ~77 px up
-    # tile columns 68 to 86 above row 32, and 39 to 50 above row 87 (30x15 tiles); found by
-    # scanning Level 2's map for long flat floors with headroom (tests/test_horde2.py lands on them)
+    # tile columns 68 to 86 above row 32, and 39 to 52 above row 87 once sealed (30x15 tiles); found
+    # by scanning Level 2's map for long flat floors with headroom (tests/test_horde2.py lands on them)
     "rooftop": Arena("rooftop", "level02", "Rooftop (Level 2)", 2040, 2600, 481, 120),  # ceiling ~223 px up
     "pit": Arena("pit", "level02", "Juggernaut floor (Level 2)", 1180, 1580, 1306, 40),  # ~103 px at its ends
 }
 # Cells (tile x1..x2, y1..y2, inclusive) set to a tile when the arena loads, in order. The tiles
 # are the levels' own beveled-block set: 10 and 11 the right and left faces of a wall, 12 and 13
 # the joints where a floor meets a wall on its left and right, 26 a floor's top, 28 solid fill,
-# 67 an underside.
+# 67 an underside, 44 an underside's right corner.
 SEALS: dict[str, tuple[tuple[int, int, int, int, int], ...]] = {
     # a lid on the lift shaft in the top-left corner (column 56), which flight could climb
     "prison": ((56, 57, 103, 103, 67),),
@@ -78,7 +82,8 @@ SEALS: dict[str, tuple[tuple[int, int, int, int, int], ...]] = {
     # (columns 66-67) that dropped into the corridor under the roof
     "rooftop": ((66, 66, 17, 41, 11), (67, 67, 17, 41, 10), (67, 67, 32, 32, 12), (68, 68, 32, 32, 26)),
     # a pillar from the ceiling to the lower floor at the platform's left end (columns 37-38), and
-    # the platform carried on over the right-hand gap (columns 50-52) to the room's right wall
+    # the platform carried on over the right-hand gap (columns 50-52, rewriting 49-53) to the room's
+    # right wall
     "pit": ((38, 38, 71, 92, 10), (37, 37, 72, 92, 11), (38, 38, 87, 87, 12), (39, 39, 87, 87, 26),
             (39, 39, 88, 88, 28), (39, 39, 89, 89, 67),
             (49, 52, 87, 87, 26), (49, 53, 88, 88, 28), (49, 52, 89, 89, 67), (53, 53, 89, 89, 44),
@@ -223,6 +228,14 @@ class Horde:
         st["announce"] = card  # emitted after the next step: World.step clears events at its start
         return True
 
+    def hold(self, inputs):
+        """While the cards are up, the player's input keeps only the aim."""
+        if not self.state["cards"]:
+            return inputs
+        from .view import Inputs
+
+        return Inputs(pointer_x=inputs.pointer_x, pointer_y=inputs.pointer_y)
+
     def card_pool(self) -> list[str]:
         """The cards that can still do something: the dash card stops at its floor."""
         g = self.game
@@ -349,7 +362,7 @@ class Horde:
         a = self.arena
         p = self.game.player
         side = r.choice((-1, 1))
-        near = min(200, (a.x2 - a.x1) // 4)  # 80 px in the narrow pit, so both ends stay in play
+        near = min(200, (a.x2 - a.x1) // 4)  # 100 px in the narrow pit, so both ends stay in play
         if p.x - a.x1 < near:
             side = 1
         elif a.x2 - p.x < near:

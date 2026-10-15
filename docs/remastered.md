@@ -141,8 +141,9 @@ pixel size of the world.
   - Between waves, each pickup on the floor is named.
   - The upgrade screen: "WAVE n CLEARED" with the bonuses earned, then three cards. Each card
     shows the item's sprite, what it does, how to use it and how long it lasts. Choose with 1, 2
-    or 3, a click, the arrows and Enter, or the gamepad. While the cards are up the player stands
-    still, so the arrows choose instead of walking.
+    or 3, a click, the arrows and Enter, or the gamepad. While the cards are up, play holds still
+    (a Horde rule in the engine, so replays agree): only the aim reaches the player, so the arrows
+    choose instead of walking, and a dash is refused.
   - HORDE OVER: Enter plays again in the same arena; Esc goes to the title.
   - R does nothing in Horde play: there are no consoles, and it used to restart the run. The pause
     screen's R restarts the run on purpose.
@@ -174,7 +175,7 @@ screen and the window are shared.
 | Feature | Controls | What it does | Code |
 |---|---|---|---|
 | Dash | F, gamepad X | 4 ticks at +13 px per tick through the engine's own collision (it never passes walls), invulnerable for 7 ticks from the start, an 18-tick cooldown, not while teleporting or before play starts | `engine/remastered.py` |
-| Horde | HORDE on the title menu, or `--horde`; left and right on it (or A, or `--arena`) pick the arena; 1, 2, 3, a click, the arrows and Enter, or gamepad A/B/X pick an upgrade | Waves of enemies in a sealed arena: the prison floor of Level 1, Level 2's rooftop, or Level 2's Juggernaut floor. Each arena is a room of a real level, and Horde removes the ladders and lifts that lead out of it, so walls and floors made of the level's own tiles close every drop and way out when it loads: nobody can fall, walk, dash or fly out, and every enemy can reach you. Ants first, then flyers, cleaner robots and Juggernauts, and a boss Juggernaut with extra lives every fifth wave. Between waves you get health and ammo, and choose one of three upgrade cards (a power-up for the next wave, full health, ammo, the rocket launcher, or a faster dash). Your kills score points times a combo; a wave without damage earns a bonus. The run ends on death, with a top-10 table per arena and difficulty. Supplies land on the floor, in sight to one side of you. A Horde game recorded before the arenas were sealed cannot be replayed (`horde_version` 3) | `engine/horde.py` |
+| Horde | HORDE on the title menu, or `--horde`; left and right on it (or A, or `--arena`) pick the arena; 1, 2, 3, a click, the arrows and Enter, or gamepad A/B/X pick an upgrade | Waves of enemies in a sealed arena: the prison floor of Level 1, Level 2's rooftop, or Level 2's Juggernaut floor. Each arena is a room of a real level, and Horde removes the ladders and lifts that lead out of it, so walls and floors made of the level's own tiles close every drop and way out when it loads: nobody can fall, walk, dash or fly out, and every enemy stays in the arena and comes for you (tested for every kind, from both ends). Ants first, then flyers, cleaner robots and Juggernauts, and a boss Juggernaut with extra lives every fifth wave. Between waves you get health and ammo, and choose one of three upgrade cards (a power-up for the next wave, full health, ammo, the rocket launcher, or a faster dash). Your kills score points times a combo; a wave without damage earns a bonus. The run ends on death, with a top-10 table per arena and difficulty. Supplies land on the floor, in sight to one side of you. A Horde game recorded before the arenas were sealed cannot be replayed (`horde_version` 3) | `engine/horde.py` |
 
 ## Quality-of-life features (no rule changes)
 
@@ -197,8 +198,10 @@ campaign starts with Training; keys, mouse and the old letters), the Horde brief
 screen, the upgrade cards' keys, the power prompt, that R never ends a Horde run, and that every
 screen draws in both modes at several scales. `tests/test_horde2.py` checks that every spot on an
 arena's floor holds the player, that nobody leaves an arena by walking, jumping, dashing, flying
-or running fast, that the seals use only the level's own tiles and only in Horde, and that
-supplies land on the floor.
+or running fast (and that the same check finds the way out once an arena's seals are taken
+away), that every enemy kind released at either end stays in the arena and comes for the player,
+that the seals use only the level's own tiles and only in Horde, that supplies land on the floor
+40 to 140 px from the player, and that play holds still while the cards are up, also in a replay.
 
 `tests/test_remastered.py` checks:
 - Classic games and agent episodes never build Remastered or Horde rules;

@@ -668,8 +668,6 @@ class App:
         if getattr(self, "card_masks_input", False):  # the click or button that chose a card
             self.card_masks_input = False  # does not also fire, jump or act this tick
             inp = Inputs(x=inp.x, pointer_x=inp.pointer_x, pointer_y=inp.pointer_y)
-        if self._cards_up() and card is None:  # choosing: the arrows pick a card, not a direction
-            inp = Inputs(pointer_x=inp.pointer_x, pointer_y=inp.pointer_y)
         power_before = self.game.player.lvars.get("special_power", 0)  # before a card can give one
         if card is not None and self.game.horde is not None:
             self.game.horde.choose(card)  # recorded as asked, like a dash

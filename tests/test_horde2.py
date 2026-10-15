@@ -87,9 +87,14 @@ def quiet_arena(key):
     return g, g.player.y
 
 
+# the top of each arena's room (tile row 104 in Level 1; rows 17 and 70 in Level 2): nothing in an
+# arena is ever above it
+CEILINGS = {"prison": 1560, "rooftop": 255, "pit": 1050}
+
+
 @pytest.mark.parametrize("key", sorted(ARENAS))
 def test_every_spot_on_an_arena_floor_holds_the_player(key):
-    """Level 2's arenas had drops at their ends into rooms with no way back up."""
+    """No hole between the arena's ends (its ends are the next test's)."""
     a = ARENAS[key]
     g, floor = quiet_arena(key)
     snap = g.snapshot()
@@ -102,27 +107,72 @@ def test_every_spot_on_an_arena_floor_holds_the_player(key):
         assert g.player.y == floor, (key, x, g.player.y)
 
 
-@pytest.mark.parametrize("key", sorted(ARENAS))
-@pytest.mark.parametrize("power", ["none", "flight", "speed"])
-def test_nobody_leaves_an_arena_by_walking_jumping_dashing_or_flying(key, power):
+def escape(key: str, power: str) -> str | None:
+    """Walk, jump, dash, fly or run fast at each end of an arena; describe the first way out, if
+    any (outside its ends, below its floor or above its room), and check the player can always get
+    back down to the floor."""
     from abuse_remake.engine.behaviors.player import FAST_POWER, FLY_POWER
 
     a = ARENAS[key]
     g, floor = quiet_arena(key)
-    g.player.lvars["special_power"] = {"none": 0, "flight": FLY_POWER, "speed": FAST_POWER}[power]
-    held = int(power != "none")
+    special = {"none": 0, "flight": FLY_POWER, "speed": FAST_POWER}[power]
     for move in (dict(x=-1), dict(x=1), dict(x=-1, y=-1), dict(x=1, y=-1)):
+        g.player.lvars["special_power"] = special
         for t in range(110):
             if t % 20 == 0:
                 g.remastered.request_dash(move["x"])
-            idle(g, b1=held, **move)
+            idle(g, b1=int(special != 0), **move)
             p = g.player
-            assert a.x1 - 30 <= p.x <= a.x2 + 30 and p.y <= floor + 1, (key, power, move, p.x, p.y)
+            if not (a.x1 - 30 <= p.x <= a.x2 + 30 and CEILINGS[key] <= p.y <= floor + 1):
+                return f"{power} {move}: at ({p.x}, {p.y})"
         g.player.lvars["special_power"] = 0
         idle(g, 30, x=-move["x"])  # flight can perch on a ledge: walking away drops back down
         idle(g, 40)
-        assert g.player.y == floor, (key, power, move, g.player.x, g.player.y)  # back on the floor
-        g.player.lvars["special_power"] = {"none": 0, "flight": FLY_POWER, "speed": FAST_POWER}[power]
+        if g.player.y != floor:
+            return f"{power} {move}: stuck at ({g.player.x}, {g.player.y})"
+    return None
+
+
+@pytest.mark.parametrize("key", sorted(ARENAS))
+@pytest.mark.parametrize("power", ["none", "flight", "speed"])
+def test_nobody_leaves_an_arena_by_walking_jumping_dashing_or_flying(key, power):
+    assert escape(key, power) is None
+
+
+@pytest.mark.parametrize("key", sorted(ARENAS))
+def test_without_its_seals_each_arena_can_be_left(key, monkeypatch):
+    """The test above has teeth: with an arena's seals taken away it finds the way out (the
+    rooftop's and the pit's drops on foot, the prison's lift shaft in flight)."""
+    from abuse_remake.engine import horde
+
+    monkeypatch.setitem(horde.SEALS, key, ())
+    assert escape(key, "none") is not None or escape(key, "flight") is not None
+
+
+@pytest.mark.parametrize("key", sorted(ARENAS))
+@pytest.mark.parametrize("kind", ["ANT_ROOF", "ROB1", "JUGGER", "FLYER", "GREEN_FLYER"])
+@pytest.mark.parametrize("end", ["left", "right"])
+def test_every_enemy_stays_in_the_arena_and_comes_for_the_player(key, kind, end):
+    """Released at either end, each kind of enemy keeps inside the arena and comes for the player:
+    within 70 px, or a Juggernaut within its throwing distance (it stops there and throws)."""
+    a = ARENAS[key]
+    g = Game(seed=5, horde=True, arena=key)
+    g.view.god = 1
+    idle(g, 12)  # the player lands; wave 1 is still 33 ticks away
+    floor = g.player.y
+    st = g.horde.state
+    st["wave"] = 7
+    x = a.x1 + 20 if end == "left" else a.x2 - 20
+    g.horde._end = lambda r: x
+    g.horde._spawn(kind)
+    o = next(e for e in g.world.objects if e.uid == st["alive"][-1])
+    st["spawn_in"] = 10 ** 6  # this enemy alone
+    nearest = 10 ** 6
+    for _ in range(240):
+        idle(g)
+        assert a.x1 - 20 <= o.x <= a.x2 + 20 and CEILINGS[key] <= o.y <= floor + 2, (o.x, o.y)
+        nearest = min(nearest, abs(o.x - g.player.x))
+    assert nearest <= (130 if kind == "JUGGER" else 70), (key, kind, end, nearest)
 
 
 @pytest.mark.parametrize("key", sorted(ARENAS))
@@ -140,18 +190,25 @@ def test_arena_walls_are_built_from_the_levels_own_tiles_and_only_in_horde(key):
 
 
 @pytest.mark.parametrize("key", sorted(ARENAS))
-def test_supplies_land_on_the_floor_within_reach(key):
+@pytest.mark.parametrize("where", ["middle", "left end", "right end"])
+def test_supplies_land_on_the_floor_in_sight_beside_the_player(key, where):
     from abuse_remake.engine.horde import DROPS
 
     a = ARENAS[key]
     g, floor = quiet_arena(key)
-    g.horde.state["wave"] = 6  # several drops
+    p = g.player
+    p.x = p.last_x = {"middle": p.x, "left end": a.x1 + 10, "right end": a.x2 - 10}[where]
+    idle(g, 4)
+    g.horde.state["wave"] = 6  # 2 + 6 // 2 = 5 drops
     g.horde._drops()
-    idle(g, 40)
     drops = [o for o in g.world.objects if o.ctype.name in DROPS]
-    assert len(drops) >= 3
+    assert len(drops) == 5
     for o in drops:
-        assert abs(o.y - floor) <= 2 and a.x1 <= o.x <= a.x2, (key, o.ctype.name, o.x, o.y, floor)
+        assert 40 <= abs(o.x - g.player.x) <= 140 and a.x1 + 30 <= o.x <= a.x2 - 30, (key, where, o.x)
+    idle(g, 40)
+    drops = [o for o in g.world.objects if o.ctype.name in DROPS and not o.deleted]
+    assert len(drops) == 5  # none fell under the player and was picked up unseen
+    assert all(abs(o.y - floor) <= 2 for o in drops)  # on the floor, health packs too
 
 
 def test_the_prison_arena_is_the_original_horde_arena():
@@ -398,6 +455,16 @@ def test_cards_are_chosen_with_1_2_3_and_the_trace_replays(home, tmp_path):
         app.tick(i)
         i += 1
     assert st["cards"] and st["cleared"] == 1  # wave 1 cleared through the inputs alone
+    p = app.game.player
+    x = p.x
+    app.scripted_inputs = lambda tick: Inputs(x=1, b2=1, pointer_x=p.x + 50, pointer_y=p.y - 20)
+    for k in range(4):  # walking, firing and a dash while the cards are up: all held still
+        if k == 1:
+            app.on_key(pygame.K_f)
+        app.tick(i)
+        i += 1
+    assert app.game.player.x == x and app.stats["dashes"] == 0
+    app.scripted_inputs = shooter(app)
     app.on_key(pygame.K_2)
     app.tick(i)
     assert not st["cards"] and app.pending_weapon is None  # 2 chose a card, not a weapon
