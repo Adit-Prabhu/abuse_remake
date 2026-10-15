@@ -4,6 +4,46 @@ This page lets a fresh session (human or agent) pick up the build. Update it wit
 The approved plan is summarised in the "Branches and PRs" table below; `SCOPE.md` is the scope
 record.
 
+## Remastered expansion (2026-10-14)
+
+The student chose to grow Remastered mode, and approved the plan:
+- the shareware training level and Level 2, joined to Level 1 as a campaign;
+- the four original power-ups;
+- Horde 2: new enemies, upgrade cards, a boss every fifth wave, more arenas, score and high
+  scores.
+
+Classic mode and the agent evaluations are unchanged. `tests/test_classic_golden.py` pins Classic
+state hashes computed on `main` before the work.
+
+| Stage | Branch | Parent | Contents |
+|---|---|---|---|
+| R1 (#15) | `feat/rm-levels` | `main` | Shareware `level00`/`level02` vendored with provenance; strict loading per level; `engine/campaign.py` (exits, playability, the exit rule); `Game(carry=)` level changes; `--level`, L picker, carry-on, per-level records; traces follow level changes |
+| R2 (#16) | `feat/rm-training` | R1 | Training level objects (ladders, lava, springs, switch ball, training messages, flyers, straight rockets), the four power-ups, power drawing and HUD, extra power-ups placed in the training level, `scripts/route_search.py`, `evidence/routes/level00.json` |
+| R3 (#17) | `feat/rm-level02` | R2 | Level 2 objects (blocks, steps, pushers, tracking gun, cleaner robot, Juggernaut, thrown grenades), Level 2 route |
+| R4 (#18) | `feat/rm-horde2` | R3 | Horde 2: arenas (prison, rooftop, Juggernaut floor), roster, boss, cards, score and combos, top-10 tables |
+| R5 (#19) | `docs/rm-evidence` | R4 | Screenshots (`scripts/remastered_evidence.py`, `evidence/remastered/`), review records, these notes |
+
+How to pick it up:
+- `uv run abuse-remake` and press L on the title to choose the start level, or H for Horde and A
+  for its arena. `--level level00` and `--horde --arena rooftop` do the same from the command line.
+- `uv run python scripts/route_search.py --level level02 --goal level03 --via "x,y;..." --out F`
+  finds a route; `tests/test_campaign_routes.py` replays every saved route.
+- A new campaign level needs:
+  - its file in `data/original/levels` with provenance;
+  - its types in `scope.LEVEL_TYPES`;
+  - every behaviour ported (`campaign.unported` lists what is missing);
+  - a route in `evidence/routes`.
+
+What the student still has to do:
+- play each level and Horde, and judge the feel;
+- confirm the dated SCOPE.md draft;
+- merge the stack in order.
+Nothing here is a human playtest.
+
+Merge order is #15 to #19. The stack is based on `main`, not on the Neon PRs (#9-#14); whichever
+merges second needs a small rebase in `app.py` and `controls.py`. Review records are in
+`docs/reviews/PR-15.md` to `PR-18.md`.
+
 ## Branches and PRs (stacked; the student merges in order, agents never merge)
 
 | Milestone | Branch | PR | State |
