@@ -31,6 +31,9 @@ class Particles:
                           life=(8, 22), size=(1, 3))
                 self.emit(d["x"], d["y"] - 10, 14, 1.5, [(90, 90, 90), (60, 60, 60)], life=(20, 40),
                           size=(3, 5), gravity=-0.05, additive=False)
+            elif e.kind == "enemy_spawned" and "enemy" in d:  # Horde: show where each enemy comes in
+                self.emit(d["x"], d["y"] - 14, 22, 2.6, [(255, 90, 60), (255, 200, 120), (180, 40, 30)],
+                          life=(8, 18), size=(1, 2), gravity=0.0)
             elif e.kind == "enemy_killed":
                 self.emit(d["x"], d["y"] - 12, 26, 3.5, [(120, 220, 60), (60, 160, 40), (200, 255, 120)],
                           life=(10, 26), size=(1, 3))

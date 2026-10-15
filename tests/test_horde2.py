@@ -531,7 +531,7 @@ def test_the_upgrade_message_reaches_the_screen(home):
     st["cards"] = ["rockets", "medkit", "ammo"]
     app.on_key(pygame.K_1)
     app.tick(0)
-    assert any("Rocket launcher" in m[0] for m in app.hud.messages)
+    assert any("ROCKETS: The rocket launcher" in m[0] for m in app.hud.messages)
 
 
 def test_cards_can_be_chosen_with_a_gamepad_or_the_mouse(home):
@@ -548,7 +548,7 @@ def test_cards_can_be_chosen_with_a_gamepad_or_the_mouse(home):
     st = app.game.horde.state
     st["cards"] = ["rockets", "medkit", "ammo"]
     app.draw()
-    r = app.hud.card_rects[2]
+    r = app.mhud.card_rects[2]
     pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=r.center))
     app.args.frames = 3
     app.run()

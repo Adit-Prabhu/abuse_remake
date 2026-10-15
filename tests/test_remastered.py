@@ -305,7 +305,13 @@ def test_horde_app_shows_results_and_keeps_the_best(home):
     app.tick(0)
     assert app.state == "horde_over" and app.finish["new_best"]
     app.draw()
-    app.on_key(pygame.K_RETURN)
+    first = app.game
+    app.on_key(pygame.K_RETURN)  # play again: a new run in the same arena
+    assert app.state == "play" and app.game is not first and app.game.horde.state["wave"] == 0
+    app.game.player.hp = 0
+    app.game.player.aistate = 3
+    app.tick(0)
+    app.on_key(pygame.K_ESCAPE)  # or back to the title
     assert app.state == "title"
 
 

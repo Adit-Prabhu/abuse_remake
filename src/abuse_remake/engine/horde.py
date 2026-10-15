@@ -328,7 +328,8 @@ class Horde:
         st = self.state
         g = self.game
         st["cleared"] = st["wave"]
-        st["score"] += 200 * st["wave"] + (300 * st["wave"] if st["wave_hp_lost"] == 0 else 0)
+        bonus, clean = 200 * st["wave"], (300 * st["wave"] if st["wave_hp_lost"] == 0 else 0)
+        st["score"] += bonus + clean
         st["break"] = True
         st["spawn_in"] = BREAK_TICKS
         p = g.player
@@ -340,7 +341,7 @@ class Horde:
             st["card_power"] = None
         self._drops()
         st["cards"] = self._rng().sample(self.card_pool(), 3)
-        g.world.emit("horde_cleared", wave=st["wave"], cards=list(st["cards"]))
+        g.world.emit("horde_cleared", wave=st["wave"], cards=list(st["cards"]), bonus=bonus, clean=clean)
 
     # --- spawning ---
     def _end(self, r: random.Random) -> int:
