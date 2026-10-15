@@ -79,6 +79,81 @@ def test_each_arena_starts_the_player_on_its_floor(key):
     assert a.x1 < p.x < a.x2 and abs(p.y - a.floor_y) <= 15 and not g.player_dead  # on the floor
 
 
+def quiet_arena(key):
+    """An arena with no waves (only the map), the player settled on its floor; and that floor."""
+    g = Game(seed=1, horde=True, arena=key)
+    g.horde.state["over"] = True
+    idle(g, 12)
+    return g, g.player.y
+
+
+@pytest.mark.parametrize("key", sorted(ARENAS))
+def test_every_spot_on_an_arena_floor_holds_the_player(key):
+    """Level 2's arenas had drops at their ends into rooms with no way back up."""
+    a = ARENAS[key]
+    g, floor = quiet_arena(key)
+    snap = g.snapshot()
+    for x in range(a.x1 + 8, a.x2 - 7, 15):
+        g.restore(snap)
+        p = g.player
+        p.x = p.last_x = x
+        p.y = p.last_y = floor - 20
+        idle(g, 20)
+        assert g.player.y == floor, (key, x, g.player.y)
+
+
+@pytest.mark.parametrize("key", sorted(ARENAS))
+@pytest.mark.parametrize("power", ["none", "flight", "speed"])
+def test_nobody_leaves_an_arena_by_walking_jumping_dashing_or_flying(key, power):
+    from abuse_remake.engine.behaviors.player import FAST_POWER, FLY_POWER
+
+    a = ARENAS[key]
+    g, floor = quiet_arena(key)
+    g.player.lvars["special_power"] = {"none": 0, "flight": FLY_POWER, "speed": FAST_POWER}[power]
+    held = int(power != "none")
+    for move in (dict(x=-1), dict(x=1), dict(x=-1, y=-1), dict(x=1, y=-1)):
+        for t in range(110):
+            if t % 20 == 0:
+                g.remastered.request_dash(move["x"])
+            idle(g, b1=held, **move)
+            p = g.player
+            assert a.x1 - 30 <= p.x <= a.x2 + 30 and p.y <= floor + 1, (key, power, move, p.x, p.y)
+        g.player.lvars["special_power"] = 0
+        idle(g, 30, x=-move["x"])  # flight can perch on a ledge: walking away drops back down
+        idle(g, 40)
+        assert g.player.y == floor, (key, power, move, g.player.x, g.player.y)  # back on the floor
+        g.player.lvars["special_power"] = {"none": 0, "flight": FLY_POWER, "speed": FAST_POWER}[power]
+
+
+@pytest.mark.parametrize("key", sorted(ARENAS))
+def test_arena_walls_are_built_from_the_levels_own_tiles_and_only_in_horde(key):
+    from abuse_remake.engine.horde import SEALS
+
+    a = ARENAS[key]
+    horde = Game(seed=1, horde=True, arena=key).world.tiles
+    plain = Game(seed=1, level=a.level, remastered=True).world.tiles
+    changed = {(x, y) for y in range(plain.height) for x in range(plain.width) if horde.get(x, y) != plain.get(x, y)}
+    sealed = {(x, y) for x1, x2, y1, y2, _ in SEALS[key] for y in range(y1, y2 + 1) for x in range(x1, x2 + 1)}
+    assert changed and changed <= sealed  # nothing outside the seals changes
+    used = set(plain.cells)
+    assert all(horde.get(x, y) in used for x, y in changed)  # every new cell is a tile the level uses
+
+
+@pytest.mark.parametrize("key", sorted(ARENAS))
+def test_supplies_land_on_the_floor_within_reach(key):
+    from abuse_remake.engine.horde import DROPS
+
+    a = ARENAS[key]
+    g, floor = quiet_arena(key)
+    g.horde.state["wave"] = 6  # several drops
+    g.horde._drops()
+    idle(g, 40)
+    drops = [o for o in g.world.objects if o.ctype.name in DROPS]
+    assert len(drops) >= 3
+    for o in drops:
+        assert abs(o.y - floor) <= 2 and a.x1 <= o.x <= a.x2, (key, o.ctype.name, o.x, o.y, floor)
+
+
 def test_the_prison_arena_is_the_original_horde_arena():
     from abuse_remake.engine.horde import ARENA_FLOOR_Y, ARENA_X1, ARENA_X2
 
@@ -337,6 +412,12 @@ def test_cards_are_chosen_with_1_2_3_and_the_trace_replays(home, tmp_path):
     out = replay_human(rec)
     assert out["checks"] == 1 and out["mismatches"] == 0
     assert st["score"] > 0  # wave 1 was cleared with real laser shots, and they score
+    # a game recorded before the arenas were sealed played on other maps: refused, not mismatched
+    old = rec.with_name("old.jsonl")
+    old.write_text("\n".join(json.dumps({**r, "horde_version": 2} if r["kind"] == "new_game" else r)
+                             for r in rows) + "\n")
+    with pytest.raises(SystemExit, match="another version of Horde"):
+        replay_human(old)
 
 
 def test_every_flyer_release_height_is_clear_in_every_arena():

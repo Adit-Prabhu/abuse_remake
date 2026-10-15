@@ -33,7 +33,7 @@ from ..engine.view import Inputs
 
 class _Session:
     def __init__(self, row: dict, carry: Game | None = None):
-        from ..engine.horde import ARENAS
+        from ..engine.horde import ARENAS, VERSION
 
         self.row = row
         self.rules = row.get("rules", "classic")
@@ -41,7 +41,7 @@ class _Session:
         self.level = row.get("level", "level01")
         if self.horde:
             arena = row.get("arena", "prison")
-            if arena not in ARENAS or row.get("horde_version") != 2:
+            if arena not in ARENAS or row.get("horde_version") != VERSION:
                 raise SystemExit(f"this Horde game ({arena!r}) was recorded by another version of Horde; "
                                  "it cannot be replayed")
             self.level = ARENAS[arena].level
