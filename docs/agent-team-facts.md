@@ -39,7 +39,8 @@
 | 2026-10-14 | grow Remastered before the required items, **against the agent's advice** | `SCOPE.md` changes table |
 | 2026-10-26 | asked for an audit against the rubric ("be brutally honest") | `docs/reviews/midterm-audit-2026-10-26.md` |
 | 2026-10-26 | build on the reviewed #15-#20 line; levels stay only if each is fully finishable; leave out the Codex polish and the bridge; drop Neon | the audit's header, `SCOPE.md` |
-| 2026-10-26 | Vertex with a USD 10 cap; a draft course PR early; make the repository public after a secret scan | the audit's header, `SUITE.md` |
+| 2026-10-26 | Vertex with a USD 10 cap; make the repository public after a secret scan |
+| 2026-10-27 | nothing goes into the course repository until the submission is finished; the agent works only in this repository (the early draft course PR it had opened, #58, was closed and its branch deleted) | the audit's header, `SUITE.md` |
 | 2026-10-26 | "fix it one by one", stacked PRs, aiming for 20/20; no AI co-author trailers | PRs #21-#27 |
 
 ## Things the student can say in their own words

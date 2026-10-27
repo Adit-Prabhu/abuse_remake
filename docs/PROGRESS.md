@@ -51,8 +51,8 @@ order.
 
 Still to come:
 - the live smoke run, tuning (`docs/prompt-log.md`), the freeze and the reported run;
-- re-exporting the course folder (draft PR columbia-university-ai-games/game-dev-f26#58) once the
-  stack settles.
+- the course submission, which the student makes: `scripts/export_submission.py` builds the
+  `midterms/adit-prabhu/` folder in a clone of the course repository.
 
 The student owns:
 - `AGENT-TEAM.md` in their own voice, and the limitations paragraph;
