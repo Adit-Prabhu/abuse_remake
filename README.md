@@ -71,7 +71,7 @@ uv run ruff check src tests scripts
 
 ```sh
 uv run abuse-replay --player scripted --scenario level01-cp3                      # spectate the baseline live
-uv run abuse-replay --trace evidence/traces/offline-v5/scripted-level01-cp3-s0.jsonl  # replay a trace, checking every observation
+uv run abuse-replay --trace evidence/traces/offline-v6/scripted-level01-cp3-s0.jsonl  # replay a trace, checking every observation
 uv run abuse-agent --player scripted --scenario level01-cp1 --seed 0 --trace runs/demo.jsonl
 ```
 

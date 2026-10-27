@@ -40,17 +40,17 @@ situation and pooled:
 ### Baselines before the declaration (offline, 2026-10-26)
 
 `evidence/reports/offline-baselines.md` uses the older offline config: 600 decisions for every
-scenario, seeds 0–4, with the interface as it now stands (after PRs #21 and #25). Pooled over the
-four scenarios, scripted's progress is 0.348 and random's is 0.090 (a paired difference of
-−0.258, with a cluster-bootstrap 95% interval of [−0.558, −0.015]). Neither wins any of 20
-episodes. Per scenario:
+scenario, seeds 0–4, with the interface as it now stands (after PRs #21 and #25), generated from
+a clean commit. Pooled over the four scenarios, scripted's progress is 0.297 and random's is
+0.078 (a paired difference of −0.219, with a cluster-bootstrap 95% interval of
+[−0.521, −0.021]). Neither wins any of 20 episodes. Per scenario:
 
 | Scenario | random progress | scripted progress | scripted ending |
 |---|---|---|---|
-| `level01` | 0.163 (dies 5/5) | 0.163 on every seed | decision budget: it stalls in the first section |
-| `level01-cp1` | 0.117 (dies 3/5) | 0.155 | tick limit |
-| `level01-cp2` | 0.043 (dies 5/5) | 0.307 | dies 3/5 |
-| `level01-cp3` | 0.038 | 0.767 | dies 5/5, close to the exit |
+| `level01` | 0.123 (dies 5/5) | 0.140 | decision budget: it stalls in the first section |
+| `level01-cp1` | 0.126 (dies 2/5) | 0.155 | tick limit |
+| `level01-cp2` | 0.025 (dies 5/5) | 0.176 | dies 5/5 |
+| `level01-cp3` | 0.038 | 0.717 | dies 5/5, close to the exit |
 
 ## 3. The solver: is each situation winnable?
 
@@ -85,7 +85,7 @@ The five kinds of check the course asks for:
 
 ## 5. Traces
 
-- Offline: `evidence/traces/offline-v5/`, three traces, each replayed exactly in CI.
+- Offline: `evidence/traces/offline-v6/`, three traces, each replayed exactly in CI.
 - Every run writes all of its traces to `runs/<run>/traces/`. Selected live traces will be
   committed under `evidence/traces/`.
 - `uv run abuse-replay --trace <file>` replays one with its decision panel and checks every
