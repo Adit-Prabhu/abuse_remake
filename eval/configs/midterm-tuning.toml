@@ -19,11 +19,11 @@ max_wall_s = 3600
 max_input_tokens = 2000000
 max_output_tokens = 400000
 
-[prices]
-date = ""
-source = ""
-input_per_mtok = 0.0
-output_per_mtok = 0.0
+[prices]                  # Vertex AI, Gemini 3.5 Flash-Lite, global endpoint, standard tier ("Text output" includes reasoning)
+date = "2026-10-26"
+source = "https://cloud.google.com/vertex-ai/generative-ai/pricing"
+input_per_mtok = 0.30
+output_per_mtok = 2.50
 
 [[players]]
 label = "scripted"

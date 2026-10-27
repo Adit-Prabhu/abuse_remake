@@ -21,15 +21,15 @@ max_input_tokens = 1800000
 max_output_tokens = 450000
 max_wall_s = 7200
 
-[run]                     # stop starting live episodes once these are reached
-max_input_tokens = 20000000
-max_output_tokens = 3000000
+[run]                     # stop starting live episodes once these are reached; with the prices below the
+max_input_tokens = 13000000   # reported run cannot pass USD 7.65 (13M x 0.30 + 1.5M x 2.50), inside the
+max_output_tokens = 1500000   # student's USD 10 cap for smoke + tuning + this run
 
-[prices]                  # USD per million tokens, from the provider's price page, dated, before a live run
-date = ""
-source = ""
-input_per_mtok = 0.0
-output_per_mtok = 0.0
+[prices]                  # Vertex AI, Gemini 3.5 Flash-Lite, global endpoint, standard tier ("Text output" includes reasoning)
+date = "2026-10-26"
+source = "https://cloud.google.com/vertex-ai/generative-ai/pricing"
+input_per_mtok = 0.30
+output_per_mtok = 2.50
 
 [[players]]
 label = "random"
