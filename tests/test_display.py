@@ -103,6 +103,50 @@ def test_the_window_is_resizable_and_scales_the_frame(home):
     assert window_flags(Args()) == 0
 
 
+def test_switching_mode_closes_the_window_before_making_it_at_the_new_size(home, monkeypatch):
+    """Regression (2026-10-27): on macOS, pygame-ce 2.5.8 crashed (a segmentation fault in
+    ``set_mode``) when the title's MODE line switched between Classic and Remastered, whose frames
+    differ in size: a SCALED and RESIZABLE window made again at another size. The dummy driver
+    cannot crash, so this checks the order: close, then make; a window already at the size is
+    kept."""
+    calls = []
+    for name in ("quit", "set_mode"):
+        real = getattr(pygame.display, name)
+        monkeypatch.setattr(pygame.display, name, lambda *a, _n=name, _f=real, **k: calls.append(_n) or _f(*a, **k))
+    app = make_app()
+    calls.clear()
+    app._set_mode("classic")
+    assert calls == ["quit", "set_mode"] and app.window.get_size() == app.screen.get_size()
+    calls.clear()
+    app.__init__(app.args)  # the same mode again, as the title's H key does: the window stays
+    assert calls == []
+
+
+def test_the_window_keeps_its_size_across_mode_switches(home, monkeypatch):
+    """Regression (2026-10-27): the scale came from ``display.Info()``, which reports the open
+    window once there is one, so each switch shrank the window on a 1440x900 Mac (1440x810, then
+    1264x648 for Classic, then 960x540 for Remastered). Stood in for here: that desktop, and an
+    Info() that reports the window."""
+    from types import SimpleNamespace
+
+    from abuse_remake.game.app import App, parse_args
+
+    def info():
+        s = pygame.display.get_surface()
+        w, h = s.get_size() if s is not None else (1440, 900)
+        return SimpleNamespace(current_w=w, current_h=h)
+
+    monkeypatch.setattr(pygame.display, "Info", info)
+    monkeypatch.setattr(pygame.display, "get_desktop_sizes", lambda: [(1440, 900)])
+    pygame.display.quit()  # no window left open by an earlier test
+    app = App(parse_args(["--frames", "1", "--no-audio", "--seed", "1"]))  # the scale from the desktop
+    first = app.window.get_size()
+    app._set_mode("classic")
+    assert app.window.get_size() == (1264, 648)
+    app._set_mode("remastered")
+    assert app.window.get_size() == first == (1440, 810)
+
+
 @pytest.mark.parametrize("key,mod", [(pygame.K_F11, 0), (pygame.K_RETURN, pygame.KMOD_LALT),
                                      (pygame.K_f, pygame.KMOD_LMETA),
                                      (pygame.K_f, pygame.KMOD_LMETA | pygame.KMOD_LCTRL)])
