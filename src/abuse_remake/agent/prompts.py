@@ -34,7 +34,8 @@ Actions (reply with exactly one string from LEGAL ACTIONS):
 - fire left / fire right / fire up / fire down: fire the current weapon that way, at nothing in
   particular (up to 12 ticks)
 - weapon <name>: switch weapon
-Actions stop early when you are hurt or a new threat appears, so you can react.
+Actions stop early when you are hurt or (except attack and fire) when a new threat appears, so you
+can react.
 
 Object kinds:
 - alien: an ant-like enemy that runs, pounces and spits; dangerous up close. Some hang from

@@ -19,7 +19,8 @@ Each decision the player gets two things, as plain JSON (`agent/observation.py`,
      plus what the screen shows of the player.
    - `view`: the 316x162 play view rectangle in level pixels (`abuse/src/view.c:636-676`).
    - `tiles`: the on-screen tiles as classes (open, solid, slope, ledge, overhang, partly solid),
-     derived from each tile's collision outline.
+     derived from each tile's collision outline. The one exception is a hidden wall that imitates
+     a ledge, floor or pillar, whose cells show as solid (see "Breakable walls" below).
    - `objects`: every object whose picture overlaps the view and that the original draws in
      play. For each one: a stable label (`E3`, `S1`, ...), a public kind, its position and offset
      from the player, and only state that is visible on screen (door open or closed, switch on or
@@ -49,42 +50,52 @@ Each decision the player gets two things, as plain JSON (`agent/observation.py`,
 
 The original names these objects `HIDDEN_WALL1` to `HIDDEN_WALL_3FLR`
 (`data/original/lisp/doors.lsp:168-197`). Each is drawn in play from `art/chars/sect.spe`, with
-no `dev_draw`, and its picture changes as it takes damage (`hwall_damage`). Some only break
-after a switch activates them, because `hwall_damage` checks `(activated)`.
+no `dev_draw`. It blocks along its figure's outline, which is its whole picture box. Its frame,
+`3*(25-hp)//25`, shows cracks as it loses health (`hwall_damage`). Some ignore damage until a
+switch activates them, and one strong hit can destroy a wall straight from frame 0.
 
-*Drawn* is not the same as *recognisable*. `evidence/boundary/hidden-wall-types.png` shows the
-first instance of each of the eight types in Level 1, in place, in Classic:
-- **Cracked stone, visibly unlike the scenery:** `HIDDEN_WALL1`, and partly `HIDDEN_WALL5`.
-- **Indistinguishable from the floor, wall or dark background around them:** the other six.
-  The front end even counts a destroyed one as a "secret".
+*Drawn* is not the same as *recognisable*. Two renders show this, both re-rendered by
+`scripts/boundary_evidence.py`:
+- `evidence/boundary/hidden-wall-types.png`: the first instance of each type in Level 1.
+- `evidence/boundary/hidden-wall-frames.png`: the same instances at frames 0, 1 and 2, with
+  the blocking outline.
 
-`evidence/boundary/hidden-walls-classic.png` is the full view at the first column.
-`scripts/boundary_evidence.py` re-renders both.
+Every sprite is opaque. The dark ones (luminance about 29) copy the background panels, and the
+bright ones (about 50) copy the ledges, floors and pillars. So each type has its own look:
 
-**Finding (2026-10-26).** Until this was checked, the observation reported every hidden wall on
-screen as a `wall_block` object, and `attack W<n>` was legal for it. So the observation and the
-legal-action list told an agent which pieces of scenery are breakable, which a human playing
-for the first time would not know: a leaked secret.
+| Type | Uncracked, it looks like | Cracks show from frame |
+|---|---|---|
+| `HIDDEN_WALL1`, `HIDDEN_WALL5` | cracked stone (the column by the start) | 0, so it always looks breakable |
+| `HIDDEN_WALL4`, `HIDDEN_WALL_3FLR`, `HIDDEN_WALL_3WAL` | a ledge, a floor, a pillar | 1 |
+| `HIDDEN_WALL_2x2` | the background | 1 |
+| `HIDDEN_WALL2` | the background | 2 |
+| `HIDDEN_WALL3` | the background | never: its cracks are invisible on the dark panels |
 
-**The fix, made before any tuning or live run:**
-- **An uncracked hidden wall** (`current_frame` 0) is not an object. It is drawn and it blocks,
-  so the tile grid shows the cells its picture covers as solid (`#`), like any other wall
-  (`observation.scenery_cells`). The motor skills treat those cells as blocked, from the same
-  on-screen information. No action can name the wall.
-- **A cracked one** (`current_frame` above 0) is shown as a `wall_block` with `damaged: true`,
-  and `attack` and `goto` can name it. The level places some walls already cracked as visual
-  hints, such as the column at x 210 by the start. Any other wall becomes cracked when a shot
-  hits it, and the picture changes on screen.
-- **A player shoots scenery** with `fire left|right|up|down`, which fires the current weapon that
-  way without naming anything. A human can always shoot at a wall that looks suspicious, and so
-  can every player now.
+**What a player gets** (`observation.HIDDEN_WALL_LOOK`, `wall_look`):
+- **Looks cracked:** a `wall_block` object, with `cracks` (0 to 2), that `attack` and `goto` can
+  name.
+- **Looks like a ledge, floor or pillar:** solid cells (`#`) in the tile grid, exactly the
+  cells inside its outline. The navigation map remembers them off screen, like any wall seen
+  earlier, until it sees them without the wall. So nothing tells such a cell apart from a real
+  wall.
+- **Looks like the background:** nothing. The tile grid shows the tiles behind it. Collision
+  stops a player there, as it stops a human who walks into what looks like empty space.
 
-Tests: `test_an_undamaged_hidden_wall_looks_like_scenery`,
-`test_a_hidden_wall_shows_as_a_wall_block_once_a_shot_cracks_it`, and
-`test_fire_shoots_the_current_weapon_that_way_and_is_always_legal`. All three failed before the
-fix. The scripted baseline's "break through" rule now attacks cracked walls, and when stuck it
-fires at the scenery ahead and at the floor. That change was tuned only on the tuning set
-(`docs/prompt-log.md`).
+No wall is ever named before it looks breakable. A player shoots scenery that might break with
+`fire left|right|up|down`, which names nothing. A human can always shoot at a wall, so every
+player now can too.
+
+**History.** Until 2026-10-26 every hidden wall on screen was reported as a `wall_block`, which
+leaked six types' secrets. The first fix (PR #25) showed every uncracked wall as solid. Its
+review found two remaining leaks:
+- a solid lump appeared where the screen shows background;
+- the plain `HIDDEN_WALL1` was hidden while it looks exactly like the cracked ones beside it.
+
+Rendering every frame of every type produced the table above. Its tests are:
+- `test_each_hidden_wall_shows_only_as_it_looks` (all eight types, uncracked and cracked);
+- `test_no_wall_is_named_before_it_looks_breakable_at_the_start`;
+- `test_solid_looking_walls_are_remembered_off_screen_like_any_wall`;
+- `test_a_cracked_wall_blocks_navigation_over_its_whole_outline`.
 
 ### The Classic HUD covers a band of the view
 

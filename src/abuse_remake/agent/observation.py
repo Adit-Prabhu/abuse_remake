@@ -8,8 +8,9 @@ Information boundary (docs/information-boundary.md):
   alien hanging or running), never its HP, AI state, links, timers or the random table;
 - the player's HUD: health, weapons owned and ammo, the current weapon;
 - the tiles on screen, classified from their collision outlines (solid, slope, partial, empty);
-  an undamaged hidden wall, which looks like the scenery around it, shows as solid tiles and
-  becomes a ``wall_block`` object only once a shot has cracked it;
+- a hidden wall only as it looks (``HIDDEN_WALL_LOOK``): as a ``wall_block`` when it looks
+  cracked, as solid tiles while it imitates a ledge, floor or pillar, and not at all while it
+  imitates the background;
 - events the player would see or hear on screen, plus their own pickups and damage.
 
 Positions are level pixels, as on the original's automap (``abuse/src/automap.c``).
@@ -137,27 +138,72 @@ def view_rect(game) -> tuple[int, int, int, int]:
     return v.xoff(), v.yoff(), v.cx2 - v.cx1 + 1, v.cy2 - v.cy1 + 1
 
 
+# How each hidden-wall type in Level 1 looks (evidence/boundary/hidden-wall-frames.png, rendered
+# by scripts/boundary_evidence.py): what an uncracked one imitates, and the first frame whose
+# cracks show (None: they never show). All their sprites are opaque; the dark ones (luminance
+# about 29) copy the background panels, the bright ones (about 50) the ledges, floors and pillars.
+HIDDEN_WALL_LOOK = {
+    "HIDDEN_WALL1": ("cracked", 0), "HIDDEN_WALL5": ("cracked", 0),  # the cracked stone column
+    "HIDDEN_WALL4": ("solid", 1), "HIDDEN_WALL_3FLR": ("solid", 1), "HIDDEN_WALL_3WAL": ("solid", 1),
+    "HIDDEN_WALL2": ("background", 2), "HIDDEN_WALL_2x2": ("background", 1), "HIDDEN_WALL3": ("background", None),
+}
+
+
 def _is_hidden_wall(o) -> bool:
     return o.ctype.name.startswith("HIDDEN_WALL")
 
 
-def scenery_cells(game, x0: int, y0: int, w: int, h: int) -> set[tuple[int, int]]:
-    """Cells covered by an undamaged hidden wall on screen. Six of Level 1's eight hidden-wall
-    types look like the floor, wall or background around them, so until a shot cracks one it is
-    shown as what it looks like, solid scenery, and never as an object a player could name
-    (docs/information-boundary.md)."""
+def wall_look(o) -> str:
+    """'cracked' (shown as a ``wall_block``), 'solid' (shown as solid tiles) or 'background'
+    (not shown: like the background around it). Six of the eight types imitate scenery, so a
+    wall is never named before it looks breakable (docs/information-boundary.md)."""
+    look, cracks_from = HIDDEN_WALL_LOOK.get(o.ctype.name, ("solid", 1))
+    if cracks_from is not None and o.current_frame >= cracks_from:
+        return "cracked"
+    return look
+
+
+def wall_cells(o) -> set[tuple[int, int]]:
+    """The cells a hidden wall blocks: those whose centre lies inside its blocking outline (the
+    figure's damage outline, as ``World._setback`` uses it)."""
+    fig = o.figure()
+    dmg = fig.f_damage if o.direction > 0 else fig.b_damage
+    pts = [(o.x + o.tx(px), o.y + o.ty(py)) for px, py in dmg.points]
+    x1, y1, x2, y2 = o.picture_space()
     out = set()
+    for c in range(cdiv(x1, FORE_W), cdiv(x2, FORE_W) + 1):
+        for r in range(cdiv(y1, FORE_H), cdiv(y2, FORE_H) + 1):
+            if len(pts) >= 3 and _inside(pts, c * FORE_W + FORE_W / 2, r * FORE_H + FORE_H / 2):
+                out.add((c, r))
+    return out
+
+
+def _walls_on_screen(game, x0: int, y0: int, w: int, h: int):
     for o in game.world.objects:
-        if o.deleted or not _is_hidden_wall(o) or o.current_frame > 0:
+        if o.deleted or not _is_hidden_wall(o):
             continue
         x1, y1, x2, y2 = o.picture_space()
         if x2 < x0 or x1 > x0 + w - 1 or y2 < y0 or y1 > y0 + h - 1:
             continue
-        for c in range(cdiv(x1, FORE_W), cdiv(x2, FORE_W) + 1):
-            for r in range(cdiv(y1, FORE_H), cdiv(y2, FORE_H) + 1):
-                cx, cy = c * FORE_W + FORE_W // 2, r * FORE_H + FORE_H // 2
-                if x1 <= cx <= x2 and y1 <= cy <= y2:
-                    out.add((c, r))
+        yield o
+
+
+def scenery_cells(game, x0: int, y0: int, w: int, h: int) -> set[tuple[int, int]]:
+    """Cells of on-screen hidden walls that imitate a ledge, floor or pillar: shown, and
+    remembered, as solid like any wall."""
+    out = set()
+    for o in _walls_on_screen(game, x0, y0, w, h):
+        if wall_look(o) == "solid":
+            out |= wall_cells(o)
+    return out
+
+
+def cracked_wall_cells(game, x0: int, y0: int, w: int, h: int) -> set[tuple[int, int]]:
+    """Cells of on-screen hidden walls shown as ``wall_block`` objects, for the motor skills."""
+    out = set()
+    for o in _walls_on_screen(game, x0, y0, w, h):
+        if wall_look(o) == "cracked":
+            out |= wall_cells(o)
     return out
 
 
@@ -190,8 +236,8 @@ def visible_objects(game, ids: IdMap, x0, y0, w, h) -> list[dict]:
                 continue  # the player's own shots are not threats
         if kind.startswith("ammo") and not activated(o):
             continue  # on_draw: only drawn when activated
-        if kind == "wall_block" and o.current_frame == 0:
-            continue  # undamaged, it looks like scenery: the tile grid shows it (scenery_cells)
+        if kind == "wall_block" and wall_look(o) != "cracked":
+            continue  # it looks like scenery: solid tiles (scenery_cells) or the background
         if kind == "force_field" and not activated(o):
             continue  # ff_draw draws nothing while it is off
         x1, y1, x2, y2 = o.picture_space()
@@ -211,6 +257,7 @@ def visible_objects(game, ids: IdMap, x0, y0, w, h) -> list[dict]:
             entry["state"] = "on" if o.state == "running" else "off"
         elif kind == "wall_block":
             entry["damaged"] = o.current_frame > 0
+            entry["cracks"] = o.current_frame  # 0 to 2, as the picture shows
         elif kind == "projectile":
             entry["vx"], entry["vy"] = o.xvel, o.yvel
         elif kind == "lift":

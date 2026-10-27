@@ -28,6 +28,14 @@ MAX_FALL = 25
 @dataclass
 class KnownMap:
     seen: set[tuple[int, int]] = field(default_factory=set)
+    # cells seen covered by a hidden wall that imitates a ledge, floor or pillar: remembered as
+    # solid, like any wall, until seen without it
+    solid: set[tuple[int, int]] = field(default_factory=set)
+
+    def remember_solid(self, x0: int, y0: int, w: int, h: int, cells: set[tuple[int, int]]) -> None:
+        view = {(c, r) for r in range(cdiv(y0, FORE_H), cdiv(y0 + h - 1, FORE_H) + 1)
+                for c in range(cdiv(x0, FORE_W), cdiv(x0 + w - 1, FORE_W) + 1)}
+        self.solid = (self.solid - view) | (cells & view)
 
     def reveal(self, x0: int, y0: int, w: int, h: int) -> None:
         for r in range(cdiv(y0, FORE_H), cdiv(y0 + h - 1, FORE_H) + 1):
@@ -48,7 +56,7 @@ class Navigator:
     def cls(self, c: int, r: int) -> str | None:
         if (c, r) not in self.known.seen:
             return None
-        if (c, r) in self.blocked:
+        if (c, r) in self.blocked or (c, r) in self.known.solid:
             return "#"
         return tile_class(self.tm, self.tm.get(c, r))
 
@@ -156,12 +164,13 @@ class Navigator:
 
 
 def blocked_cells(objects) -> set[tuple[int, int]]:
-    """Cells covered by visible objects that stop the player: wall blocks, closed doors and
-    active force fields. Taken from the observation, so it uses only what is on screen."""
+    """Cells covered by visible objects that stop the player: closed doors and active force
+    fields. Taken from the observation, so it uses only what is on screen. (Cracked walls block
+    over their whole outline: ``observation.cracked_wall_cells``.)"""
     out = set()
     for o in objects:
         kind = o["kind"]
-        if kind == "wall_block" or (kind == "door" and o.get("state") in ("closed", "closing")):
+        if kind == "door" and o.get("state") in ("closed", "closing"):
             c, r = cell_of(o["x"], o["y"])
             for dr in range(0, 3):
                 out.add((c, r - dr))

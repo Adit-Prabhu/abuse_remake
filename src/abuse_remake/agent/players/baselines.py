@@ -61,7 +61,7 @@ class ScriptedPlayer:
         self.stuck = 0
         self.teleported_at = -10_000
         self.attacks: dict[str, int] = {}  # consecutive attacks on a target that did not change it
-        self.last_attack: tuple[str, bool] | None = None
+        self.last_attack: tuple[str, object] | None = None
         self.approach: dict[str, tuple[int, int]] = {}  # target -> (best distance, tries without improving)
         self.given_up: set[str] = set()
         self.fired: dict[tuple, int] = {}  # shots at the scenery ahead, per spot and direction
@@ -82,9 +82,9 @@ class ScriptedPlayer:
 
         seen = {o["id"]: o for o in objs}
         if self.last_attack is not None:
-            tid, damaged_before = self.last_attack
+            tid, cracks_before = self.last_attack
             o = seen.get(tid)
-            if o is not None and o.get("damaged", False) == damaged_before:
+            if o is not None and o.get("cracks") == cracks_before:
                 self.attacks[tid] = self.attacks.get(tid, 0) + 1
             else:
                 self.attacks.pop(tid, None)
@@ -108,13 +108,13 @@ class ScriptedPlayer:
                 self.approach[tid] = (min(best, seen.get(tid, {}).get("dist", best)), tries + 1)
             if action.startswith("attack "):
                 tid = action.split()[1]
-                self.last_attack = (tid, seen.get(tid, {}).get("damaged", False))
+                self.last_attack = (tid, seen.get(tid, {}).get("cracks"))
             return {"action": action, "note": why}
 
         def can_attack(o):
-            # Walls show cracks when hit, so an attack that leaves a wall unchanged is wasted: give up
-            # after 3. Enemies show no damage, so "unchanged" says nothing about them; the generous
-            # limit only stops the player shooting forever at one it cannot reach.
+            # A wall shows more cracks as it is hit, so an attack that leaves its cracks unchanged is
+            # wasted: give up after 3. Enemies show no damage, so "unchanged" says nothing about them;
+            # the generous limit only stops the player shooting forever at one it cannot reach.
             limit = 3 if o["kind"] == "wall_block" else 20
             return f"attack {o['id']}" in legal_set and self.attacks.get(o["id"], 0) < limit
 

@@ -21,7 +21,7 @@ Actions (docs/action-interface.md) are strings taken from ``legal_actions()``:
 
 Each action runs a deterministic controller that turns it into the original's inputs (left,
 right, up, down, fire, aim, weapon keys) for up to 15 ticks. It stops early when the player is
-hurt, or (except during ``attack``) when a new threat appears, so the agent can react. Every
+hurt, or (except during ``attack`` and ``fire``) when a new threat appears, so the agent can react. Every
 player gets exactly the same controllers. Labels (``E3``) are given only at decision time, so
 nothing seen only in the middle of an action uses one up.
 
@@ -43,9 +43,10 @@ from ..engine.game import Game, WeaponCommand
 from ..engine.view import Inputs
 from ..scope import FULL_LEVEL_TICK_LIMIT, SEGMENT_TICK_LIMIT
 from .nav import KnownMap, Navigator, blocked_cells, cell_of
-from .observation import WEAPON_NAMES, IdMap, build_observation, scenery_cells, view_rect
+from .observation import WEAPON_NAMES, IdMap, build_observation, cracked_wall_cells, scenery_cells, view_rect
 
 PLAYER_ID = "player"
+AIM_TICKS = 2  # the gun follows the pointer two ticks late, so attack and fire aim this long before firing
 INTERACTIVE = {"switch", "console", "teleporter", "door_teleporter", "exit", "lift"}
 TARGETABLE = {"alien", "turret", "boulder", "wall_block", "nest"}
 THREATS = {"alien", "turret", "boulder", "rock", "projectile"}
@@ -212,7 +213,9 @@ class AbuseEpisode:
         return "playing", ""
 
     def _reveal(self) -> None:
-        self._known.reveal(*view_rect(self._game))
+        view = view_rect(self._game)
+        self._known.reveal(*view)
+        self._known.remember_solid(*view, scenery_cells(self._game, *view))
 
     def _visible(self) -> dict:
         """What is on screen now, for the controllers. Labels come from a scratch copy: only an
@@ -326,7 +329,7 @@ class AbuseEpisode:
 
     def _nav(self) -> Navigator:
         x0, y0, w, h = view_rect(self._game)
-        blocked = blocked_cells(self._visible().values()) | scenery_cells(self._game, x0, y0, w, h)
+        blocked = blocked_cells(self._visible().values()) | cracked_wall_cells(self._game, x0, y0, w, h)
         return Navigator(self._game.world.tiles, self._known, blocked)
 
     def _follow(self, goal_cell, press_at_end: bool = False, close_px: int = 8, target_x: int | None = None):
@@ -402,7 +405,7 @@ class AbuseEpisode:
         yield from self._follow(best)
 
     def _c_attack(self, oid):
-        for _ in range(12):
+        for i in range(12):
             o = self._visible().get(oid)
             if o is None:
                 return
@@ -414,18 +417,18 @@ class AbuseEpisode:
             ty = tgt.y - cdiv(tgt.picture_height(), 2)
             face = 1 if tgt.x > p.x else -1
             x = face if p.direction != face else 0  # turn to face the target, then stand still
-            yield Inputs(x=x, b2=1, pointer_x=tgt.x, pointer_y=ty)
+            yield Inputs(x=x, b2=int(i >= AIM_TICKS), pointer_x=tgt.x, pointer_y=ty)
 
     def _c_fire(self, d):
         """Fire the current weapon that way without naming a target: what a human does when
         they shoot at scenery that might break."""
-        for _ in range(12):
+        for i in range(12):
             p = self._game.player
             ahead = 1 if p.direction > 0 else -1
             dx, dy, face = {"left": (-100, 0, -1), "right": (100, 0, 1),
                             "up": (10 * ahead, -100, 0), "down": (10 * ahead, 100, 0)}[d]
             x = face if face and p.direction != face else 0  # turn that way, then stand still
-            yield Inputs(x=x, b2=1, pointer_x=p.x + dx, pointer_y=p.y - 20 + dy)
+            yield Inputs(x=x, b2=int(i >= AIM_TICKS), pointer_x=p.x + dx, pointer_y=p.y - 20 + dy)
 
     # --- traces ------------------------------------------------------------------------
     def snapshot_for_trace(self) -> dict:
