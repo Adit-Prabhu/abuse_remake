@@ -47,14 +47,12 @@ order.
 | #24 | `chore/course-package` | The course workflow, the export script, `EVALUATION.md`, and the config record on the declared suite | packaging |
 | #25 | `fix/hidden-walls` | A hidden wall is shown only as it looks (cracked: a `wall_block`; drawn as scenery: remembered solid cells; background: nothing), from per-frame renders; `fire left/right/up/down`; `attack` and `fire` hold fire only while the gun turns and return fire when hurt; the baseline adapted on the tuning set (with a recorded deviation); evidence regenerated from a clean commit | `docs/reviews/PR-25.md` (two follow-ups) |
 | #26 | `eval/live-run` | Dated Vertex prices; run caps that keep smoke, tuning and the reported run under USD 9.66 | config only |
-| #27 | `feat/level01-route` | Solver `--mode classic` and `--start`; the per-situation solver routes, replayed in CI | in progress |
+| #27 | `feat/level01-route` | The solver's Classic mode, scenario starts, `--press` and `--min-hp`; Level 1 finished from START (1,414 ticks) and from every checkpoint scenario, replayed in CI; `docs/level01-route.md` | `docs/reviews/PR-27.md` |
 
 Still to come:
-- the Level 1 route (Classic, START to exit), replayed in CI, and the solver reference per
-  situation;
 - the live smoke run, tuning (`docs/prompt-log.md`), the freeze and the reported run;
-- the course folder `midterms/adit-prabhu/` with `.github/workflows/midterm-adit-prabhu.yml`,
-  opened as a draft PR.
+- re-exporting the course folder (draft PR columbia-university-ai-games/game-dev-f26#58) once the
+  stack settles.
 
 The student owns:
 - `AGENT-TEAM.md` in their own voice, and the limitations paragraph;

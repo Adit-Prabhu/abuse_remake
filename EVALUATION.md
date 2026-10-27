@@ -2,7 +2,7 @@
 
 **Status on 2026-10-26:**
 - The suite is declared (`SUITE.md`) and the offline baselines are run.
-- The solver's results arrive with its Classic mode (PR #27).
+- The solver shows that all four situations can be won under Classic rules.
 - **The live model comparison has not been run yet.** Its table and traces will be added here
   from the reported run, with the commit and `src` tree they ran on.
 
@@ -56,6 +56,26 @@ The baseline separates clearly from random on `level01` and `level01-cp3`. It is
 random on `level01-cp1`, and on `level01-cp2` the interval covers 0. On the tuning seeds of
 `cp2` (90 and 91) it reaches 0.254 on both, so `cp2`'s reported seeds are harder for it. No
 baseline change is made from that: the reported seeds are not for tuning.
+
+## 3. The solver: is each situation winnable?
+
+`scripts/route_search.py --mode classic` is a best-first search over the engine's own state. It
+is privileged, because it reads the World object, and it is never a competitor. Each route it
+found starts where the scenario starts, and CI replays it under Classic rules to the exit
+(`tests/test_campaign_routes.py`):
+
+| Situation | Winnable? | Route | Tick limit |
+|---|---|---|---|
+| `level01` (from START) | **yes** | 1,414 ticks (`evidence/routes/level01.json`) | 9,000 |
+| `level01-cp1` | **yes** | 1,440 ticks | 2,700 |
+| `level01-cp2` | **yes** | 1,156 ticks | 2,700 |
+| `level01-cp3` | **yes** | 337 ticks | 2,700 |
+
+The routes are seed 0. Level 1 is a puzzle: a lift, a switch that opens a trap door far below,
+teleporters, and a turret trap (`docs/level01-route.md`). An unguided search found no route in
+hours; the solver needed waypoints read from the level's objects. That is the gap between
+"heading right" and finishing the level, and it is where every player in the comparison is
+measured.
 
 ## Known limitations of the shared motor skills
 

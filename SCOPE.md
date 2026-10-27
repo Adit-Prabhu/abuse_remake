@@ -91,14 +91,13 @@ checks the separation.
 - **Interface:** a title menu, a controls screen, the HUD in the original interface art, a
   gamepad, a resizable window and full screen.
 
-**Every level in the build must be finishable, with evidence.** The training level and Level 2
-each have a saved input route that CI replays to the level's exit (`evidence/routes/`,
-`tests/test_campaign_routes.py`).
+**Every level in the build can be finished, with evidence.** Each has a saved input route that
+CI replays to the level's exit (`evidence/routes/`, `tests/test_campaign_routes.py`):
+- the training level and Level 2 under Remastered rules;
+- Level 1 under Classic rules, from START in 1,414 ticks (`docs/level01-route.md`).
 
-Level 1, the graded level, has no complete route yet. The solver has found Classic routes for
-START to console 2 (293 ticks) and for console 3 to the exit (337 ticks). The middle segment is
-still being searched, and the full route lands with its CI replay in a later PR. Until then this
-is an open item, not a claim.
+The evaluation's three checkpoint situations have their own routes too
+(`evidence/routes/solver/`).
 
 Both modes draw the level's own lights and interpolate 60 fps rendering between the 15 Hz ticks.
 The AI spectator (`abuse-replay`) always shows Classic rules.
