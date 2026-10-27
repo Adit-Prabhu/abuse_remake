@@ -75,3 +75,21 @@ def test_skills_and_reviewer_have_front_matter():
                  ".claude/agents/rules-reviewer.md"):
         head = (ROOT / path).read_text().split("---")
         assert head[0] == "" and "name:" in head[1] and "description:" in head[1], path
+
+
+def test_the_course_workflow_is_one_github_accepts():
+    """Regression (2026-10-27): a job-level `if:` that called hashFiles made GitHub reject the whole
+    workflow, so the course PR silently ran no midterm checks. Contexts allowed at job level do
+    not include hashFiles."""
+    import re
+
+    text = _workflow_text()
+    job_ifs = re.findall(r"^    if: (.*)$", text, flags=re.M)
+    assert job_ifs and not any("hashFiles" in cond for cond in job_ifs)
+    assert "pull_request:" in text and "midterms/adit-prabhu/**" in text
+    assert "${{ secrets" not in text and "permissions:\n  contents: read" in text
+
+
+def _workflow_text() -> str:
+    path = ".github/workflows/midterm-adit-prabhu.yml"
+    return (_repository_root(path) / path).read_text()
