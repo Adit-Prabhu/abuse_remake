@@ -1,5 +1,5 @@
 # The course repository's check for midterms/adit-prabhu/: deterministic tests only, no
-# network model calls and no secrets. The job runs only where that folder exists.
+# network model calls and no secrets. The job runs only in the course repository.
 name: midterm-adit-prabhu
 
 on:
@@ -14,7 +14,8 @@ permissions:
 jobs:
   deterministic:
     name: midterm-adit-prabhu checks (Python ${{ matrix.python }})
-    if: hashFiles('midterms/adit-prabhu/pyproject.toml') != ''
+    # only in the course repository (a job-level `if` cannot call hashFiles: GitHub rejects the file)
+    if: github.repository == 'columbia-university-ai-games/game-dev-f26'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
