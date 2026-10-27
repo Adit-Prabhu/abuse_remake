@@ -1,7 +1,7 @@
 """``abuse-replay``: watch an agent play, or replay a trace, on screen or into a video.
 
     uv run abuse-replay --player scripted --scenario level01-cp3 --seed 0          # watch live
-    uv run abuse-replay --trace evidence/traces/offline-v4/scripted-level01-cp3-s0.jsonl
+    uv run abuse-replay --trace evidence/traces/offline-v5/scripted-level01-cp3-s0.jsonl
     uv run abuse-replay --trace runs/x.jsonl --video evidence/video/demo.mp4 --headless
 
 The game runs under Classic rules through the same ``AbuseEpisode`` the evaluation uses. A

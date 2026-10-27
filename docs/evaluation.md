@@ -145,20 +145,20 @@ abuse-eval run --config eval/configs/live.toml --live --out runs/live-1 --resume
 ## Evidence so far
 
 - The offline baseline run: `evidence/reports/offline-baselines.md`, with its results, config and
-  three traces in `evidence/traces/offline-v4/`. It was regenerated on 2026-10-26 after the
-  decision-count fix (PR #21). Each scripted full-level episode's 600th decision now runs, so
-  those episodes' ticks (mean 4,813 to 4,823, pooled 2,762 to 2,765) and final positions
-  changed. Every progress, kill, damage and pickup figure and every paired difference is the
-  same.
+  three traces in `evidence/traces/offline-v5/`. It was regenerated twice on 2026-10-26:
+  - after the decision-count fix (PR #21), which changed only some tick counts and final
+    positions;
+  - after the hidden-wall fix (PR #25). Uncracked hidden walls are no longer named, the players
+    gained `fire`, and the scripted baseline shoots scenery when stuck. Its numbers moved a
+    little: pooled 0.353 to 0.348, `cp2` 0.326 to 0.307.
 - Progress is sampled on every tick (since the PR #5 review), and the random player seeds
   itself from its first observation instead of the episode seed.
-- Pooled over the 4 scenarios, random's progress minus scripted's is −0.271, with a
-  cluster-bootstrap 95% interval of [−0.586, −0.014].
-- The scripted baseline clearly beats random on the three checkpoint segments: −0.031, −0.283 and
-  −0.767.
-- On the full level from the start the two are level: −0.002 [−0.044, 0.039]. The scripted
-  baseline stops at 0.163 on every seed, at the same place. Random dies on all five seeds, but
-  sometimes gets further first (up to 0.229).
+- Pooled over the 4 scenarios, random's progress minus scripted's is −0.258, with a
+  cluster-bootstrap 95% interval of [−0.558, −0.015].
+- The scripted baseline clearly beats random on the three checkpoint segments: −0.038, −0.265 and
+  −0.729.
+- On the full level from the start the two are level: −0.000 [−0.032, 0.027]. The scripted
+  baseline stops at 0.163 on every seed, at the same place. Random dies on all five seeds.
 - The scripted baseline's weak spot is the full level's first section, which it does not solve.
   It is a fixed rule set, and these numbers show where a stronger player has room to do better.
 - The live comparison has not been run yet. It needs the owner's Vertex setup and approval of

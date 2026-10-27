@@ -119,6 +119,17 @@ gives no p-values.
 | Prices (date, source, USD per million tokens in/out) | |
 | Approved spending cap | **USD 10** for smoke + tuning + reported run, approved by the student on 2026-10-26 |
 
+## Changes before any run
+
+These are dated, and none came after a live call or any tuning of the model.
+
+- **2026-10-26, the interface (PR #25).** Checking every hidden-wall type showed that the
+  observation named camouflaged breakable walls, which leaked secrets
+  (`docs/information-boundary.md`). Uncracked hidden walls now show as solid scenery, and every
+  player gains `fire left|right|up|down`. The suite (situations, seeds, players, budgets,
+  metrics) is unchanged. The scripted baseline was adapted on the tuning set only, and that
+  round is logged in `docs/prompt-log.md`.
+
 ## Running and reporting rules
 
 - First `abuse-eval estimate`, then the 20-request `live-smoke`, then tuning, then the freeze,

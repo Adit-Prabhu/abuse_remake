@@ -8,6 +8,8 @@ Information boundary (docs/information-boundary.md):
   alien hanging or running), never its HP, AI state, links, timers or the random table;
 - the player's HUD: health, weapons owned and ammo, the current weapon;
 - the tiles on screen, classified from their collision outlines (solid, slope, partial, empty);
+  an undamaged hidden wall, which looks like the scenery around it, shows as solid tiles and
+  becomes a ``wall_block`` object only once a shot has cracked it;
 - events the player would see or hear on screen, plus their own pickups and damage.
 
 Positions are level pixels, as on the original's automap (``abuse/src/automap.c``).
@@ -135,13 +137,38 @@ def view_rect(game) -> tuple[int, int, int, int]:
     return v.xoff(), v.yoff(), v.cx2 - v.cx1 + 1, v.cy2 - v.cy1 + 1
 
 
+def _is_hidden_wall(o) -> bool:
+    return o.ctype.name.startswith("HIDDEN_WALL")
+
+
+def scenery_cells(game, x0: int, y0: int, w: int, h: int) -> set[tuple[int, int]]:
+    """Cells covered by an undamaged hidden wall on screen. Six of Level 1's eight hidden-wall
+    types look like the floor, wall or background around them, so until a shot cracks one it is
+    shown as what it looks like, solid scenery, and never as an object a player could name
+    (docs/information-boundary.md)."""
+    out = set()
+    for o in game.world.objects:
+        if o.deleted or not _is_hidden_wall(o) or o.current_frame > 0:
+            continue
+        x1, y1, x2, y2 = o.picture_space()
+        if x2 < x0 or x1 > x0 + w - 1 or y2 < y0 or y1 > y0 + h - 1:
+            continue
+        for c in range(cdiv(x1, FORE_W), cdiv(x2, FORE_W) + 1):
+            for r in range(cdiv(y1, FORE_H), cdiv(y2, FORE_H) + 1):
+                cx, cy = c * FORE_W + FORE_W // 2, r * FORE_H + FORE_H // 2
+                if x1 <= cx <= x2 and y1 <= cy <= y2:
+                    out.add((c, r))
+    return out
+
+
 def tile_grid(game, x0: int, y0: int, w: int, h: int) -> dict:
     tm = game.world.tiles
     c0, r0 = cdiv(x0, FORE_W), cdiv(y0, FORE_H)
     c1, r1 = cdiv(x0 + w - 1, FORE_W), cdiv(y0 + h - 1, FORE_H)
+    solid = scenery_cells(game, x0, y0, w, h)
     rows = []
     for r in range(r0, r1 + 1):
-        rows.append("".join(tile_class(tm, tm.get(c, r)) for c in range(c0, c1 + 1)))
+        rows.append("".join("#" if (c, r) in solid else tile_class(tm, tm.get(c, r)) for c in range(c0, c1 + 1)))
     return {"origin_x": c0 * FORE_W, "origin_y": r0 * FORE_H, "cell_w": FORE_W, "cell_h": FORE_H, "rows": rows}
 
 
@@ -163,6 +190,8 @@ def visible_objects(game, ids: IdMap, x0, y0, w, h) -> list[dict]:
                 continue  # the player's own shots are not threats
         if kind.startswith("ammo") and not activated(o):
             continue  # on_draw: only drawn when activated
+        if kind == "wall_block" and o.current_frame == 0:
+            continue  # undamaged, it looks like scenery: the tile grid shows it (scenery_cells)
         if kind == "force_field" and not activated(o):
             continue  # ff_draw draws nothing while it is off
         x1, y1, x2, y2 = o.picture_space()

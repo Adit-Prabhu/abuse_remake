@@ -25,9 +25,10 @@ An action is one string from `legal_actions()`. Matching ignores case and extra 
 | `move left`, `move right` | always | run | 6 |
 | `jump`, `jump left`, `jump right` | always | press up (and a direction) until landing | up to 15 |
 | `explore left`, `explore right` | always | walk along an A* path over the automap toward the furthest seen space that way, or run if there is none | up to 15 |
-| `goto <ID>` | the object is on screen and is a pickup, interactive object, door, wall or enemy | walk toward it along the automap | up to 15 |
+| `goto <ID>` | the object is on screen and is a pickup, interactive object, door, cracked wall or enemy | walk toward it along the automap | up to 15 |
 | `use <ID>` | a switch, console, teleporter, lift or the exit is on screen | walk to it and press the action key (down) | up to 15 |
-| `attack <ID>` | an alien, turret, boulder, wall block or nest is on screen | face it, aim at its middle and fire | up to 12 |
+| `attack <ID>` | an alien, turret, boulder, cracked wall (`wall_block`) or nest is on screen | face it, aim at its middle and fire | up to 12 |
+| `fire left`, `fire right`, `fire up`, `fire down` | always | turn that way (left and right), aim 100 px that way and fire the current weapon, naming no target. This is how a player shoots scenery that might break: an uncracked hidden wall is never an object (`docs/information-boundary.md`) | up to 12 |
 | `weapon <name>` | a weapon you own other than the current one, with ammo (the laser is always allowed) | press its number key; the laser can have no ammo, so press Ctrl until it is selected, as the original allows (`view.c` `last_weapon`) | 1 (laser: one per Ctrl press) |
 
 Each controller turns the action into the original controls: left, right, up, down, fire and the

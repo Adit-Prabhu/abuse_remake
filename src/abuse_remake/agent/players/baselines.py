@@ -11,7 +11,9 @@ the ``goto``, ``use`` and ``explore`` skills providing the search part.
 4. Save: use a restart console once.
 5. Switches: use each visible switch that is off, once.
 6. Supplies: pick up ammo within 250 px.
-7. Break through: attack a wall block that is close ahead, or when stuck.
+7. Break through: attack a cracked wall close ahead, or when stuck; when stuck with none in
+   sight, fire at the scenery ahead (twice per spot) and then at the floor (once per spot),
+   since a wall or floor that looks solid may break.
 8. Teleport: use a teleporter not used recently, when stuck.
 9. Otherwise explore in the current direction, turning around when no progress is made.
 """
@@ -62,6 +64,7 @@ class ScriptedPlayer:
         self.last_attack: tuple[str, bool] | None = None
         self.approach: dict[str, tuple[int, int]] = {}  # target -> (best distance, tries without improving)
         self.given_up: set[str] = set()
+        self.fired: dict[tuple, int] = {}  # shots at the scenery ahead, per spot and direction
 
     def start(self, info: dict) -> None:
         self.__init__()
@@ -154,6 +157,15 @@ class ScriptedPlayer:
         for o in walls:
             if can_attack(o):
                 return pick(f"attack {o['id']}", "break through")
+        if self.stuck >= 2 and f"fire {self.direction}" in legal_set:
+            spot = (p["x"] // 30, p["y"] // 15, self.direction)
+            if self.fired.get(spot, 0) < 2:
+                self.fired[spot] = self.fired.get(spot, 0) + 1
+                return pick(f"fire {self.direction}", "stuck: shoot the wall ahead")
+            floor = (p["x"] // 30, p["y"] // 15, "down")
+            if not self.fired.get(floor):
+                self.fired[floor] = 1
+                return pick("fire down", "stuck: shoot the floor")
         # 8. teleport when stuck
         if self.stuck >= 3 and obs["tick"] - self.teleported_at > 600:
             for o in objs:

@@ -41,9 +41,12 @@ order.
 
 | PR | Branch | Contents | Review |
 |---|---|---|---|
-| #21 | `fix/episode-limits` | The decision that reaches the cap runs its ticks. Offline evidence regenerated as `offline-v4`, and every committed trace replays in CI (`tests/test_evidence.py`) | `docs/reviews/PR-21.md` (with a follow-up) |
+| #21 | `fix/episode-limits` | The decision that reaches the cap runs its ticks. Offline evidence regenerated as `offline-v5`, and every committed trace replays in CI (`tests/test_evidence.py`) | `docs/reviews/PR-21.md` (with a follow-up) |
 | #22 | `eval/midterm-suite` | `SUITE.md`, `eval/configs/midterm.toml` and `midterm-tuning.toml`, declared before any live call; per-scenario budgets; runs record `src_tree` and `prompt_sha` | harness only, no rule change |
 | #23 | `docs/midterm-rubric` | `SCOPE.md` rewritten; rule map relabelled to `code/manual/observed/assumed/design`; provenance and publication terms; the boundary's two judgement calls (hidden walls, HUD strip); a README for the course folder with the design-choices table; a 15-minute playtest protocol; a 4:30 recording script | docs, plus the boundary screenshots and their script |
+
+| #24 | `chore/course-package` | The course workflow, the export script, `EVALUATION.md`, and the config record on the declared suite | packaging |
+| #25 | `fix/hidden-walls` | Uncracked hidden walls show as scenery, `fire left/right/up/down`, the baseline adapted on the tuning set, the evidence regenerated as `offline-v5` | `docs/reviews/PR-25.md` |
 
 Still to come:
 - the Level 1 route (Classic, START to exit), replayed in CI, and the solver reference per

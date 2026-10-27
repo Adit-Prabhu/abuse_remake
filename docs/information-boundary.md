@@ -64,9 +64,27 @@ first instance of each of the eight types in Level 1, in place, in Classic:
 **Finding (2026-10-26).** Until this was checked, the observation reported every hidden wall on
 screen as a `wall_block` object, and `attack W<n>` was legal for it. So the observation and the
 legal-action list told an agent which pieces of scenery are breakable, which a human playing
-for the first time would not know. That is a leaked secret. The interface is being changed
-before any tuning or live run, so that an undamaged hidden wall shows only as what it looks
-like. The change will be described here once it lands.
+for the first time would not know: a leaked secret.
+
+**The fix, made before any tuning or live run:**
+- **An uncracked hidden wall** (`current_frame` 0) is not an object. It is drawn and it blocks,
+  so the tile grid shows the cells its picture covers as solid (`#`), like any other wall
+  (`observation.scenery_cells`). The motor skills treat those cells as blocked, from the same
+  on-screen information. No action can name the wall.
+- **A cracked one** (`current_frame` above 0) is shown as a `wall_block` with `damaged: true`,
+  and `attack` and `goto` can name it. The level places some walls already cracked as visual
+  hints, such as the column at x 210 by the start. Any other wall becomes cracked when a shot
+  hits it, and the picture changes on screen.
+- **A player shoots scenery** with `fire left|right|up|down`, which fires the current weapon that
+  way without naming anything. A human can always shoot at a wall that looks suspicious, and so
+  can every player now.
+
+Tests: `test_an_undamaged_hidden_wall_looks_like_scenery`,
+`test_a_hidden_wall_shows_as_a_wall_block_once_a_shot_cracks_it`, and
+`test_fire_shoots_the_current_weapon_that_way_and_is_always_legal`. All three failed before the
+fix. The scripted baseline's "break through" rule now attacks cracked walls, and when stuck it
+fires at the scenery ahead and at the floor. That change was tuned only on the tuning set
+(`docs/prompt-log.md`).
 
 ### The Classic HUD covers a band of the view
 

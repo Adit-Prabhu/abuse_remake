@@ -365,6 +365,69 @@ def test_labels_are_given_only_at_decision_time_nearest_first():
     assert [int(o["id"][1:]) for o in walls] == sorted(int(o["id"][1:]) for o in walls)  # nearer, lower number
 
 
+def _hidden_wall_near(ep, x, y):
+    return min((o for o in ep._game.world.objects if o.ctype.name.startswith("HIDDEN_WALL") and not o.deleted),
+               key=lambda o: abs(o.x - x) + abs(o.y - y))
+
+
+def _cells_of(tiles, obj):
+    x1, y1, x2, y2 = obj.picture_space()
+    cw, ch = tiles["cell_w"], tiles["cell_h"]
+    return [((cx - tiles["origin_x"]) // cw, (cy - tiles["origin_y"]) // ch)
+            for cx in range(x1 - x1 % cw + cw // 2, x2 + 1, cw) for cy in range(y1 - y1 % ch + ch // 2, y2 + 1, ch)
+            if x1 <= cx <= x2 and y1 <= cy <= y2]
+
+
+def _place(ep, x, y):
+    """Move the player as a checkpoint scenario does (AbuseEpisode.reset): test set-up only."""
+    p, v = ep._game.player, ep._game.view
+    p.x, p.y = x, y
+    p.last_x, p.last_y = x, y
+    v.last_x, v.last_y, v.last_last_x, v.last_last_y = x, y, x, y
+
+
+def test_an_undamaged_hidden_wall_looks_like_scenery():
+    """Six of Level 1's eight hidden-wall types look like the floor, wall or background around
+    them (evidence/boundary/hidden-wall-types.png). An undamaged one is therefore not an object
+    and no action can name it; it is drawn and it blocks, so the tile grid shows it as solid.
+    Walls the level places already cracked (the column at x 210) look breakable, and are shown."""
+    ep = AbuseEpisode("level01", seed=0)
+    obs = ep.observe(PLAYER_ID)
+    blocks = [o for o in obs["objects"] if o["kind"] == "wall_block"]
+    assert blocks and all(o["damaged"] for o in blocks)  # the pre-cracked ones, and only those
+    plain = _hidden_wall_near(ep, 210, 74)
+    assert plain.current_frame == 0 and (plain.x, plain.y) not in {(o["x"], o["y"]) for o in blocks}
+    cells = _cells_of(obs["tiles"], plain)
+    assert cells and all(obs["tiles"]["rows"][r][c] == "#" for c, r in cells)
+    named = {a.split()[1] for a in ep.legal_actions(PLAYER_ID) if a.split()[-1].startswith("W")}
+    assert named == {o["id"] for o in blocks}
+
+
+def test_a_hidden_wall_shows_as_a_wall_block_once_a_shot_cracks_it():
+    ep = AbuseEpisode("level01", seed=0)
+    wall = _hidden_wall_near(ep, 210, 74)
+    _place(ep, 160, 74)
+    ep.step(PLAYER_ID, "wait")
+    assert (210, 74) not in {(o["x"], o["y"]) for o in ep.observe(PLAYER_ID)["objects"]}
+    for _ in range(4):
+        ep.step(PLAYER_ID, "fire right")
+        if wall.current_frame > 0:
+            break
+    assert wall.current_frame > 0 and not wall.deleted  # a visible change: cracks
+    shown = [o for o in ep.observe(PLAYER_ID)["objects"] if (o["x"], o["y"]) == (210, 74)]
+    assert shown and shown[0]["kind"] == "wall_block" and shown[0]["damaged"]
+    assert f"attack {shown[0]['id']}" in ep.legal_actions(PLAYER_ID)
+
+
+def test_fire_shoots_the_current_weapon_that_way_and_is_always_legal():
+    ep = AbuseEpisode("level01", seed=0)
+    legal = ep.legal_actions(PLAYER_ID)
+    assert {"fire left", "fire right", "fire up", "fire down"} <= set(legal)
+    r = ep.step(PLAYER_ID, "fire left")
+    assert r["accepted"] and 1 <= r["ticks"] <= 12
+    assert ep.counters["shots_fired"] > 0 and ep._game.player.direction < 0
+
+
 def test_navigation_plans_only_over_seen_tiles_and_respects_blocked_cells():
     from abuse_remake.agent.nav import KnownMap, Navigator, blocked_cells, cell_of
     from abuse_remake.engine.game import Game

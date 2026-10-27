@@ -34,7 +34,7 @@
     "run": {},
     "prices": {}
   },
-  "git": "88670c469c3424381c622f9db78e278bee44dcc6",
+  "git": "51f206ed5d836d190b14fa4ed81a92fb65663aad",
   "version": "0.1.0",
   "python": "3.12.0",
   "packages": {
@@ -46,7 +46,7 @@
   },
   "live": false,
   "only": null,
-  "started": "2026-10-27T00:25:11+00:00",
+  "started": "2026-10-27T02:01:27+00:00",
   "course_model": null,
   "budgets": {
     "level01": {
@@ -81,5 +81,8 @@
       "max_output_tokens": 0,
       "max_wall_s": 0.0
     }
-  }
+  },
+  "src_tree": "749c531e5a21d9b56bfa2182cc215eef3f2ab9bd",
+  "src_dirty": true,
+  "prompt_sha": "053f8d59b6c6"
 }
