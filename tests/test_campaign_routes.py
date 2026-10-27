@@ -16,7 +16,12 @@ from abuse_remake.paths import repo_root
 ROUTES = [p for p in sorted((Path(repo_root()) / "evidence" / "routes").glob("*.json"))
           if json.loads(p.read_text())["format"] == "campaign-route-1"]
 SOLVER = sorted((Path(repo_root()) / "evidence" / "routes" / "solver").glob("*.json")) + [
-    Path(repo_root()) / "evidence" / "routes" / "level01.json"]  # the full level is the `level01` situation
+    Path(repo_root()) / "evidence" / "routes" / "level01.json"]  # the full level is the `level01` situation, seed 0
+
+
+def _situation(path: Path) -> str:
+    """solver/<scenario>-s<seed>.json, or the full-level route itself."""
+    return path.stem.rsplit("-s", 1)[0] if path.parent.name == "solver" else "level01"
 
 
 def _module():
@@ -127,7 +132,9 @@ def test_a_solver_route_wins_its_scenario_under_classic_rules(path):
     from abuse_remake.agent.interface import SCENARIOS
 
     route = json.loads(path.read_text())
-    scenario = SCENARIOS[path.stem]
+    scenario = SCENARIOS[_situation(path)]
+    if path.parent.name == "solver":
+        assert path.stem.endswith(f"-s{route['seed']}")
     assert route["mode"] == "classic" and route["level"] == "level01" and route["difficulty"] == "hard"
     if scenario.start is None:
         assert "start" not in route
@@ -135,5 +142,41 @@ def test_a_solver_route_wins_its_scenario_under_classic_rules(path):
         assert tuple(route["start"]) == scenario.start
     mod = _module()
     g = mod.replay_route(route)
+    assert g.remastered is None  # the replay really ran Classic (Remastered Level 1 would also finish)
     assert mod.finished(g, route["goal"], "classic") and not g.player_dead
     assert g.frames == route["ticks"] <= scenario.max_ticks
+
+
+def test_every_reported_situation_has_a_solver_route_and_none_is_lost():
+    """Seed 0 for every situation; on the other reported seeds the solver crossed the turret room
+    only for cp2 (seed 1) and cp3 (seeds 1, 2): EVALUATION.md reports exactly this set, and a
+    deleted route fails here."""
+    import tomllib
+
+    from abuse_remake.agent.interface import SCENARIOS
+
+    suite = tomllib.loads((Path(repo_root()) / "eval" / "configs" / "midterm.toml").read_text())
+    have = {(_situation(p), json.loads(p.read_text())["seed"]) for p in SOLVER}
+    assert {s for s, _ in have} == set(SCENARIOS) == set(suite["scenarios"])
+    assert have == {("level01", 0), ("level01-cp1", 0), ("level01-cp2", 0), ("level01-cp2", 1),
+                    ("level01-cp3", 0), ("level01-cp3", 1), ("level01-cp3", 2)}
+
+
+def test_the_solver_starts_a_checkpoint_exactly_as_the_agents_scenario_does():
+    """route_search.place copies AbuseEpisode.reset; if reset changes, the solver's routes would
+    stop saying anything about the agents' scenarios."""
+    from abuse_remake.agent.interface import SCENARIOS, AbuseEpisode
+    from abuse_remake.engine.game import Game
+
+    mod = _module()
+    for name, sc in SCENARIOS.items():
+        ep = AbuseEpisode(name, seed=1)
+        g = Game(seed=1, difficulty="hard", level="level01", remastered=False)
+        if sc.start is not None:
+            mod.place(g, sc.start)
+        a, b = ep._game, g
+        assert a.state_hash() == b.state_hash()
+        assert (a.player.x, a.player.y, a.player.last_x, a.player.last_y) == \
+               (b.player.x, b.player.y, b.player.last_x, b.player.last_y)
+        assert (a.view.last_x, a.view.last_y, a.view.last_last_x, a.view.last_last_y) == \
+               (b.view.last_x, b.view.last_y, b.view.last_last_x, b.view.last_last_y)

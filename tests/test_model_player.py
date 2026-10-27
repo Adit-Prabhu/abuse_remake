@@ -242,7 +242,10 @@ def test_prompt_is_a_pure_function_of_the_observation():
 
 
 def test_system_prompt_has_no_map_knowledge():
-    for leak in ("2715", "NEXT_LEVEL", "ANT_ROOF", "aistate", "level01.spe", "rule-source-map"):
+    # nothing from the map or the solver's walkthrough (docs/level01-route.md): the exit, the
+    # switch that opens the trap door, the lift, the door teleporters
+    for leak in ("2715", "1905", "2160", "2340", "1680", "lift up", "trap door", "NEXT_LEVEL", "ANT_ROOF",
+                 "aistate", "level01.spe", "rule-source-map", "level01-route"):
         assert leak not in SYSTEM
     assert system_prompt(True) != system_prompt(False) and '"notes"' in system_prompt(True)
 

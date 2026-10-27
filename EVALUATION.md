@@ -1,8 +1,8 @@
 # Evaluation
 
-**Status on 2026-10-26:**
+**Status on 2026-10-27:**
 - The suite is declared (`SUITE.md`) and the offline baselines are run.
-- The solver shows that all four situations can be won under Classic rules.
+- The solver shows that all four situations can be won under Classic rules (seed 0; §3).
 - **The live model comparison has not been run yet.** Its table and traces will be added here
   from the reported run, with the commit and `src` tree they ran on.
 
@@ -61,21 +61,29 @@ baseline change is made from that: the reported seeds are not for tuning.
 
 `scripts/route_search.py --mode classic` is a best-first search over the engine's own state. It
 is privileged, because it reads the World object, and it is never a competitor. Each route it
-found starts where the scenario starts, and CI replays it under Classic rules to the exit
-(`tests/test_campaign_routes.py`):
+found starts where the scenario starts, and CI replays it under Classic rules (difficulty hard)
+to the exit (`tests/test_campaign_routes.py`). Route lengths in ticks:
 
-| Situation | Winnable? | Route | Tick limit |
-|---|---|---|---|
-| `level01` (from START) | **yes** | 1,414 ticks (`evidence/routes/level01.json`) | 9,000 |
-| `level01-cp1` | **yes** | 1,440 ticks | 2,700 |
-| `level01-cp2` | **yes** | 1,156 ticks | 2,700 |
-| `level01-cp3` | **yes** | 337 ticks | 2,700 |
+| Situation | Seed 0 | Seed 1 | Seed 2 | Tick limit |
+|---|---|---|---|---|
+| `level01` (from START) | **1,414** | not found | not found | 9,000 |
+| `level01-cp1` | **1,440** | not found | not found | 2,700 |
+| `level01-cp2` | **1,156** | **1,156** | not found | 2,700 |
+| `level01-cp3` | **337** | **341** | **349** | 2,700 |
 
-The routes are seed 0. Level 1 is a puzzle: a lift, a switch that opens a trap door far below,
-teleporters, and a turret trap (`docs/level01-route.md`). An unguided search found no route in
-hours; the solver needed waypoints read from the level's objects. That is the gap between
-"heading right" and finishing the level, and it is where every player in the comparison is
-measured.
+**Every situation can be won under the rules** (seed 0). The seed moves the enemies' random
+choices, and every "not found" fails at the same place: the trap room, where nine spray-gun
+turrets wake while the player waits on a teleporter. There the search ran out of branches, even
+at a finer setting (about 9,000-10,800 nodes). That says the solver's coarse moves die there on
+those seeds. It does not say the room cannot be crossed: for example, it never stops to shoot
+the turrets first.
+
+These are routes of per-tick inputs, which fire while running at targets read from the engine.
+So they show that the **rules** allow a win, not that the action interface does
+(`docs/level01-route.md`). Level 1 is a puzzle: a lift, a switch that opens a trap door far
+below, teleporters, and the turret trap. Unguided searches found no route, and the solver needed
+waypoints read from the level's objects. That gap, between heading right and finishing the
+level, is where every player in the comparison is measured.
 
 ## Known limitations of the shared motor skills
 

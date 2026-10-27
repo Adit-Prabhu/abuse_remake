@@ -244,8 +244,19 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
     to = tuple(int(v) for v in args.to.split(",")) if args.to else None
     via = [tuple(int(v) for v in p.split(",")) for p in args.via.split(";")] if args.via else None
-    prefix = json.loads(args.prefix.read_text())["inputs"] if args.prefix else None
     start = tuple(int(v) for v in args.start.split(",")) if args.start else None
+    prefix = None
+    if args.prefix:  # a segment continues the saved one: same start, mode and seed, or it means nothing
+        saved = json.loads(args.prefix.read_text())
+        prefix = saved["inputs"]
+        saved_start = tuple(saved["start"]) if saved.get("start") else None
+        if start is None:
+            start = saved_start
+        if start != saved_start or saved.get("mode", "remastered") != args.mode or saved["seed"] != args.seed:
+            raise SystemExit(f"--prefix {args.prefix} was found with start {saved_start}, mode "
+                             f"{saved.get('mode', 'remastered')}, seed {saved['seed']}: give the same")
+    if args.press and not args.to:
+        raise SystemExit("--press throws a switch at the end of a --to segment; give --to")
     rows, expanded, secs = search(args.level, args.goal, args.seed, args.difficulty, args.budget,
                                   args.cell, args.ticks, to, via, prefix, args.mode, start, args.min_hp)
     if rows is None:
@@ -262,9 +273,12 @@ def main(argv=None) -> int:
     if to is not None:
         route["format"], route["to"] = "campaign-reach-1", list(to)
         if args.press:
+            before = replay_route(route)
             rows.append([args.press, 0, 1, 0, 0, 100, 0])
             route["ticks"] += args.press
             route["press"] = args.press
+            if signature(replay_route(route))[0] == signature(before)[0]:
+                raise SystemExit("--press changed no switch or door: the segment does not end close enough to one")
     g = replay_route(route)
     if to is None:
         assert finished(g, args.goal, args.mode)

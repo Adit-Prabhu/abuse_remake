@@ -1,8 +1,9 @@
 # How the Level 1 route was found
 
-`evidence/routes/level01.json` finishes Classic Level 1 from START in 1,414 ticks, about 94 s of
+`evidence/routes/level01.json` finishes Classic Level 1 (hard, seed 0) from START in 1,414 ticks, about 94 s of
 game time against a 9,000-tick limit. CI replays it (`tests/test_campaign_routes.py`).
-`evidence/routes/solver/` holds the same kind of route from each checkpoint scenario's start:
+`evidence/routes/solver/` holds the same kind of route from each checkpoint scenario's start
+(seed 0 below; `EVALUATION.md` §3 gives the other seeds):
 
 | Situation | Ticks | Limit |
 |---|---|---|
@@ -16,9 +17,11 @@ ceiling for what is possible, not a player.
 
 ## The level's puzzle
 
-An unguided search wandered for hours. Level 1 is a chain of switches, a lift and teleporters,
-and the A* distance the evaluator uses ignores all three. The way through, read from the level
-file's objects and links:
+Unguided searches failed. One ran 9 minutes before `--mode classic` existed; in development, a
+Classic one with the consoles as its only waypoints ran over 90 minutes and expanded 14,000
+nodes without a route. Level 1 is a chain of switches, a lift and teleporters. The A* distance
+the evaluator uses (and the search's heuristic) counts the teleporters, but not the switches or
+the lift. The way through, read from the level file's objects and links:
 
 1. From START, down to console 2: a lift, then the room whose floor is breakable.
 2. Break the hidden floor, drop past the switch room at (720, 1080), go down the shaft into the
@@ -36,8 +39,10 @@ file's objects and links:
 
 These are run from the project folder. Each segment continues from the previous one with
 `--prefix`, and `--via` gives the waypoints above. `--press 4` holds the action key for 4 ticks
-at the switch. `--min-hp 1` lets the last segment cross the turret room: by default the search
-drops any branch below 25 health.
+at the switch, and fails if no switch or door changed. `--min-hp 1` lets the last segment cross
+the turret room: by default the search drops a branch whose health falls below 25 (or, once it
+is already lower, any further damage). A later segment takes its start, mode and seed from its
+`--prefix` file and refuses a mismatch.
 
 ```sh
 R() { uv run python scripts/route_search.py --mode classic --level level01 --goal level02 "$@"; }
@@ -52,12 +57,24 @@ R --prefix $D/4-teleport.json --via "1470,1040;1320,659;1413,639;1965,569;2160,5
    --min-hp 1 --budget 150000 --out $D/5-exit.json
 ```
 
-The situations' routes use the same segments. Each first segment adds `--start 81,111`
-(`cp1`, starting from that console's own route to console 2) or `--start 841,828` (`cp2`). The
-`cp3` route is one search: `--start 1413,639 --via "1965,569;2160,569;1935,314;2295,314"`.
+The situations' routes use the same segments. The first segment of `cp1` adds `--start 81,111`
+(it begins with that console's own route to console 2), and `cp2`'s first segment adds
+`--start 841,828`. Later segments inherit the start from their prefix. The `cp3` route is one
+search: `--start 1413,639 --via "1965,569;2160,569;1935,314;2295,314" --min-hp 1`. Each seed is
+its own search (`--seed`): the seed moves the enemies' random choices, so a route for seed 0
+says nothing about seed 1.
 
 The search is deterministic, so the chain reproduces the committed route input for input. The
 first segment takes about 20 minutes; the others take seconds to minutes.
+
+## What "winnable" means here
+
+The solver gives per-tick inputs a player cannot give through the interface. It fires at the
+nearest target every tick while it runs, including hidden walls read from the engine, which the
+observation hides. No interface action moves and fires at once. So these routes show that the
+**rules** allow a win from each situation, not that the action vocabulary does. `use` on the
+exit wins through the interface (`test_using_the_exit_wins_the_episode_through_the_interface`),
+but whether a player can get there through the interface is what the comparison measures.
 
 ## What this says about the agents' task
 

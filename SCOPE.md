@@ -94,10 +94,11 @@ checks the separation.
 **Every level in the build can be finished, with evidence.** Each has a saved input route that
 CI replays to the level's exit (`evidence/routes/`, `tests/test_campaign_routes.py`):
 - the training level and Level 2 under Remastered rules;
-- Level 1 under Classic rules, from START in 1,414 ticks (`docs/level01-route.md`).
+- Level 1 under Classic rules (difficulty hard, seed 0), from START in 1,414 ticks
+  (`docs/level01-route.md`).
 
-The evaluation's three checkpoint situations have their own routes too
-(`evidence/routes/solver/`).
+The evaluation's three checkpoint situations have their own routes too, some on more seeds
+(`evidence/routes/solver/`, `EVALUATION.md` §3).
 
 Both modes draw the level's own lights and interpolate 60 fps rendering between the 15 Hz ticks.
 The AI spectator (`abuse-replay`) always shows Classic rules.
