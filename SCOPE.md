@@ -2,8 +2,9 @@
 
 > **Owner:** the student (Executive Producer and Creative Director). Level 1 was chosen on
 > 2026-10-13. The implementation agent drafted this revision on 2026-10-26 from the student's
-> decisions (`docs/reviews/midterm-audit-2026-10-26.md`). The student accepts it by merging,
-> and posts the change to the course's Week 3 thread. Changes are dated at the bottom.
+> decisions (`docs/reviews/midterm-audit-2026-10-26.md`). The student accepts it by merging. The
+> class held no Week 3 scope discussion, so this page is the scope record. Changes are dated at
+> the bottom.
 
 **In one sentence:** the graded game is **Classic mode, Level 1**: a faithful, deterministic port
 of the original rules on the original level file, played by people and by agents through the

@@ -57,7 +57,6 @@ Still to come:
 The student owns:
 - `AGENT-TEAM.md` in their own voice, and the limitations paragraph;
 - the peer playtest (notes due 2026-11-06) and the recording;
-- the Week 3 thread post about the scope change;
 - making the repository public;
 - the merges, and submitting on CourseWorks by 2026-11-07.
 
