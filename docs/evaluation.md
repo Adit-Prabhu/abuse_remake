@@ -74,15 +74,15 @@ uv run abuse-eval estimate --config eval/configs/midterm.toml            # token
 COURSE_MODEL=<id> uv run abuse-eval run --config eval/configs/midterm.toml --live --jobs 6 --out runs/midterm
 ```
 
-The older configs:
+The other configs:
 
 ```sh
 uv run abuse-eval run --config eval/configs/offline.toml --jobs 6        # baselines, no network
-uv run abuse-eval estimate --config eval/configs/live.toml               # tokens and cost, no calls
 COURSE_MODEL=<id> uv run abuse-eval run --config eval/configs/live-smoke.toml --live   # about 20 requests
-COURSE_MODEL=<id> uv run abuse-eval run --config eval/configs/live.toml --live --jobs 6 \
-    --report-to docs/evaluation-report.md
 ```
+
+`eval/configs/live.toml` is the suite declared on 2026-10-13 and superseded, never run, on
+2026-10-26 (`SUITE.md` explains why).
 
 A run directory (`runs/<name>-<UTC time>/`) holds:
 - `config.json`: the config, git SHA, package versions, the resolved model and the budgets;
@@ -92,13 +92,13 @@ A run directory (`runs/<name>-<UTC time>/`) holds:
 
 `uv run abuse-eval report <run dir>` rebuilds the report from the results.
 
-The live comparison can also run in GitHub Actions (`.github/workflows/live-eval.yml`). It is a
-manual dispatch on the default branch, uses Workload Identity Federation, and needs the owner to
-set the repository variables listed at the top of the workflow.
+The project repository also has a manual GitHub Actions workflow for live runs (`live-eval.yml`,
+Workload Identity Federation, default branch only). It is not part of the course submission,
+which allows one workflow and no secrets. Live runs are made locally.
 
 ## Fairness
 
-- Every player gets the same scenarios, seeds (0 to 4), difficulty (`hard`), budgets and motor
+- Every player gets the same scenarios, seeds (0 to 2 in the declared suite), difficulty (`hard`), budgets and motor
   skills, and runs in its own process.
 - The game is paused while a player decides.
 - The progress measure is computed on the runner side and never shown to players.
@@ -132,14 +132,15 @@ The report gives:
 
 ### Splitting a long live run
 
-One model player over 4 scenarios × 5 seeds × 200 decisions makes up to 4,000 requests, about two
-hours at 2 s each. Results are appended to `results.partial.jsonl` as episodes finish, so a
-stopped run keeps what it finished. To split a run:
+One model player over the declared suite makes up to 3,600 requests (9 segment episodes × 200
+decisions, plus 3 full-level episodes × 600), about two hours at 2 s each. Results are appended
+to `results.partial.jsonl` as episodes finish, so a stopped run keeps what it finished. To split
+a run:
 
 ```sh
-abuse-eval run --config eval/configs/live.toml --live --out runs/live-1 --only scripted,random,model-M0
-abuse-eval run --config eval/configs/live.toml --live --out runs/live-1 --only model-M1 --resume
-abuse-eval run --config eval/configs/live.toml --live --out runs/live-1 --resume   # the rest; then one report
+abuse-eval run --config eval/configs/midterm.toml --live --out runs/midterm --only scripted,random,model-M0
+abuse-eval run --config eval/configs/midterm.toml --live --out runs/midterm --only model-M1 --resume
+abuse-eval run --config eval/configs/midterm.toml --live --out runs/midterm --resume   # the rest; then one report
 ```
 
 ## Evidence so far

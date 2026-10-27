@@ -8,6 +8,7 @@ difficulty = "hard"
 isolation = "process"
 decision_timeout = 60.0  # the runner's wait for a reply; each model request itself times out at 20 s
 reference = "scripted"
+compare = [["model-M1", "model-M0"]]  # the history question: M1 minus M0, same cases
 
 [budgets]                 # the same for every player in a scenario
 max_decisions = 200       # checkpoint segments have 2700 ticks

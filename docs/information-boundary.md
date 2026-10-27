@@ -61,12 +61,14 @@ switch activates them, and one strong hit can destroy a wall straight from frame
   the blocking outline.
 
 Every sprite is opaque, so each type is a picture painted to match something. The per-frame
-render is the evidence for what. Mean brightness (`evidence/boundary/hidden-wall-sprites.json`,
-written by the same script) supports it:
+render is the evidence for what. The sprites' mean brightness
+(`evidence/boundary/hidden-wall-sprites.json`, written by the same script) is a side note, not a
+classifier:
 - `HIDDEN_WALL3` and `_2x2` are dark (about 29), like the dark background panels;
-- the ledge, floor and pillar types are about 42-52;
-- `HIDDEN_WALL2` (about 42) is a lighter background panel, which matches the panels around it
-  in place.
+- the "solid" `HIDDEN_WALL5` (about 42) and the "background" `HIDDEN_WALL2` (about 42) overlap, so
+  only the render separates them;
+- `HIDDEN_WALL1` and `_3WAL` share sprites, as do `HIDDEN_WALL4` and `_3FLR`, and `HIDDEN_WALL3`
+  and `_2x2`. The big walls are tiled from the small ones.
 
 So each type has its own look:
 
@@ -102,8 +104,8 @@ No wall is ever named before it looks breakable. A player shoots scenery that mi
 player now can too.
 
 **History.**
-- Until 2026-10-26, every hidden wall on screen was reported as a `wall_block`, which leaked six
-  types' secrets.
+- Until 2026-10-26, every hidden wall on screen was reported as a `wall_block`, which leaked
+  every type's secret.
 - The first fix (PR #25) showed every uncracked wall as solid. Its review found a solid lump
   where the screen shows background.
 - The second classed `HIDDEN_WALL1` and `HIDDEN_WALL5` as "always cracked". That was a misreading

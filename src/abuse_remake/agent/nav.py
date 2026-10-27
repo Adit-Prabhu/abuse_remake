@@ -165,8 +165,8 @@ class Navigator:
 
 def blocked_cells(objects) -> set[tuple[int, int]]:
     """Cells covered by visible objects that stop the player: closed doors and active force
-    fields. Taken from the observation, so it uses only what is on screen. (Cracked walls block
-    over their whole outline: ``observation.cracked_wall_cells``.)"""
+    fields. Taken from the observation, so it uses only what is on screen. (Hidden walls drawn as
+    scenery, cracked or not, are solid in ``KnownMap.solid``: ``observation.scenery_cells``.)"""
     out = set()
     for o in objects:
         kind = o["kind"]

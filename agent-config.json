@@ -65,7 +65,9 @@
     "max_output_tokens_per_run": 3000000,
     "history_turns": 8,
     "notes_characters": 600,
-    "max_decisions_full_level_live_comparison": 600
+    "max_decisions_full_level_live_comparison": 600,
+    "max_input_tokens_per_episode_full_level": 1800000,
+    "max_output_tokens_per_episode_full_level": 450000
   },
   "fallback": "A failed request is a refused decision: counted, fed back in last_result, never retried, repaired or replaced by a fixture. A fatal credential error ends the episode as 'player failed'. Live players are reported as 'not run' when --live is not given or the run's token cap is reached.",
   "limitations": [

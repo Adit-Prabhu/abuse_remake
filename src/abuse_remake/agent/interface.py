@@ -21,7 +21,7 @@ Actions (docs/action-interface.md) are strings taken from ``legal_actions()``:
 
 Each action runs a deterministic controller that turns it into the original's inputs (left,
 right, up, down, fire, aim, weapon keys) for up to 15 ticks. It stops early when the player is
-hurt (``attack`` and ``fire`` only after their first shot), or (except during ``attack`` and ``fire``)
+hurt (``attack`` and ``fire`` after their first shot, or 6 ticks), or (except during ``attack`` and ``fire``)
 when a new threat appears, so the agent can react. Every
 player gets exactly the same controllers. Labels (``E3``) are given only at decision time, so
 nothing seen only in the middle of an action uses one up.
@@ -48,7 +48,11 @@ from .nav import KnownMap, Navigator, blocked_cells, cell_of
 from .observation import WEAPON_NAMES, IdMap, build_observation, scenery_cells, view_rect
 
 PLAYER_ID = "player"
-AIM_TOLERANCE = 25  # degrees: attack and fire pull the trigger once the gun points this close
+# degrees: attack and fire pull the trigger once the gun points this close. Measured, the gun's
+# angle and the aim from the player's chest differ by under 5 degrees once the gun has turned (the
+# angle is taken from the gun tip); 10 allows that and no wider shot.
+AIM_TOLERANCE = 10
+RETURN_FIRE_TICKS = 6  # a shooting action under fire keeps going this long for its shot (laser cooldown 5, +1)
 INTERACTIVE = {"switch", "console", "teleporter", "door_teleporter", "exit", "lift"}
 TARGETABLE = {"alien", "turret", "boulder", "wall_block", "nest"}
 THREATS = {"alien", "turret", "boulder", "rock", "projectile"}
@@ -291,6 +295,7 @@ class AbuseEpisode:
         hp0 = self._game.player.hp
         shots0 = self.counters["shots_fired"]
         shooting = verb in ("attack", "fire")
+        hurt_at = None
         for _ in range(limit):
             if self._status()[0] != "playing":
                 break
@@ -299,8 +304,11 @@ class AbuseEpisode:
             except StopIteration:
                 break
             self._tick(inp)
-            if self._game.player.hp < hp0 and not (shooting and self.counters["shots_fired"] == shots0):
-                break  # hurt: give control back (a shooting action first gets its shot off)
+            if self._game.player.hp < hp0:
+                hurt_at = self.ticks if hurt_at is None else hurt_at
+                waiting = shooting and self.counters["shots_fired"] == shots0
+                if not waiting or self.ticks - hurt_at >= RETURN_FIRE_TICKS:
+                    break  # hurt: give control back (a shooting action first gets a shot off, briefly)
             threats = {k for k, o in self._visible().items() if o["kind"] in THREATS}
             if threats - visible_before and verb not in ("attack", "fire"):
                 break  # something new and dangerous came into view

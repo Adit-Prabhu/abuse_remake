@@ -128,7 +128,7 @@ These are dated, and none came after a live call or any tuning of the model.
   wall is now shown only as it looks (`docs/information-boundary.md`), and every player gains
   `fire left|right|up|down`. `attack` and `fire` hold the trigger only while the gun is still
   turning (it fires at the angle set the tick before), and get their first shot off before the
-  hurt stop. The suite itself (situations, seeds, players' code
+  hurt stop, for at most 6 ticks. The suite itself (situations, seeds, players' code
   paths, budgets, metrics) is unchanged.
   - **Behaviour, not code:** the four always-legal `fire` actions change what the random player
     picks (`fire` is 172 of its 600 decisions in the committed full-level episode), so its numbers

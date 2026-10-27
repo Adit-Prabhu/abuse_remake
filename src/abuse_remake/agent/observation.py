@@ -8,9 +8,9 @@ Information boundary (docs/information-boundary.md):
   alien hanging or running), never its HP, AI state, links, timers or the random table;
 - the player's HUD: health, weapons owned and ammo, the current weapon;
 - the tiles on screen, classified from their collision outlines (solid, slope, partial, empty);
-- a hidden wall only as it looks (``HIDDEN_WALL_LOOK``): as a ``wall_block`` when it looks
-  cracked, as solid tiles while it imitates a ledge, floor or pillar, and not at all while it
-  imitates the background;
+- a hidden wall only as it looks (``HIDDEN_WALL_LOOK``): as a ``wall_block``, and solid tiles,
+  once it looks cracked; as solid tiles while it imitates a ledge, floor or pillar; and not at
+  all while it imitates the background;
 - events the player would see or hear on screen, plus their own pickups and damage.
 
 Positions are level pixels, as on the original's automap (``abuse/src/automap.c``).
@@ -139,9 +139,8 @@ def view_rect(game) -> tuple[int, int, int, int]:
 
 
 # How each hidden-wall type in Level 1 looks (evidence/boundary/hidden-wall-frames.png, rendered
-# by scripts/boundary_evidence.py): what an uncracked one imitates, and the first frame whose
-# cracks show (None: they never show). All their sprites are opaque; the dark ones (luminance
-# about 29) copy the background panels, the bright ones (about 50) the ledges, floors and pillars.
+# by scripts/boundary_evidence.py and read type by type): what an uncracked one imitates, and the
+# first frame whose cracks show (None: they never show). Every type imitates scenery until then.
 HIDDEN_WALL_LOOK = {
     "HIDDEN_WALL1": ("solid", 1), "HIDDEN_WALL5": ("solid", 1),  # a plain pillar until it cracks
     "HIDDEN_WALL4": ("solid", 1), "HIDDEN_WALL_3FLR": ("solid", 1), "HIDDEN_WALL_3WAL": ("solid", 1),
@@ -155,8 +154,8 @@ def _is_hidden_wall(o) -> bool:
 
 def wall_look(o) -> str:
     """'cracked' (shown as a ``wall_block``), 'solid' (shown as solid tiles) or 'background'
-    (not shown: like the background around it). Six of the eight types imitate scenery, so a
-    wall is never named before it looks breakable (docs/information-boundary.md)."""
+    (not shown: like the background around it). Every type imitates scenery until it cracks, so
+    a wall is never named before it looks breakable (docs/information-boundary.md)."""
     look, cracks_from = HIDDEN_WALL_LOOK.get(o.ctype.name, ("solid", 1))
     if cracks_from is not None and o.current_frame >= cracks_from:
         return "cracked"
