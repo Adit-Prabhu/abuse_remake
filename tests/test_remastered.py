@@ -201,6 +201,25 @@ def _short_trace(tmp_path, decisions=10):
     return path
 
 
+def test_the_spectator_panel_numbers_the_decision_being_played(home):
+    from abuse_remake.agent.interface import PLAYER_ID, AbuseEpisode
+    from abuse_remake.game.spectate import Spectator
+
+    ep = AbuseEpisode("level01-cp1", seed=0)
+    spec = Spectator(ep, None, "test", scale=1, headless=True)
+    shown = []
+    real = spec._text
+
+    def capture(text, *a, **k):
+        if text.startswith("decision "):
+            shown.append(text.split()[1])
+        return real(text, *a, **k)
+
+    spec._text = capture
+    ep.step(PLAYER_ID, "wait")
+    assert shown and set(shown) == {f"1/{ep.budgets.max_decisions}"}  # never "0/..." while it runs
+
+
 def test_replay_reproduces_every_observation(home, tmp_path):
     from abuse_remake.game.spectate import main
 
