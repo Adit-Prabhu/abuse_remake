@@ -145,21 +145,20 @@ abuse-eval run --config eval/configs/live.toml --live --out runs/live-1 --resume
 ## Evidence so far
 
 - The offline baseline run: `evidence/reports/offline-baselines.md`, with its results, config and
-  three traces in `evidence/traces/offline-v6/`. It was regenerated twice on 2026-10-26:
-  - after the decision-count fix (PR #21), which changed only some tick counts and final
-    positions;
-  - after the hidden-wall fix (PR #25 and its review fixes), from a clean commit. A hidden wall
-    is shown only as it looks, `attack` and `fire` aim two ticks first, and the scripted
-    baseline shoots scenery when stuck. Its numbers fell: pooled 0.353 to 0.297, `cp2` 0.326
-    to 0.176. Part of its old score came from breaking camouflaged walls it should never have
-    known about.
+  three traces in `evidence/traces/offline-v7/`. It has been regenerated after each interface
+  change:
+  - after the decision-count fix (PR #21, 2026-10-26), which changed only some tick counts and
+    final positions;
+  - after the hidden-wall fix and its two reviews (PR #25, generated 2026-10-27 from the clean
+    commit `5aef372`). A hidden wall is shown only as it looks, `attack` and `fire` hold fire
+    only while the gun turns, players gain `fire`, and the scripted baseline shoots scenery when
+    stuck. Scripted's pooled progress went from 0.353 to 0.322, and random's from 0.082 to 0.088.
 - Progress is sampled on every tick (since the PR #5 review), and the random player seeds
   itself from its first observation instead of the episode seed.
-- Pooled over the 4 scenarios, random's progress minus scripted's is −0.219, with a
-  cluster-bootstrap 95% interval of [−0.521, −0.021].
-- The scripted baseline beats random on the three checkpoint segments: −0.029, −0.151 and −0.680.
-- On the full level from the start the two are close: −0.017 [−0.041, 0.007]. The scripted
-  baseline stalls in the first section; random dies on all five seeds.
+- Pooled over the 4 scenarios, random's progress minus scripted's is −0.234, with a
+  cluster-bootstrap 95% interval of [−0.543, −0.008].
+- Per scenario: `level01` −0.038, `cp1` +0.015 (level), `cp2` −0.205, `cp3` −0.709. The
+  scripted baseline stalls in the full level's first section on every seed.
 - The scripted baseline's weak spot is the full level's first section, which it does not solve.
   It is a fixed rule set, and these numbers show where a stronger player has room to do better.
 - The live comparison has not been run yet. It needs the owner's Vertex setup and approval of

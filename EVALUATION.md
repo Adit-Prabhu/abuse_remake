@@ -15,7 +15,7 @@ prompt or baseline tuning. Its configs are `eval/configs/midterm.toml` (reported
 | Situation | Start | Ticks | Decisions | Seeds | Role |
 |---|---|---|---|---|---|
 | `level01-cp1` | console 1 | 2700 | 200 | 0, 1, 2 | held out |
-| `level01-cp2` | console 2 | 2700 | 200 | 0, 1, 2 | tuned on seeds 90–91 only |
+| `level01-cp2` | console 2 | 2700 | 200 | 0, 1, 2 | tuned on seeds 90–91; the baseline's floor shot was first prompted by its seeds 0–2 (a recorded deviation, `SUITE.md`), so the cleanest held-out cases are the other three |
 | `level01-cp3` | console 3 | 2700 | 200 | 0, 1, 2 | held out |
 | `level01` | START | 9000 | 600 | 0, 1, 2 | held out |
 
@@ -37,20 +37,23 @@ situation and pooled:
 - model calls, tokens, latency p50/p95, and cost from dated prices;
 - paired differences against `scripted`, and M1 against M0.
 
-### Baselines before the declaration (offline, 2026-10-26)
+### Offline baselines (no model calls)
 
-`evidence/reports/offline-baselines.md` uses the older offline config: 600 decisions for every
-scenario, seeds 0–4, with the interface as it now stands (after PRs #21 and #25), generated from
-a clean commit. Pooled over the four scenarios, scripted's progress is 0.297 and random's is
-0.078 (a paired difference of −0.219, with a cluster-bootstrap 95% interval of
-[−0.521, −0.021]). Neither wins any of 20 episodes. Per scenario:
+`evidence/reports/offline-baselines.md` uses the offline config: 600 decisions for every
+scenario, seeds 0–4. It was generated on 2026-10-27 from the clean commit `5aef372`, with the
+interface as it now stands (after PRs #21 and #25). Pooled over the four scenarios, scripted's
+progress is 0.322 and random's is 0.088 (a paired difference of −0.234, with a cluster-bootstrap
+95% interval of [−0.543, −0.008]). Neither wins any of 20 episodes. Per scenario:
 
-| Scenario | random progress | scripted progress | scripted ending |
-|---|---|---|---|
-| `level01` | 0.123 (dies 5/5) | 0.140 | decision budget: it stalls in the first section |
-| `level01-cp1` | 0.126 (dies 2/5) | 0.155 | tick limit |
-| `level01-cp2` | 0.025 (dies 5/5) | 0.176 | dies 5/5 |
-| `level01-cp3` | 0.038 | 0.717 | dies 5/5, close to the exit |
+| Scenario | random progress | scripted progress | scripted ending | random minus scripted |
+|---|---|---|---|---|
+| `level01` | 0.125 (dies 3/5) | 0.163 | decision budget: it stalls in the first section | −0.038 [−0.053, −0.022] |
+| `level01-cp1` | 0.170 | 0.155 | tick limit | +0.015 [−0.013, 0.029] |
+| `level01-cp2` | 0.019 (dies 5/5) | 0.224 | dies 5/5 | −0.205 [−0.252, −0.122] |
+| `level01-cp3` | 0.038 | 0.747 | dies 5/5, close to the exit | −0.709 [−0.726, −0.686] |
+
+On `level01-cp1` the two are level, and random is slightly ahead: its many `fire` actions clear
+walls the scripted player walks past. The baseline is strongest from console 2 on.
 
 ## 3. The solver: is each situation winnable?
 
@@ -85,7 +88,7 @@ The five kinds of check the course asks for:
 
 ## 5. Traces
 
-- Offline: `evidence/traces/offline-v6/`, three traces, each replayed exactly in CI.
+- Offline: `evidence/traces/offline-v7/`, three traces, each replayed exactly in CI.
 - Every run writes all of its traces to `runs/<run>/traces/`. Selected live traces will be
   committed under `evidence/traces/`.
 - `uv run abuse-replay --trace <file>` replays one with its decision panel and checks every
