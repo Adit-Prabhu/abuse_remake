@@ -3,8 +3,10 @@ briefing, the controls and HUD legend, and Remastered's pause, death, level-comp
 screens. Classic mode keeps its plain text screens for pause, death and the end of the level.
 
 The title is a menu. Up and down (or W and S, or the mouse) pick a line; left and right (or a
-click on the arrows) change its setting; Enter or a click starts it. The letter keys of the old
-title still work: M mode, D difficulty, H Horde, A arena, L start level.
+click on the arrows) change its setting; Enter or a click starts it. In Remastered, PLAY CAMPAIGN
+and HORDE each open a list of their own (the levels, or the arenas), and Esc goes back, so a level
+is never mistaken for an arena. The letter keys of the old title still work on its main page:
+M mode, D difficulty, H Horde, A arena, L start level.
 """
 
 from __future__ import annotations
@@ -47,20 +49,42 @@ HORDE_BRIEF = (
 )
 
 
-def menu_items(app) -> list[dict]:
-    """The title's lines, from the app's current settings."""
+LEVEL_BLURBS = {  # what the level holds, and what follows it
+    "level00": ("On-screen tips teach the controls.", "Level 1 and Level 2 follow."),
+    "level01": ("The prison: alien ants, gun turrets and secret walls.", "Level 2 follows."),
+    "level02": ("Robots, a tracking gun and the Juggernaut.", "The last level."),
+}
+ARENA_BLURBS = {  # from each arena's size in engine/horde.py
+    "prison": "The widest arena, under a low ceiling.",
+    "rooftop": "Open sky: the highest ceiling, and room for flyers.",
+    "pit": "The smallest arena: nowhere to hide.",
+}
+PAGE_TITLES = {"campaign": "CAMPAIGN", "horde": "HORDE"}
+
+
+def menu_items(app, page: str | None = None) -> list[dict]:
+    """The lines of a title page (by default the one shown), from the app's current settings. The
+    main page opens two lists: PLAY CAMPAIGN lists only the levels, HORDE only the arenas."""
+    page = page or app.menu_page
+    if page == "campaign":
+        return [*(_level_item(app, name) for name in campaign.playable_levels()), BACK_ITEM]
+    if page == "horde":
+        return [*(_arena_item(app, key) for key in ARENAS), BACK_ITEM]
     items = []
-    if app.modern:
-        best = app.best_time(app.args.menu_level)
-        items.append({"key": "campaign", "label": "PLAY CAMPAIGN", "value": campaign.title(app.args.menu_level).upper(),
+    if app.modern and not app.args.playtest:
+        items.append({"key": "campaign", "label": "PLAY CAMPAIGN", "value": None, "opens": True,
                       "desc": ["Training, then Level 1, then Level 2. Health and weapons carry on.",
-                               f"Starts at {campaign.title(app.args.menu_level)}. Your best there: {best}."
-                               if best else f"Starts at {campaign.title(app.args.menu_level)}."]})
-        top = app.best_score(app.arena)
-        items.append({"key": "horde", "label": "HORDE", "value": ARENAS[app.arena].title.split(" (")[0].upper(),
+                               "Enter to choose where to start."]})
+    elif not app.modern:
+        items.append({"key": "campaign", "label": "PLAY LEVEL 1", "value": None,
+                      "desc": ["The original Level 1, exactly as it played in 1996."]})
+    else:  # a playtest that switched to Remastered stays on Level 1
+        items.append({"key": "campaign", "label": "PLAY LEVEL 1", "value": None,
+                      "desc": ["Level 1 with Remastered's rules."]})
+    if app.modern:
+        items.append({"key": "horde", "label": "HORDE", "value": None, "opens": True,
                       "desc": ["Survive endless waves in a sealed arena; upgrades between waves.",
-                               f"{ARENAS[app.arena].title}. Best score: {top}." if top
-                               else f"{ARENAS[app.arena].title}."]})
+                               "Enter to choose an arena."]})
     else:
         items.append({"key": "campaign", "label": "PLAY LEVEL 1", "value": None,
                       "desc": ["The original Level 1, exactly as it played in 1996."]})
@@ -73,6 +97,24 @@ def menu_items(app) -> list[dict]:
     items.append({"key": "controls", "label": "CONTROLS", "value": None, "desc": ["Keys, mouse and gamepad."]})
     items.append({"key": "quit", "label": "QUIT", "value": None, "desc": ["Back to the desktop."]})
     return items
+
+
+BACK_ITEM = {"key": "back", "label": "BACK", "value": None, "desc": ["Back to the title menu."]}
+
+
+def _level_item(app, name: str) -> dict:
+    best = app.best_time(name)
+    return {"key": "level", "level": name, "label": campaign.title(name).upper(), "value": None,
+            "note": f"BEST {best}" if best else None,
+            "desc": [*LEVEL_BLURBS.get(name, ()), f"Your best time here: {best}." if best else "No best time yet."]}
+
+
+def _arena_item(app, key: str) -> dict:
+    top = app.best_score(key)
+    return {"key": "arena", "arena": key, "label": ARENAS[key].title.split(" (")[0].upper(), "value": None,
+            "note": f"BEST {top}" if top else None,
+            "desc": [f"{ARENAS[key].title}. {ARENA_BLURBS.get(key, '')}",
+                     f"Your best score here: {top}." if top else "No best score yet."]}
 
 
 class Screens:
@@ -99,8 +141,9 @@ class Screens:
         ph = 30 * u + len(items) * row_h + (8 + 9 * desc_rows) * u
         panel = pygame.Rect(w - pw - 12 * u, (h - ph) // 2 - 4 * u, pw, ph)
         t.panel(screen, panel)
-        t.text(screen, "REMASTERED" if app.modern else "CLASSIC", (panel.centerx, panel.top + 8 * u),
-               AMBER if app.modern else TEXT, size="big", align="center")
+        heading = PAGE_TITLES.get(app.menu_page) or ("REMASTERED" if app.modern else "CLASSIC")
+        t.text(screen, heading, (panel.centerx, panel.top + 8 * u), AMBER if app.modern else TEXT, size="big",
+               align="center")
         self.rows, self.arrows = [], []
         y = panel.top + 24 * u
         for i, it in enumerate(items):
@@ -120,6 +163,10 @@ class Screens:
                             align="right")
                 self.arrows.append((la.inflate(6 * u, 8 * u), i, -1))
                 self.arrows.append((ra.inflate(6 * u, 8 * u), i, 1))
+            elif it.get("opens"):  # opens its own list: Enter, a click or right
+                t.text(screen, "►", (r.right - 5 * u, r.top + 5 * u), AMBER if focus else DIM, align="right")
+            elif it.get("note"):
+                t.text(screen, it["note"], (r.right - 5 * u, r.top + 5 * u), DIM, align="right")
             y += row_h
         desc = items[app.menu_index]["desc"] if 0 <= app.menu_index < len(items) else []
         y += 3 * u
@@ -127,11 +174,10 @@ class Screens:
             for part in t.wrap(line, pw - 16 * u):
                 t.text(screen, part, (panel.left + 8 * u, y), DIM)
                 y += 9 * u
-        foot = ["ENTER", "START", "  ", "F1", "CONTROLS", "  ", "F11", "FULL SCREEN"]
-        parts = []
-        for i in range(0, len(foot), 3):
-            parts += [("key", foot[i]), foot[i + 1] + foot[i + 2]] if i + 2 < len(foot) else [("key", foot[i]),
-                                                                                             foot[i + 1]]
+        if app.menu_page == "main":
+            parts = [("key", "ENTER"), "SELECT  ", ("key", "F1"), "CONTROLS  ", ("key", "F11"), "FULL SCREEN"]
+        else:
+            parts = [("key", "ENTER"), "START  ", ("key", "ESC"), "BACK  ", ("key", "F11"), "FULL SCREEN"]
         t.keys_line(screen, parts, (w // 2, h - 22 * u), align="center")
         t.text(screen, "Original game (c) 1996 Crack dot Com: public-domain code and shareware data",
                (w // 2, h - 9 * u), DIM, align="center")

@@ -117,12 +117,16 @@ power-up and pickup sprites. Everything is measured in game pixels, so the inter
 pixel size of the world.
 
 - **Title menu** (`game/screens.py`). The original title art and a menu:
-  - PLAY CAMPAIGN (from Training, or another start level);
-  - HORDE (choose the arena; your best score is shown);
+  - PLAY CAMPAIGN opens a list of the levels only (Training, Level 1, Level 2), each with its
+    best time;
+  - HORDE opens a list of the arenas only, each with its best score;
   - DIFFICULTY, MODE, CONTROLS and QUIT.
   Up and down (or W and S, or the mouse) pick a line; left and right (or the arrows on it)
-  change it; Enter or a click starts it. The backdrop shows what Enter would start. The old letter
-  keys still work: M, D, H, A and L.
+  change DIFFICULTY and MODE; Enter, right or a click opens a list or starts what is chosen; Esc,
+  BACK or gamepad B leave a list. The backdrop shows what Enter would start. Levels and arenas
+  used to share one page, where left and right chose a level on one line and an arena on the
+  next; the student found that easy to confuse (2026-10-27). The old letter keys still work on
+  the main page: M, D, H, A and L.
 - **The HUD** (`game/modern_hud.py`). Every part is labelled:
   - HEALTH: a heart, a meter and health over its limit (200 with ultra health);
   - DASH: its key and a meter that refills after each dash;
@@ -175,7 +179,7 @@ screen and the window are shared.
 | Feature | Controls | What it does | Code |
 |---|---|---|---|
 | Dash | F, gamepad X | 4 ticks at +13 px per tick through the engine's own collision (it never passes walls), invulnerable for 7 ticks from the start, an 18-tick cooldown, not while teleporting or before play starts | `engine/remastered.py` |
-| Horde | HORDE on the title menu, or `--horde`; left and right on it (or A, or `--arena`) pick the arena; 1, 2, 3, a click, the arrows and Enter, or gamepad A/B/X pick an upgrade | Waves of enemies in a sealed arena: the prison floor of Level 1, Level 2's rooftop, or Level 2's Juggernaut floor. Each arena is a room of a real level, and Horde removes the ladders and lifts that lead out of it, so walls and floors made of the level's own tiles close every drop and way out when it loads: nobody can fall, walk, dash or fly out, and every enemy stays in the arena and comes for you (tested for every kind, from both ends). The whole arena is awake: in the original only what is near the view acts, so an enemy released at the far end of a long arena used to stand still until you walked over. Ants first, then flyers, cleaner robots and Juggernauts, and a boss Juggernaut with extra lives every fifth wave. Between waves you get health and ammo, and choose one of three upgrade cards (a power-up for the next wave, full health, ammo, the rocket launcher, or a faster dash). Your kills score points times a combo; a wave without damage earns a bonus. The run ends on death, with a top-10 table per arena and difficulty. Supplies land on the floor, in sight to one side of you. A Horde game recorded before the arenas were sealed cannot be replayed (`horde_version` 3) | `engine/horde.py` |
+| Horde | HORDE on the title menu (it lists the arenas), or `--horde`; the list (or A, or `--arena`) picks the arena; 1, 2, 3, a click, the arrows and Enter, or gamepad A/B/X pick an upgrade | Waves of enemies in a sealed arena: the prison floor of Level 1, Level 2's rooftop, or Level 2's Juggernaut floor. Each arena is a room of a real level, and Horde removes the ladders and lifts that lead out of it, so walls and floors made of the level's own tiles close every drop and way out when it loads: nobody can fall, walk, dash or fly out, and every enemy stays in the arena and comes for you (tested for every kind, from both ends). The whole arena is awake: in the original only what is near the view acts, so an enemy released at the far end of a long arena used to stand still until you walked over. Ants first, then flyers, cleaner robots and Juggernauts, and a boss Juggernaut with extra lives every fifth wave. Between waves you get health and ammo, and choose one of three upgrade cards (a power-up for the next wave, full health, ammo, the rocket launcher, or a faster dash). Your kills score points times a combo; a wave without damage earns a bonus. The run ends on death, with a top-10 table per arena and difficulty. Supplies land on the floor, in sight to one side of you. A Horde game recorded before the arenas were sealed cannot be replayed (`horde_version` 3) | `engine/horde.py` |
 
 ## Quality-of-life features (no rule changes)
 
@@ -194,7 +198,8 @@ Records, ghosts and Horde's high scores are kept per player in `~/.abuse_remake/
 `tests/test_display.py` checks that frames are drawn on surfaces with no alpha channel, that a
 window with one (as on macOS) shows exactly the drawn frame, that the ghost has no box around it,
 and the window's resizing and full-screen keys. `tests/test_menus.py` checks the title menu (the
-campaign starts with Training; keys, mouse and the old letters), the Horde briefing, the controls
+campaign starts with Training; each list holds only levels or only arenas; keys, mouse, gamepad and
+the old letters), the Horde briefing, the controls
 screen, the upgrade cards' keys, the power prompt, that R never ends a Horde run, and that every
 screen draws in both modes at several scales. `tests/test_horde2.py` checks that every spot on an
 arena's floor holds the player, that nobody leaves an arena by walking, jumping, dashing, flying

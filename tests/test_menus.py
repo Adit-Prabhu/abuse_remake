@@ -35,62 +35,140 @@ def test_the_campaign_starts_with_training_unless_a_level_is_asked_for():
     assert parse_args(["--skip-title"]).level == "level01"  # straight into play: Level 1, as before
 
 
-def test_enter_on_the_title_starts_training(home):
+def labels(app):
+    from abuse_remake.game.screens import menu_items
+
+    return [it["label"] for it in menu_items(app)]
+
+
+def test_enter_on_the_title_opens_the_levels_and_enter_again_starts_training(home):
     app = make_app()
     app._to_title()
     assert app.state == "title" and app._menu_key() == "campaign" and app.level == "level00"
     key(app, pygame.K_RETURN)
+    assert app.state == "title" and app.menu_page == "campaign" and app._menu_key() == "level"
+    key(app, pygame.K_RETURN)
     assert app.state == "play" and app.game.level == "level00" and app.horde is False
 
 
-def test_the_menu_moves_changes_and_previews_with_the_keys(home):
+def test_each_list_holds_only_its_own_choices(home):
+    """The student, 2026-10-27: left and right on PLAY CAMPAIGN chose a level and on HORDE an
+    arena, on one page, which was easy to confuse. Each now opens its own list."""
+    from abuse_remake.engine import campaign
+
     app = make_app()
     app._to_title()
-    key(app, pygame.K_RIGHT)  # the campaign's start: Training, Level 1, Level 2
-    assert app.args.menu_level == "level01" and app.game.level == "level01"
-    key(app, pygame.K_DOWN)  # Horde: the backdrop becomes its arena
+    main = labels(app)
+    assert "PLAY CAMPAIGN" in main and "HORDE" in main
+    assert not any(t.upper() in main for t in ("Training", "Level 1", "Level 2"))  # no level or arena
+    assert not any(a.title.split(" (")[0].upper() in main for a in ARENAS.values())
+    key(app, pygame.K_RETURN)
+    levels = [campaign.title(n).upper() for n in campaign.playable_levels()]
+    assert labels(app) == [*levels, "BACK"]  # levels only
+    key(app, pygame.K_ESCAPE)
+    key(app, pygame.K_DOWN)
+    key(app, pygame.K_RETURN)
+    assert app.menu_page == "horde"
+    assert labels(app) == [*(a.title.split(" (")[0].upper() for a in ARENAS.values()), "BACK"]  # arenas only
+
+
+def test_left_and_right_no_longer_change_the_level_or_arena_on_the_main_page(home):
+    app = make_app()
+    app._to_title()
+    key(app, pygame.K_LEFT)
+    assert app.state == "title" and app.menu_page == "main" and app.args.menu_level == "level00"
+    key(app, pygame.K_RIGHT)  # right goes into the list, as the line's arrow shows
+    assert app.menu_page == "campaign" and app.args.menu_level == "level00"
+
+
+def test_the_lists_move_and_preview_with_the_keys(home):
+    app = make_app()
+    app._to_title()
+    key(app, pygame.K_RETURN)
+    key(app, pygame.K_DOWN)  # Level 1: the backdrop follows
+    assert app.args.menu_level == "level01" and app.game.level == "level01" and not app.horde
+    key(app, pygame.K_ESCAPE)  # back, not quit
+    assert app.state == "title" and app.menu_page == "main" and app._menu_key() == "campaign"
+    key(app, pygame.K_RETURN)  # the list opens on the level chosen last
+    assert app._menu_item()["level"] == "level01"
+    key(app, pygame.K_ESCAPE)
+    key(app, pygame.K_DOWN)  # HORDE: the backdrop becomes its arena
     assert app._menu_key() == "horde" and app.horde and app.game.horde is not None
-    seen = {app.arena}
-    for _ in range(len(ARENAS)):
-        key(app, pygame.K_RIGHT)
+    key(app, pygame.K_RETURN)
+    seen = {app.game.horde.state["arena"]}
+    for _ in range(len(ARENAS) - 1):
+        key(app, pygame.K_DOWN)
         seen.add(app.game.horde.state["arena"])
     assert seen == set(ARENAS)
     key(app, pygame.K_RETURN)
     assert app.state == "briefing"  # how Horde works, before wave 1
     key(app, pygame.K_ESCAPE)
-    assert app.state == "title"
+    assert app.state == "title" and app.menu_page == "horde"  # back in the arena list
+    key(app, pygame.K_DOWN)
+    assert app._menu_key() == "back"
+    key(app, pygame.K_RETURN)
+    assert app.menu_page == "main" and app._menu_key() == "horde"
     key(app, pygame.K_UP)  # back to the campaign: a campaign game again, at the chosen start
     assert app._menu_key() == "campaign" and not app.horde and app.game.level == "level01"
+
+
+def test_leaving_a_run_returns_to_the_main_page_on_its_line(home):
+    app = make_app()
+    app._to_title()
+    key(app, pygame.K_DOWN)
+    key(app, pygame.K_RETURN)
+    key(app, pygame.K_DOWN)  # the second arena
+    key(app, pygame.K_RETURN)
+    key(app, pygame.K_RETURN)
+    assert app.state == "play" and app.horde
+    key(app, pygame.K_ESCAPE)
+    key(app, pygame.K_t)
+    assert app.state == "title" and app.menu_page == "main" and app._menu_key() == "horde"
 
 
 def test_the_menu_works_with_the_mouse(home):
     app = make_app()
     app._to_title()
     app.draw()  # lays the rows out
-    row, index = app.screens.rows[1]
-    app.on_event(pygame.event.Event(pygame.MOUSEMOTION, pos=row.center, rel=(0, 0), buttons=(0, 0, 0)))
-    assert app.menu_index == index and app.horde
-    right = [r for r, i, d in app.screens.arrows if i == index and d == 1][0]
-    arena = app.arena
-    app.on_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=right.center, button=1))
-    assert app.arena != arena and app.state == "title"
-    app.draw()
-    app.on_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=app.screens.rows[1][0].center, button=1))
+
+    def move(i):
+        app.on_event(pygame.event.Event(pygame.MOUSEMOTION, pos=app.screens.rows[i][0].center, rel=(0, 0),
+                                        buttons=(0, 0, 0)))
+
+    def click(pos):
+        app.on_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=pos, button=1))
+        app.draw()
+
+    move(1)
+    assert app._menu_key() == "horde" and app.horde
+    click(app.screens.rows[1][0].center)
+    assert app.menu_page == "horde" and app.state == "title"
+    move(2)
+    assert app.arena == list(ARENAS)[2] and app.game.horde.state["arena"] == app.arena
+    click(app.screens.rows[2][0].center)
     assert app.state == "briefing"
-    app.on_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(5, 5), button=1))
+    click((5, 5))
     assert app.state == "play"
 
 
 def test_a_gamepad_drives_the_menus(home):
     app = make_app()
     app._to_title()
+
+    def pad(button):
+        app.on_event(pygame.event.Event(pygame.JOYBUTTONDOWN, button=button, joy=0, instance_id=0))
+
     app.on_event(pygame.event.Event(pygame.JOYHATMOTION, value=(0, -1), joy=0, instance_id=0, hat=0))
     assert app._menu_key() == "horde"
-    app.on_event(pygame.event.Event(pygame.JOYBUTTONDOWN, button=0, joy=0, instance_id=0))
+    pad(0)
+    assert app.menu_page == "horde"
+    pad(0)
     assert app.state == "briefing"
-    app.on_event(pygame.event.Event(pygame.JOYBUTTONDOWN, button=1, joy=0, instance_id=0))
-    assert app.state == "title"
-    app.on_event(pygame.event.Event(pygame.JOYBUTTONDOWN, button=1, joy=0, instance_id=0))
+    pad(1)
+    assert app.state == "title" and app.menu_page == "horde"
+    pad(1)
+    assert app.state == "title" and app.menu_page == "main"
+    pad(1)
     assert app.state == "title"  # B never quits from the title
 
 
@@ -213,6 +291,12 @@ def test_every_screen_draws_at_every_scale(home, scale, mode):
         app.help_return = "title"
         app.draw()
     if mode == "remastered":
+        app.state = "title"
+        app.best_time = lambda level: "12:34.56"  # the widest notes the lists show
+        app.best_score = lambda arena: 1234567
+        for page in ("campaign", "horde"):
+            app._open_page(page)
+            app.draw()
         h = make_app("--horde", "--arena", "pit", scale=scale)
         h.state = "play"
         h.game.horde.state["cards"] = ["speed", "dash", "ultra_health"]
