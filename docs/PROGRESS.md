@@ -43,7 +43,7 @@ order.
 |---|---|---|---|
 | #21 | `fix/episode-limits` | The decision that reaches the cap runs its ticks. Offline evidence regenerated as `offline-v4`, and every committed trace replays in CI (`tests/test_evidence.py`) | `docs/reviews/PR-21.md` (with a follow-up) |
 | #22 | `eval/midterm-suite` | `SUITE.md`, `eval/configs/midterm.toml` and `midterm-tuning.toml`, declared before any live call; per-scenario budgets; runs record `src_tree` and `prompt_sha` | harness only, no rule change |
-| #23 | `docs/midterm-rubric` | `SCOPE.md` rewritten; rule map relabelled to `code/manual/observed/assumed/design`; provenance and publication terms; the boundary's two judgement calls (hidden walls, HUD strip); a README for the course folder with the design-choices table; a 15-minute playtest protocol; a 4:30 recording script | docs only |
+| #23 | `docs/midterm-rubric` | `SCOPE.md` rewritten; rule map relabelled to `code/manual/observed/assumed/design`; provenance and publication terms; the boundary's two judgement calls (hidden walls, HUD strip); a README for the course folder with the design-choices table; a 15-minute playtest protocol; a 4:30 recording script | docs, plus the boundary screenshots and their script |
 
 Still to come:
 - the Level 1 route (Classic, START to exit), replayed in CI, and the solver reference per

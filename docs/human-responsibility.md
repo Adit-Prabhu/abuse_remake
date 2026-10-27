@@ -1,7 +1,8 @@
 # Human responsibility
 
-> **Owner:** the student. This page says who decides what. The student's own account of the work
-> is `AGENT-TEAM.md`.
+> **Owner:** the student. This page says who decides what. The implementation agent drafted this
+> revision on 2026-10-26, and the student accepts it by merging. The student's own account of the
+> work is `AGENT-TEAM.md`, which the student writes.
 
 The student is the Executive Producer and Creative Director. Agents build and review; the
 student decides and answers for the result.

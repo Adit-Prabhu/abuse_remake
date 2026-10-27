@@ -2,8 +2,8 @@
 
 > **Written by the implementation agents**, from the repository history and the working
 > sessions. It is the detailed, agent-voiced record of who did what. **The student's own
-> one-page log, in the student's voice, is [`AGENT-TEAM.md`](../AGENT-TEAM.md).** Where the two
-> differ, the student's page is the account of record.
+> one-page log, in the student's voice, is `AGENT-TEAM.md`,** which the student writes. Where the
+> two differ, the student's page is the account of record.
 
 ## Team
 

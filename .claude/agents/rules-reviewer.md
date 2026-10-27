@@ -24,8 +24,9 @@ The original sources are cited in the map by pinned commit:
 
 Check each of these and report what you find:
 
-1. **Evidence.** Every changed rule has a map row with a label (`code`, `manual`, `observed`
-   or `assumed`) and a file:line, manual page or observation. A label promoted without new
+1. **Evidence.** Every changed rule has a map row with a label (`code`, `manual`, `observed`,
+   `assumed`, or `design` for our own choices) and a file:line, manual page or observation; a
+   `design` row gives its kind and its reason. A label promoted without new
    evidence is a finding. So is a constant in the engine with no source.
 2. **Fidelity.** The port does what the cited original does: integer and fixed-point arithmetic
    (C truncating division, `>>8` fractions, `uchar`/`schar` wrap-around), order of updates, and

@@ -49,5 +49,5 @@ LEVEL02_TYPES = _SHARED_WITH_LEVEL01 | frozenset({
 LEVEL_TYPES = {"level00": LEVEL00_TYPES, "level01": LEVEL01_TYPES, "level02": LEVEL02_TYPES}
 
 TICKS_PER_SECOND = 15
-FULL_LEVEL_TICK_LIMIT = 9000  # 10 minutes of game time; a course choice
-SEGMENT_TICK_LIMIT = 2700  # 3 minutes from a restart console; a course choice
+FULL_LEVEL_TICK_LIMIT = 9000  # 10 minutes of game time; a design choice (harness)
+SEGMENT_TICK_LIMIT = 2700  # 3 minutes from a restart console; a design choice (harness)
