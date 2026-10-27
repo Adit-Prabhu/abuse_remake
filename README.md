@@ -177,9 +177,10 @@ session-by-session record is `docs/agent-team-log.md`.
 ## Where this was built
 
 The project was built in its own repository, [`Adit-Prabhu/abuse_remake`](https://github.com/Adit-Prabhu/abuse_remake),
-through stacked, reviewed PRs (#1-#8, #15-#20, and the midterm fixes from #21). This folder is
-an export of one commit of it, made by `scripts/export_submission.py`. `EVALUATION.md` gives
-that commit and the git tree hash of `src/`, which every evaluation run records.
+through stacked PRs. Those that change rules or the player interface each have an independent
+review record in `docs/reviews/` (#1-#7, #15-#18, #21, #23 and later). This folder is an export
+of one commit of it, made by `scripts/export_submission.py`. `EXPORTED_FROM.json` gives that
+commit and the git tree hash of `src/`, which every evaluation run also records.
 
 ## Repository map
 
