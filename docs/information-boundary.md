@@ -43,6 +43,39 @@ Each decision the player gets two things, as plain JSON (`agent/observation.py`,
 | The evaluator's progress measure and the route to the exit | the answer | computed in `agent/progress.py` on the runner side; the end-of-episode message carries only the episode's own outcome (`test_players_get_the_episode_outcome_without_evaluator_data`) |
 | Credentials | | player processes get a minimal environment (`protocol.BASE_ENV`). Only the model player also gets the variables its provider's SDK reads (`MODEL_ENV_PREFIXES`), and those never enter prompts, observations or traces (`test_player_processes_get_no_credentials_unless_they_are_the_model_player`) |
 
+## Two judgement calls
+
+### Breakable walls (the original's "hidden walls")
+
+The original names these objects `HIDDEN_WALL1` to `HIDDEN_WALL_3FLR`
+(`data/original/lisp/doors.lsp:168-197`), but they are not invisible. Each is an ordinary drawn
+object:
+- its pictures come from `art/chars/sect.spe`, with no `dev_draw`, so it is drawn in play like
+  any enemy;
+- its picture changes as it takes damage (`hwall_damage`).
+
+`evidence/boundary/hidden-walls-classic.png` shows Level 1's first column of them, at x 210 in
+Classic at scale 3: cracked stone, unlike the smooth pillar to its left. A careful human can see
+it. `scripts/boundary_evidence.py` re-renders the screenshot.
+
+So a visible one is reported as `wall_block`, with whether it is damaged, and `attack W<n>` is
+legal while it is on screen. What a human cannot see is never reported:
+- its health;
+- whether it is activated (some break only after a switch activates them; `hwall_damage` checks
+  `(activated)`);
+- any wall off screen.
+
+The prompt's "a breakable wall; shoot it" is manual-level advice. A wall that is not yet active
+simply does not break, and the player sees that.
+
+### The Classic HUD covers the bottom strip of the view
+
+Classic draws its health, weapons and time over the bottom of the 316x162 play view: a strip
+44 window pixels high, about 15 game pixels at scale 3. The original drew its status bar below
+the view. An agent's observation covers the whole view, so at the very bottom of the screen it
+sees a little more than a human does. Agents and humans are never scored against each other,
+and `EVALUATION.md` notes this where it quotes human playtests.
+
 ## How it is enforced
 
 - **Process isolation.** By default every player is a child process speaking JSON lines

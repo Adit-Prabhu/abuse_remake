@@ -33,6 +33,33 @@ Causes and fixes (R6, #20, `feat/rm-polish` on R5):
 
 Still the student's: play it on their Mac and accept or reject the feel.
 
+## Midterm fixes (from 2026-10-26)
+
+`docs/reviews/midterm-audit-2026-10-26.md` is the audit against the course rubric, with the
+student's decisions. The fixes are stacked on #20, one PR each, and the student merges them in
+order.
+
+| PR | Branch | Contents | Review |
+|---|---|---|---|
+| #21 | `fix/episode-limits` | The decision that reaches the cap runs its ticks. Offline evidence regenerated as `offline-v4`, and every committed trace replays in CI (`tests/test_evidence.py`) | `docs/reviews/PR-21.md` (with a follow-up) |
+| #22 | `eval/midterm-suite` | `SUITE.md`, `eval/configs/midterm.toml` and `midterm-tuning.toml`, declared before any live call; per-scenario budgets; runs record `src_tree` and `prompt_sha` | harness only, no rule change |
+| #23 | `docs/midterm-rubric` | `SCOPE.md` rewritten; rule map relabelled to `code/manual/observed/assumed/design`; provenance and publication terms; the boundary's two judgement calls (hidden walls, HUD strip); a README for the course folder with the design-choices table; a 15-minute playtest protocol; a 4:30 recording script | docs only |
+
+Still to come:
+- the Level 1 route (Classic, START to exit), replayed in CI, and the solver reference per
+  situation;
+- the live smoke run, tuning (`docs/prompt-log.md`), the freeze and the reported run;
+- `EVALUATION.md`;
+- the course folder `midterms/adit-prabhu/` with `.github/workflows/midterm-adit-prabhu.yml`,
+  opened as a draft PR.
+
+The student owns:
+- `AGENT-TEAM.md` in their own voice, and the limitations paragraph;
+- the peer playtest (notes due 2026-11-06) and the recording;
+- the Week 3 thread post about the scope change;
+- making the repository public;
+- the merges, and submitting on CourseWorks by 2026-11-07.
+
 ## Remastered expansion (2026-10-14)
 
 The student chose to grow Remastered mode, and approved the plan:

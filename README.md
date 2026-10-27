@@ -1,94 +1,179 @@
-# abuse_remake
+# Abuse, Level 1: a faithful reconstruction with a model-driven player
 
-A reconstruction of **Level 1 of Abuse** (Crack dot Com, 1996) in Python, with a model-driven
-player, a scripted search baseline and a fair, repeated evaluation. This is a COMS E6998 midterm
-project ("AI in Practice: Game Design and Development").
+COMS E6998 midterm, by GitHub user `adit-prabhu`. The project rebuilds **Level 1 of Abuse**
+(Crack dot Com, 1996) in Python from the public-domain C engine and the original Lisp rules, on
+the original level file. A model-driven player plays it through a five-operation interface, and
+is compared with a scripted search baseline on a suite declared before any tuning.
 
-- **Classic mode** is the faithful port. It is a deterministic 15 Hz port of the original C
-  engine and Lisp rules, played on the original Level 1 file. Every rule is cited in
-  `docs/rule-source-map.md` with an evidence label.
-- **Remastered mode** adds a wider view, lighting and particles, a dash, quick restart, a ghost
-  race, an AI spectator, a campaign (Training, Level 1, Level 2) and Horde, with an interface
-  drawn from the original game's own art (`docs/remastered.md`). Evaluations always run Classic
-  rules.
-- The scope record is `SCOPE.md`. Data provenance and licences are in
-  `data/original/PROVENANCE.md`, and `docs/data-lineage.md` shows the data matches the 1995 and
-  1996 releases.
+| | |
+|---|---|
+| Recording (3–5 min) | *link added when recorded* |
+| Evaluation report | [`EVALUATION.md`](EVALUATION.md) |
+| Agent-team log | [`AGENT-TEAM.md`](AGENT-TEAM.md) |
+| Peer playtest notes | [`docs/playtests/`](docs/playtests/) |
+| Scope record | [`SCOPE.md`](SCOPE.md) |
+| Declared suite | [`SUITE.md`](SUITE.md) |
+| Rule/source map | [`docs/rule-source-map.md`](docs/rule-source-map.md) |
 
-## Quick start
+## Scope
+
+**Graded: Classic mode, Level 1.** This is the whole first combat level:
+- every object type in the original file (ants, turrets, boulders, switches, doors, force
+  fields, hidden walls, teleporters, lifts, consoles, pickups, logic gates);
+- the four weapons;
+- the original 15 Hz physics.
+
+You win by reaching the exit and pressing down. You lose by dying, and an episode can also end
+at its tick limit. People play it with the original restart at the last console; agent
+episodes end at death. Remastered mode (a campaign, Horde, a dash and more) is an optional layer
+that is **not graded or evaluated**. Exclusions and dated scope changes are in
+[`SCOPE.md`](SCOPE.md).
+
+## Commands
+
+Every command runs from the project folder: **`midterms/adit-prabhu/`** in the course
+repository (this folder). You need [uv](https://docs.astral.sh/uv/) and Python 3.11 or 3.12. A C
+compiler is optional: without one, the differential tests against the original C are skipped
+locally, and CI requires them. `ffmpeg` is needed only to write videos.
 
 ```sh
-uv sync --all-extras
-uv run abuse-remake                         # play (Remastered): a title menu, the campaign starts with Training
-uv run abuse-remake --horde --arena rooftop # straight to a Horde arena; --mode classic for the faithful port
-uv run pytest                               # deterministic tests: no network, no model calls
-uv run abuse-data verify                    # check the original data files
+cd midterms/adit-prabhu
+uv sync --all-extras                      # the game, the players and the model SDKs
+```
+
+**Play (the graded game):**
+
+```sh
+uv run abuse-remake --mode classic        # Classic Level 1: Enter on the title starts it
+uv run abuse-remake                       # optional: Remastered (campaign, Horde, dash)
 ```
 
 Controls:
-- move: A/D or the arrow keys;
+- move: A/D or the arrows;
 - jump: W, Up or Space;
-- action (switches, doors, consoles, exit): S or Down;
-- aim: the mouse; fire: the left button; special: the right button or Shift;
-- weapons: 1–4, the original Ctrl/Home (previous) and Insert/PageUp (next), Q/E, the mouse wheel,
-  or the middle button;
-- pause: Esc; after a death, Space restarts from the last console;
-- all controls, and what each part of the screen means: F1;
-- full screen: F11, Alt+Enter or Cmd+F; the window can also be resized;
-- Remastered: dash F, quick restart R (not in Horde), ghost G, right Shift as well as left.
+- **action (switches, consoles, the exit): S or Down**;
+- aim: the mouse; fire: the left button;
+- weapons: 1–4, or Ctrl/Insert as in the original;
+- pause: Esc; after a death, Space restarts at the last console;
+- every control and HUD element: F1.
 
 Gamepads work too.
 
-## Players and evaluation
+**Test (deterministic, no network, no model calls):**
 
 ```sh
-uv run abuse-agent --player scripted --scenario level01-cp3 --seed 0 --trace runs/demo.jsonl
-uv run abuse-replay --trace runs/demo.jsonl                  # watch it, checking every observation
-uv run abuse-replay --player scripted --scenario level01     # spectate live
-uv run abuse-eval run --config eval/configs/offline.toml --jobs 6
-COURSE_MODEL=<model id> uv run abuse-agent --player model -- --provider vertex --memory M1
+uv run pytest                             # rules, interface, limits, regressions, evidence replays
+uv run abuse-data verify                  # the original data files match their checksums
+uv run ruff check src tests scripts
 ```
 
-`docs/evaluation.md` has the full instructions, including the Vertex AI setup and the live
-comparison. The model ID is never in the code: it comes from `COURSE_MODEL`.
+**Watch and run the players:**
 
-## Submission checklist
+```sh
+uv run abuse-replay --player scripted --scenario level01-cp3                      # spectate the baseline live
+uv run abuse-replay --trace evidence/traces/offline-v4/scripted-level01-cp3-s0.jsonl  # replay a trace, checking every observation
+uv run abuse-agent --player scripted --scenario level01-cp1 --seed 0 --trace runs/demo.jsonl
+```
 
-| Assignment item | Where |
+**Evaluate:**
+
+```sh
+uv run abuse-eval run --config eval/configs/offline.toml --jobs 6          # baselines only, no network
+uv run abuse-eval estimate --config eval/configs/midterm.toml              # the declared suite: tokens and cost, no calls
+# Live (Vertex AI, Gemini). Owner setup: gcloud auth application-default login
+export GOOGLE_CLOUD_PROJECT=<project> GOOGLE_CLOUD_LOCATION=global COURSE_MODEL=<model id>
+uv run abuse-eval run --config eval/configs/midterm.toml --live --jobs 6 --out runs/midterm
+uv run abuse-eval report runs/midterm                                       # rebuild the report
+```
+
+Without `--live`, the model players are listed as "not run". No fixture ever stands in for
+them. `docs/evaluation.md` has the full instructions, including the Anthropic and OpenAI
+adapters.
+
+## The player interface
+
+`src/abuse_remake/agent/interface.py` implements the course's five operations:
+- `reset(seed)`;
+- `observe(player_id)`;
+- `legal_actions(player_id)`;
+- `step(player_id, action)`;
+- `outcome()`.
+
+Every player is a separate process speaking JSON lines (`agent/protocol.py`). It gets only the
+observation and the legal actions, with no seed, no level file, no evaluator data and no
+credentials. The runner holds the authoritative game.
+
+| What | Where |
 |---|---|
-| Tagged playable build | Tag `v1.0.0`, which the student pushes. `.github/workflows/release.yml` then builds Linux, macOS and Windows bundles into a GitHub Release. Locally, `uv run abuse-remake` |
-| Executable player | `abuse-agent` (`src/abuse_remake/agent/runner.py`). Players are separate programs speaking `src/abuse_remake/agent/protocol.py`: `random`, `scripted`, `model`, or any `cmd:<program>` |
-| Explicit observation/action interface | `src/abuse_remake/agent/interface.py` (five operations), `docs/action-interface.md` |
-| Scripted or search baseline | `src/abuse_remake/agent/players/baselines.py`: priority rules plus A* over the automap (`agent/nav.py`) |
-| Model-driven player | `src/abuse_remake/agent/players/model_player.py`, with adapters for Vertex (default), Anthropic and OpenAI in `agent/providers/` |
-| Run and evaluation instructions | This README and `docs/evaluation.md` |
-| Rule and source map | `docs/rule-source-map.md` |
-| Configuration record | `agent-config.json` (course-1, checked by `tests/test_agent_config.py`), `eval/configs/*.toml`, and each run's `config.json` |
-| Reusable skill | `.claude/skills/port-classic-rule/SKILL.md`, `.claude/skills/agent-eval/SKILL.md` |
-| Implementation and review evidence | One stacked PR per milestone (#1–#8). Independent review records for #1–#7 are in `docs/reviews/PR-<n>.md`, with the reviewer brief in `.claude/agents/rules-reviewer.md` |
-| Meaningful CI tests | `.github/workflows/ci.yml` (Python 3.11 and 3.12). It covers: format readers, differential tests against compiled original C, engine and object rules, the player boundary, invalid actions, budgets, determinism, mocked providers using the real SDK error types, the eval harness, Remastered isolation, replay |
-| Repeated live comparison | `eval/configs/live.toml` through `abuse-eval --live` (or `.github/workflows/live-eval.yml`), reported to `docs/evaluation-report.md`. **Not run yet:** it needs the student's Vertex setup and approval of the estimate. The offline comparison is in `evidence/reports/offline-baselines.md` |
-| Episode traces | `evidence/traces/`. Every run writes `runs/<run>/traces/` |
-| Information boundaries | `docs/information-boundary.md` |
-| Memory and history comparison | M0, M1 and M2 in `src/abuse_remake/agent/memory.py`. The memory table in the live report compares them |
-| Invalid-action handling | `docs/action-interface.md` |
-| Budgets | `docs/budgets.md` |
-| One-page agent-team log | `docs/agent-team-log.md` (for the student to check) |
-| Peer playtest notes | `docs/playtests/protocol.md` and `template.md`. `--playtest` records a replayable trace, and `abuse-replay --human-trace` scores it with the agents' progress measure. **TODO (student):** run the sessions; agents do not write the notes |
-| Recorded demonstration | Generated: `evidence/video/scripted-level01-cp3-s0.mp4`. Narrated: `docs/demo.md` scripts it. **TODO (student):** record it |
-| Human responsibility | `docs/human-responsibility.md` |
+| Observation and what is never shown (with the two judgement calls) | `docs/information-boundary.md` |
+| Action vocabulary and invalid actions (refused, counted, fed back, never repaired) | `docs/action-interface.md` |
+| Step, decision, tick, token, wall-clock and request limits, each with its own terminal reason | `docs/budgets.md` |
+| The players | `agent/players/baselines.py` (random, scripted), `agent/players/model_player.py` with `agent/providers/` (Vertex, Anthropic, OpenAI) |
+
+## Rules and sources
+
+The rule/source map has **152 rows**, and each carries an evidence label with a locator:
+- **122 `code`**: the C engine at `historicalsource/abuse@01cce80`, or the original Lisp, by
+  file and line;
+- **1 `observed`**: the compiled original C, run in a differential test;
+- **2 `assumed`**: listed as open questions;
+- **27 `design`**: our own choices, each with its kind (harness, course requirement,
+  presentation, Remastered) and its reason. They point to `SCOPE.md`, `SUITE.md`,
+  `docs/action-interface.md`, `docs/budgets.md` and `docs/remastered.md`.
+
+Some `code` rows are also corroborated by the release note (`manual`).
+
+The game reads the original files directly:
+- the C engine is public domain;
+- the levels, art and Lisp are the shareware data, whose release note grants use "however you
+  see fit";
+- the sounds and music are not public domain and are not included: the game synthesises its
+  own effects.
+
+`data/original/PROVENANCE.md` quotes the terms, pins every file's checksum, and explains
+publication in this public repository. `docs/data-lineage.md` shows that the files match the
+1995 and 1996 releases.
+
+## Design choices and the alternatives they beat
+
+| Choice | We chose | Instead of | Why |
+|---|---|---|---|
+| Game | Reconstruct one complete level of Abuse | An original game, or several levels | One level has a full loop, a real ending and checkable fidelity. Scope went into evidence, not size |
+| Starting point | A clean Python port from the public-domain C and Lisp | Adapting the C++/SDL port and its Lisp interpreter | A pure, deterministic, headless engine with the interface and tests built in. Fidelity is checked against the compiled original C |
+| Timing | One logic tick per original frame, fixed at 15 Hz | A variable or 60 Hz step | `game.c:1630-1633` caps the original at 15 Hz. A fixed step makes every episode reproducible |
+| Actions | Macro actions (`move`, `jump`, `explore`, `goto`, `use`, `attack`, `weapon`), each 1–15 ticks, ending early when hurt or when a new threat appears | Raw inputs every tick (keys plus an aim angle) | Raw input means up to 9,000 calls per level and pixel-precise aim. Macros give one decision about every half second, and every player shares the same controllers, so the comparison is about decisions, not motor skill |
+| Real time | The game pauses while a player decides | Running the clock during model latency | Slow players gain or lose no game time, so latency doesn't decide the result |
+| Observation | What the 316x162 screen shows: visible objects, their visible state, tile classes, the HUD | The full map, or pixels | It matches what a human sees. The full map would leak the level; pixels would need a vision model at many times the cost |
+| Navigation | `goto`/`explore` plan over tiles already seen (an automap) | A* over the whole map | Planning over unseen tiles would leak the layout |
+| Ending | Death ends an agent's episode | The original's respawn at the last console | A bounded episode with an explicit terminal reason. People keep the respawn |
+| Situations | Three checkpoint segments plus the full level | The full level only | From the start, the scripted baseline stalls in the first section on every seed. Segments test the later parts and separate the players |
+| Baseline | Scripted priority rules plus A* over the automap; random as a floor | Random only | Random is trivial. The scripted player is a real competitor with the same priors the model's prompt gets |
+| Solver | A privileged engine search, reported as an upper reference | No solver | It proves each situation can be won and bounds what is possible. It reads engine state, so it never competes |
+| History | `M1` (the last 8 turns) against `M0` (current screen only) | Persistent memory only, or none | The game is partly observed, so the question is whether bounded history helps. `M2` (notes and an automap summary) is implemented but cut from the suite to fit the budget |
+| Metric | Wins, plus an evaluator-only progress measure | Wins only | Few wins are expected, and progress separates players that all lose. It is never shown to players |
+| Invalid actions | Refused, counted, fed back; one decision spent | Repairing to the nearest legal action | Repairs would hide the model's errors and inflate its score |
+| Model | Gemini flash-lite on Vertex AI | A larger model | It is covered by the course credit and has low latency. The same adapter supports Anthropic and OpenAI |
+
+## Agent team
+
+- **Implementation agent:** Claude Code, with `CLAUDE.md` and `AGENTS.md` as its instructions.
+  It works on feature branches through stacked PRs and never merges.
+- **Reusable skills:** `.claude/skills/port-classic-rule/` (cite, test first, port, check the
+  boundary, hand to review) and `.claude/skills/agent-eval/`.
+- **Independent reviewer:** `.claude/agents/rules-reviewer.md`, a read-only agent with a fresh
+  context that never wrote the code. Its records are in `docs/reviews/`.
+- **Playing agents:** the players above, with no repository tools.
+
+The student's own log is [`AGENT-TEAM.md`](AGENT-TEAM.md). The session-by-session record is
+`docs/agent-team-log.md`.
 
 ## Repository map
 
 - `src/abuse_remake/formats/`: readers for the original SPEC files, tiles, sprites and levels.
-- `src/abuse_remake/engine/`: the deterministic simulation. Pure Python, with no pygame.
-  - `behaviors/` holds the hand-ported Lisp and C rules.
-  - `remastered.py` and `horde.py` hold the rules for Remastered only.
-- `src/abuse_remake/game/`: the pygame front end (rendering, input, audio, HUD, the Remastered
-  features, `abuse-replay`).
-- `src/abuse_remake/agent/`: the playing-agent interface, the players and providers, the runner,
-  and `abuse-eval`.
-- `data/original/`: the vendored public-domain data, with checksums and provenance.
-- `docs/`, `evidence/`, `eval/configs/`, `tests/`, `.github/workflows/`, `.claude/`.
-
-`docs/PROGRESS.md` has the handoff notes for picking the work up.
+- `src/abuse_remake/engine/`: the deterministic simulation. It is pure Python, with no pygame.
+  `behaviors/` holds the hand-ported rules; `remastered.py`, `horde.py` and `campaign.py` are
+  Remastered only.
+- `src/abuse_remake/game/`: the pygame front end, which never changes rules, and `abuse-replay`.
+- `src/abuse_remake/agent/`: the interface, players, providers, runner and `abuse-eval`.
+- `data/original/`: the vendored original data, with checksums and provenance.
+- `eval/configs/`, `evidence/`, `docs/`, `tests/`, `scripts/`, `.claude/`.

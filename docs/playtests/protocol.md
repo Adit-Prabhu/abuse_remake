@@ -1,50 +1,53 @@
-# Peer playtest protocol
+# Peer playtest protocol (15 minutes)
 
-> Agents never write playtest notes. The student runs each session with real peers and writes
-> the notes from `template.md`. Until then, this folder holds only the protocol and the template.
+> Agents never write playtest notes. The student runs the sessions and writes the notes; peers
+> write theirs. This folder holds the protocol, the template and the notes:
+> - `received/`: notes from peers who played this build;
+> - `given/`: notes the student gave on a classmate's build.
 
 ## Purpose
 
-1. **Fidelity:** does Classic mode feel like the original Abuse Level 1 to someone who knows it,
-   or who watches a recording of the original next to it?
-2. **Human reference:** how far do human players get under the same scenarios and limits as the
-   agents? Their traces give the evaluation a human baseline.
-3. **Remastered:** are the new features (dash, quick restart, ghost race, Horde) fun, clear
-   and fair?
+1. **Clarity and fun.** Can someone new finish or make progress in Classic Level 1 without
+   help? What do they have to guess?
+2. **The agent's view.** Watching an agent's replay, can a person tell what it is trying to
+   do, and is the display honest about it?
+3. **A human reference.** How far does a person get under the same rules as the agents? (A
+   person may restart at a console and an agent may not, so this is a reference, not a score.)
 
 ## Before the session
 
-- Get the player's consent to record inputs, and explain that only anonymous IDs (P1, P2, ...)
-  are kept. Never record names, faces or voices in the repo.
-- Build or install: `uv sync --all-extras`.
-- Check the controls on the player's machine with `uv run abuse-remake --mode classic`.
+- Consent: say that only an anonymous ID (P1, P2, ...) is written down, with no names, faces
+  or voices, and ask whether the input trace may be committed.
+- Setup, from `midterms/adit-prabhu/`: `uv sync --all-extras`. Then check the controls once with
+  `uv run abuse-remake --mode classic`.
+- Have a live model trace ready to replay (`evidence/traces/`).
 
-## The session (about 25 minutes)
+## The session
 
-1. **Warm-up (3 min):** Remastered mode, any part of the level, to learn the controls.
-2. **Classic run (10 min):** run `uv run abuse-remake --mode classic --playtest --seed 0`. Play
-   from the start, aiming for the exit. The trace goes to `playtests/raw/`, which git ignores.
-   Note deaths and where the player got stuck.
-3. **Segment (5 min):** play from a checkpoint, if wanted. The agents' segment scenarios start at
-   the three restart consoles.
-4. **Remastered (5 min):** try the dash, quick restart and one Horde run (`--horde`).
-5. **Questions (2 min):** the questions in `template.md`.
+| Minutes | What | Command |
+|---|---|---|
+| 0–1 | Controls only: move, jump, aim and fire, **Down is the action key** | |
+| 1–9 | **Classic Level 1 from the start**, thinking aloud. No coaching; answer control questions only | `uv run abuse-remake --mode classic --playtest --seed 0` |
+| 9–12 | **Watch the model player** play a recorded episode; ask "what is it trying to do?" | `uv run abuse-replay --trace <a live trace>` |
+| 12–15 | The questions in `template.md` | |
 
-## Rules for the facilitator
+Remastered (Horde, dash) is optional and only if time remains. It is not graded.
 
-- Do not coach during the timed runs. Answer control questions only.
-- Write down what the player says while playing, word for word where you can.
-- Count deaths, time to each console, and whether the player reached the exit.
+## While they play, write down
+
+- their words, verbatim where possible;
+- each death, and where it happened;
+- each place they were stuck, and for how long;
+- whether they found the consoles and the exit, and whether they knew Down was the action key.
 
 ## Afterwards
 
-- Copy the notes into `docs/playtests/P<n>-<date>.md` from the template.
-- Score the trace with the same measure as the agents:
-  `uv run abuse-replay --human-trace playtests/raw/session-<id>.jsonl`. It replays the session
-  through the engine, checks every recorded state hash, and prints for each game the ticks,
-  deaths, console saves, whether the player reached the exit, and progress. Unlike an agent, a
-  human may die and restart, so compare with care.
-- Keep raw traces local. Commit a trace only with the player's consent, as
-  `evidence/traces/human/P<n>-<scenario>.jsonl`, after removing anything personal. A trace holds
-  only inputs and the seed.
-- Turn findings into issues or PR tasks. Tag fidelity findings to a rule-map row where possible.
+- Write the notes from `template.md` into `received/P<n>-<date>.md`.
+- Score the trace with the agents' measure:
+  `uv run abuse-replay --human-trace playtests/raw/session-<id>.jsonl`. It replays the session,
+  checks every recorded state hash, and prints ticks, deaths, console saves, whether the exit
+  was reached, and progress.
+- Keep raw traces local (`playtests/raw/` is ignored by git). Commit one only with consent, as
+  `evidence/traces/human/P<n>.jsonl`. A trace holds only inputs and the seed.
+- Turn each finding into a change, or a line in the limitations of `EVALUATION.md`. Fidelity
+  findings point to a rule-map row.

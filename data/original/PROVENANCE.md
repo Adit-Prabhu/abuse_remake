@@ -58,8 +58,9 @@ retail 2.00 data is used only for comparison and is never committed.
 
 **Not included:**
 
-- The sound effects and music (`sfx/`, `music/`): Bobby Prince's copyright. The game uses CC0
-  replacement audio from `assets/`.
+- The sound effects and music (`sfx/`, `music/`): Bobby Prince's copyright. The game ships no
+  audio files. It synthesises its own effects at start-up (`src/abuse_remake/game/audio.py`)
+  and has no music.
 - The retail and registered data sets.
 
 ## What is used
@@ -71,3 +72,19 @@ retail 2.00 data is used only for comparison and is never committed.
   `startup.lsp` list.
 - `art/*.spe`, `art/chars/*.spe`: sprites for the player, enemies, items and logic objects.
 - `lisp/*.lsp`: kept as the rule source. The engine hand-ports these scripts and never runs them.
+
+## Publishing in the public course repository
+
+The course repository is public, so everything committed here must be publishable:
+
+- **The C engine** is public domain ("Crack dot Com is hereby releasing the source code to
+  Abuse to the public domain"). We cite it by file and line and do not copy it, except the
+  verbatim excerpts in `tests/c_reference/` used for the differential tests.
+- **The shareware data** (`art/`, `lisp/`, `levels/level00.spe`, `level01.spe`,
+  `level02.spe`, `abuse.lsp`) is covered by the release note's grant to "use pieces of the
+  source code or shareware data (excluding the WAV's …) however you see fit". The upstream
+  `COPYING.upstream` lists `data/*` as public domain.
+- **Excluded:** the WAVs and music, the retail and registered data sets, and anything from
+  other games.
+- **Our own code, tests and documents** are the student's work for the course, written with the
+  AI assistance disclosed in `AGENT-TEAM.md` and `docs/agent-team-log.md`.
