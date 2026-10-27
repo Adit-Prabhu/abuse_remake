@@ -71,7 +71,7 @@ uv run ruff check src tests scripts
 
 ```sh
 uv run abuse-replay --player scripted --scenario level01-cp3                      # spectate the baseline live
-uv run abuse-replay --trace evidence/traces/offline-v5/scripted-level01-cp3-s0.jsonl  # replay a trace, checking every observation
+uv run abuse-replay --trace evidence/traces/offline-v6/scripted-level01-cp3-s0.jsonl  # replay a trace, checking every observation
 uv run abuse-agent --player scripted --scenario level01-cp1 --seed 0 --trace runs/demo.jsonl
 ```
 
@@ -152,7 +152,7 @@ basis for publishing each part in this public repository. `docs/data-lineage.md`
 | Real time | The game pauses while a player decides | Running the clock during model latency | Slow players gain or lose no game time, so latency doesn't decide the result |
 | Observation | What the 316x162 screen shows: visible objects, their visible state, tile classes, the HUD | The full map, or pixels | It is what the screen shows a player (`docs/information-boundary.md` lists the two judgement calls). The full map would leak the level; pixels would need a vision model at many times the cost |
 | Navigation | `goto`/`explore` plan over tiles already seen (an automap) | A* over the whole map | Planning over unseen tiles would leak the layout |
-| Secrets | An uncracked hidden wall shows as solid scenery; a cracked one can be named; `fire <direction>` shoots scenery | Naming every breakable wall | Six of the eight hidden-wall types look like ordinary scenery. Naming them leaked secrets, which a render of every type showed |
+| Secrets | A hidden wall is shown only as it looks: cracked ones are named, ledge-, floor- and pillar-like ones are solid tiles, background-like ones are not shown; `fire <direction>` shoots scenery | Naming every breakable wall, or showing every one as solid | Six of the eight hidden-wall types imitate scenery (renders of every type and frame). Naming them leaked secrets, and a solid lump where the screen shows background points at one |
 | Ending | Death ends an agent's episode | The original's respawn at the last console | A bounded episode with an explicit terminal reason. People keep the respawn |
 | Situations | Three checkpoint segments plus the full level | The full level only | From the start, the scripted baseline stalls in the first section on every seed. Segments test the later parts and separate the players |
 | Baseline | Scripted priority rules plus A* over the automap; random as a floor | Random only | Random is trivial. The scripted player is a real competitor with the same priors the model's prompt gets |
