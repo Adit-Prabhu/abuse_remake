@@ -116,8 +116,8 @@ def dev_items(app) -> list[dict]:
     items.append({"key": "health", "label": "UNLIMITED HEALTH", "value": "ON" if on["health"] else "OFF",
                   "desc": ["No damage, and health stays full.", "Off: hits hurt again, to test damage."]})
     items.append({"key": "ammo", "label": "UNLIMITED AMMO", "value": "ON" if on["ammo"] else "OFF",
-                  "desc": ["Laser, grenades, rockets and napalm: always full.",
-                           "Off: shots use ammo again."]})
+                  "desc": ["Laser, grenades, rockets and napalm: always full (the laser at its fast rate).",
+                           "Off: shots use ammo again, from full."]})
     items.append({"key": "resume", "label": "BACK TO THE GAME", "value": None, "desc": ["Or Tab, or Esc."]})
     return items
 

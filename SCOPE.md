@@ -91,6 +91,10 @@ checks the separation.
   cards, score and high scores (PRs #18 and #20).
 - **Interface:** a title menu, a controls screen, the HUD in the original interface art, a
   gamepad, a resizable window and full screen.
+- **Developer test mode (added 2026-10-27):** the student's own testing tool. It turns off
+  damage, gives unlimited ammo and offers a power-up menu. It starts only on the student's
+  machine (`game/devmode.py`), and never records times, ghosts, scores or traces
+  (`docs/remastered.md`).
 
 **Every level in the build can be finished, with evidence.** Each has a saved input route that
 CI replays to the level's exit (`evidence/routes/`, `tests/test_campaign_routes.py`):
@@ -125,3 +129,4 @@ The AI spectator (`abuse-replay`) always shows Classic rules.
 | 2026-10-13 | Abuse, Level 1 only; a Classic core plus a Remastered mode; Vertex AI for the live player | the student |
 | 2026-10-14 | Remastered grows: the training level, Level 2, the four power-ups, a bigger Horde. Classic and the evaluation unchanged | the student, against the agent's advice to finish the required items first |
 | 2026-10-26 | The graded scope restated as Classic Level 1, with Remastered optional and ungraded. Neon and the bridge excluded. The evaluation suite re-declared before any live call (`SUITE.md`) | the student, after the midterm audit (`docs/reviews/midterm-audit-2026-10-26.md`) |
+| 2026-10-27 | Remastered: separate level and arena lists on the title, a red labelled ghost with an on/off setting, and a developer test mode locked to the student's machine (PRs #28-#31). Classic and the evaluation unchanged | the student |

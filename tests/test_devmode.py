@@ -125,6 +125,44 @@ def test_dev_health_takes_no_damage_and_stays_full_and_can_be_switched_off():
     assert plain.player.hp < 100
 
 
+def test_dev_health_refills_to_its_cap_and_never_revives(monkeypatch):
+    """The review of PR #31: the refill itself was untested (the hits above are blocked anyway)."""
+    from abuse_remake.engine.behaviors.player import HEALTH_POWER
+
+    g = Game(seed=0, remastered=True, dev=True)
+    settle(g, 3)
+    p = g.player
+    g.remastered.dev["health"] = False
+    settle(g, 1)
+    p.do_damage(30, None, p.x, p.y, 0, 0)
+    assert p.hp == 70
+    g.remastered.dev["health"] = True  # as the dev menu switches it, between ticks
+    g.remastered.before_step()  # refilled, and immune, before anything in the tick can hit
+    assert p.hp == 100 and g.world.globals["player_iframes"] == 1
+    g.remastered.dev_power(HEALTH_POWER)
+    settle(g, 2)
+    assert p.hp == 200  # ultra health's cap
+    p.aistate = 3  # dead (as only a death with health off could leave it)
+    p.set_hp(0)
+    settle(g, 2)
+    assert p.hp == 0  # no revival: a death is a death
+
+
+def test_dropping_a_power_up_brings_ultra_health_back_to_100():
+    from abuse_remake.engine.behaviors.player import FLY_POWER, HEALTH_POWER, NO_POWER
+
+    g = Game(seed=0, remastered=True, dev=True)
+    settle(g, 3)  # health is 100 from here
+    g.remastered.dev["health"] = False
+    g.remastered.dev_power(HEALTH_POWER)
+    extra = g.player.hp
+    assert extra > 100  # 150 on hard: give_player_health scales with difficulty
+    g.remastered.dev_power(FLY_POWER)
+    assert g.player.hp == extra  # a swap keeps the extra, as picking up another power does
+    g.remastered.dev_power(NO_POWER)
+    assert g.player.hp == 100  # dropping it (no original counterpart) clamps, as Horde does
+
+
 def test_dev_ammo_gives_guns_1_to_4_and_keeps_them_full_while_firing():
     g = Game(seed=0, remastered=True, dev=True)
     g.step(Inputs())
@@ -227,7 +265,7 @@ def test_dev_runs_never_save_times_ghosts_or_scores(key):
     assert h.state == "horde_over" and h.finish == {"dev": True}
     assert any("NOT RECORDED" in line for line in h.horde_over_lines())
     saved = {p.name for p in data_dir().iterdir()}
-    assert not saved & {"records.json", "horde.json"} and not any(n.startswith("ghost-") for n in saved)
+    assert not saved & {"records.json", "horde_scores.json"} and not any(n.startswith("ghost-") for n in saved)
 
 
 def test_classic_on_the_title_plays_without_dev_rules(key):

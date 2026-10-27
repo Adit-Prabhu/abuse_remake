@@ -82,15 +82,19 @@ class Remastered:
                 v.add_ammo(wtype, MAX_AMMO)
 
     def dev_power(self, power: int) -> None:
-        """Developer test mode's menu: carry ``power`` (0 drops it), as a power-up pickup gives one
-        (``campaign_objects._take_power``), from a fresh start."""
-        from .behaviors.player import HEALTH_POWER, give_player_health
+        """Developer test mode's menu: carry ``power``, with the rules of a power-up pickup
+        (``campaign_objects._take_power``; not its flash or sound), from a fresh start. Dropping
+        the power (0), which has no original counterpart, brings health over 100 back to 100, as
+        Horde does when a card's power ends."""
+        from .behaviors.player import HEALTH_POWER, NO_POWER, give_player_health
 
         p = self.game.player
         p.lvars["special_power"] = power
         p.lvars["used_special_power"] = 0
         if power == HEALTH_POWER:
             give_player_health(p, 100)
+        elif power == NO_POWER and p.hp > 100:
+            p.set_hp(100)
 
     def can_dash(self) -> bool:
         p = self.game.player

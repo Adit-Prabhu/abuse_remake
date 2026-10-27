@@ -264,16 +264,18 @@ this shows:
 `uv run abuse-remake --dev` starts it. It works only on the machine whose
 `~/.abuse_remake/dev.key` holds the secret matching `KEY_SHA256` in `game/devmode.py`. The secret is
 in no file of the repository, its export or a release. Anywhere else, `--dev` is refused exactly
-like a made-up option, and `--help`, the title and the controls never mention it. The lock keeps
-dev mode out of the game as published. Someone who edits their own copy of the source can, of
-course, change anything. `scripts/new_dev_key.py` makes a key for another machine; its hash must
+like a made-up option, and `--help`, the title and the controls never mention it. The lock guards
+the game as published and launched. Anyone who edits the source, or runs their own Python against
+it (`Game(dev=True)`, or setting `args.dev`), can of course turn anything on. `scripts/new_dev_key.py` makes a key for another machine; its hash must
 then be committed.
 
 In dev mode:
 - the player takes no damage and health stays full;
-- guns 1-4 are owned and never run out (∞ on the HUD);
-- Tab opens the DEV MODE menu (the game waits): any of the four power-ups or none, and the two
-  switches above.
+- guns 1-4 are owned and never run out (∞ on the HUD). So the laser always fires at its faster
+  with-ammo rate, a weapon pickup no longer switches to its gun, and with the switch off, ammo
+  counts down from full;
+- Tab opens the DEV MODE menu (the game waits): any of the four power-ups or none (with a
+  pickup's rules, but not its flash or sound), and the two switches above.
 
 A red DEV MODE badge stays on screen, on the title and in play, so no screenshot passes for real
 play. Dev mode is Remastered only: switching the title to Classic plays plain Classic rules. It

@@ -3,8 +3,9 @@
 ``uv run abuse-remake --dev`` starts it, and only where ``~/.abuse_remake/dev.key`` holds the
 secret whose SHA-256 is ``KEY_SHA256``. The secret is in no file of the repository, its export or
 a release, so a published copy cannot enter dev mode: without the key, ``--dev`` is refused like
-any made-up option, and nothing on screen or in ``--help`` mentions it. This keeps dev mode out of
-the game as published; someone who edits their own copy of the source can change anything.
+any made-up option, and nothing on screen or in ``--help`` mentions it. The lock guards the game as
+published and launched; anyone who edits the source or runs their own Python against it
+(``Game(dev=True)``, or ``args.dev``) can turn anything on.
 
 In dev mode (Remastered only; the rules are ``Game(dev=True)`` in ``engine/remastered.py``):
 - the player takes no damage and health stays full;

@@ -16,6 +16,7 @@ build/
 credentials*.json
 *-credentials.json
 gha-creds-*.json
+*.key
 
 # Generated at run time
 runs/
