@@ -40,28 +40,22 @@ situation and pooled:
 ### Offline baselines (no model calls)
 
 `evidence/reports/offline-baselines.md` uses the offline config: 600 decisions for every
-scenario, seeds 0–4. It was generated on 2026-10-27 from the clean commit `5aef372`, with the
+scenario, seeds 0–4. It was generated on 2026-10-27 from the clean commit `72733d7`, with the
 interface as it now stands (after PRs #21 and #25). Pooled over the four scenarios, scripted's
-progress is 0.322 and random's is 0.088 (a paired difference of −0.234, with a cluster-bootstrap
-95% interval of [−0.543, −0.008]). Neither wins any of 20 episodes. Per scenario:
+progress is 0.302 and random's is 0.088 (a paired difference of −0.213, with a cluster-bootstrap
+95% interval of [−0.560, −0.007]). Neither wins any of 20 episodes. Per scenario:
 
 | Scenario | random progress | scripted progress | scripted ending | random minus scripted |
 |---|---|---|---|---|
-| `level01` | 0.125 (dies 3/5) | 0.163 | decision budget: it stalls in the first section | −0.038 [−0.053, −0.022] |
-| `level01-cp1` | 0.170 (dies 1/5) | 0.155 | tick limit | +0.015 [−0.013, 0.029] |
-| `level01-cp2` | 0.019 (dies 5/5) | 0.224 | dies 5/5 | −0.205 [−0.252, −0.122] |
-| `level01-cp3` | 0.038 | 0.747 | dies 5/5, close to the exit | −0.709 [−0.726, −0.686] |
+| `level01` | 0.128 (dies 2/5) | 0.163 | decision budget: it stalls in the first section | −0.035 [−0.053, −0.020] |
+| `level01-cp1` | 0.161 | 0.155 | tick limit | +0.006 [−0.017, 0.029] |
+| `level01-cp2` | 0.027 (dies 5/5) | 0.115 | dies 5/5 | −0.088 [−0.196, 0.019] |
+| `level01-cp3` | 0.038 | 0.773 | dies 5/5, close to the exit | −0.735 [−0.762, −0.716] |
 
-On `level01-cp1` the two are level (the interval covers 0). Random breaks no walls there, and
-scripted breaks 14 on every seed, so the gap is not about walls. The baseline is strongest from
-console 2 on.
-
-## 3. The solver: is each situation winnable?
-
-`scripts/route_search.py` is a best-first search over the engine's own state. It is
-privileged, because it reads the World object, and it is never a competitor. Its Classic mode,
-its starts at the restart consoles, and the routes it finds for each situation (replayed in CI)
-arrive in PR #27, which fills in this section.
+The baseline separates clearly from random on `level01` and `level01-cp3`. It is level with
+random on `level01-cp1`, and on `level01-cp2` the interval covers 0. On the tuning seeds of
+`cp2` (90 and 91) it reaches 0.254 on both, so `cp2`'s reported seeds are harder for it. No
+baseline change is made from that: the reported seeds are not for tuning.
 
 ## Known limitations of the shared motor skills
 
@@ -93,7 +87,7 @@ The five kinds of check the course asks for:
 
 ## 5. Traces
 
-- Offline: `evidence/traces/offline-v7/`, three traces, each replayed exactly in CI.
+- Offline: `evidence/traces/offline-v8/`, three traces, each replayed exactly in CI.
 - Every run writes all of its traces to `runs/<run>/traces/`. Selected live traces will be
   committed under `evidence/traces/`.
 - `uv run abuse-replay --trace <file>` replays one with its decision panel and checks every

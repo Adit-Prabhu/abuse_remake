@@ -21,3 +21,4 @@ only, `level01-cp2`, seeds 90 and 91, no model calls) at the commit named, so it
 | B1 re-check | 2026-10-27 | The same rule judged on the tuning set alone, with and without the floor shot | without: 0.060, 0.260; with: 0.254, 0.260 | `5d26519` |
 | B2 | 2026-10-27 | The give-up rule (3 attacks that change nothing) compares a wall's `cracks`, since the old `damaged` flag no longer changes | 0.254, 0.260 | `5d26519` |
 | check | 2026-10-27 | No baseline change. The interface's second review fixes (the look table, aiming, returning fire) apply to every player | 0.260, 0.254 | `5aef372` (the row was added in that commit; its `src` is the code that ran) |
+| check | 2026-10-27 | No baseline change. The interface's last review fixes (10-degree aim, return fire capped at 6 ticks) apply to every player | 0.254, 0.254 | `72733d7` |

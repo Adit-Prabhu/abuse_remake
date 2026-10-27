@@ -146,20 +146,20 @@ abuse-eval run --config eval/configs/midterm.toml --live --out runs/midterm --re
 ## Evidence so far
 
 - The offline baseline run: `evidence/reports/offline-baselines.md`, with its results, config and
-  three traces in `evidence/traces/offline-v7/`. It has been regenerated after each interface
+  three traces in `evidence/traces/offline-v8/`. It has been regenerated after each interface
   change:
   - after the decision-count fix (PR #21, 2026-10-26), which changed only some tick counts and
     final positions;
-  - after the hidden-wall fix and its two reviews (PR #25, generated 2026-10-27 from the clean
-    commit `5aef372`). A hidden wall is shown only as it looks, `attack` and `fire` hold fire
-    only while the gun turns, players gain `fire`, and the scripted baseline shoots scenery when
-    stuck. Scripted's pooled progress went from 0.353 to 0.322, and random's from 0.082 to 0.088.
+  - after the hidden-wall fix and its reviews (PR #25, generated 2026-10-27 from the clean commit
+    `72733d7`). A hidden wall is shown only as it looks, `attack` and `fire` hold fire only while
+    the gun turns, players gain `fire`, and the scripted baseline shoots scenery when stuck.
+    Scripted's pooled progress went from 0.353 to 0.302, and random's from 0.082 to 0.088.
 - Progress is sampled on every tick (since the PR #5 review), and the random player seeds
   itself from its first observation instead of the episode seed.
-- Pooled over the 4 scenarios, random's progress minus scripted's is −0.234, with a
-  cluster-bootstrap 95% interval of [−0.543, −0.008].
-- Per scenario: `level01` −0.038, `cp1` +0.015 (level), `cp2` −0.205, `cp3` −0.709. The
-  scripted baseline stalls in the full level's first section on every seed.
+- Pooled over the 4 scenarios, random's progress minus scripted's is −0.213, with a
+  cluster-bootstrap 95% interval of [−0.560, −0.007].
+- Per scenario: `level01` −0.035, `cp1` +0.006 (level), `cp2` −0.088 (the interval covers 0),
+  `cp3` −0.735. The scripted baseline stalls in the full level's first section on every seed.
 - The scripted baseline's weak spot is the full level's first section, which it does not solve.
   It is a fixed rule set, and these numbers show where a stronger player has room to do better.
 - The live comparison has not been run yet. It needs the owner's Vertex setup and approval of
