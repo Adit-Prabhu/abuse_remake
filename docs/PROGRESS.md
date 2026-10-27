@@ -173,25 +173,16 @@ evaluation harness.
 
 ## Next steps
 
-1. Every milestone PR (#1–#7) now has an independent review record with all findings resolved.
-   The remaining work is the human-owned items below.
-2. **Live comparison (human-gated).**
-   - The owner sets up Vertex: `gcloud auth application-default login`, `GOOGLE_CLOUD_PROJECT`,
-     `GOOGLE_CLOUD_LOCATION`, and `COURSE_MODEL` (a Gemini ID).
-   - The owner fills in `[prices]` in `eval/configs/live.toml`.
-   - Show `abuse-eval estimate`, get approval, run `live-smoke`, then `live`, with
-     `--report-to docs/evaluation-report.md`.
-   - Commit a few traces under `evidence/traces/`.
-3. Milestone 8, Remastered mode: dash, stats screen, quick restart, ghost race, AI spectator,
-   Horde.
-4. Milestone 9:
-   - `agent-config.json` (course-1);
-   - skills `.claude/skills/port-classic-rule/` and `.claude/skills/agent-eval/`;
-   - docs: `agent-team-log.md`, `human-responsibility.md`, `playtests/protocol.md` and
-     `playtests/template.md`, `demo.md`;
-   - `release.yml` (PyInstaller on tag);
-   - the README submission checklist;
-   - `abuse-replay` to MP4, and the demo video.
+Milestones 1-9 are done and reviewed. The open work is listed under "Midterm fixes" at the top
+of this page:
+1. **The live comparison**, which waits on the student's Vertex credentials
+   (`gcloud auth application-default login` and a project ID). Then, in order, as `SUITE.md`
+   says: `abuse-eval estimate` on `eval/configs/midterm.toml`, the 20-request `live-smoke`, at
+   most two tuning rounds on `midterm-tuning.toml` (logged in `docs/prompt-log.md`), the freeze,
+   the reported run, and the results in `EVALUATION.md`. Commands are in `docs/evaluation.md`.
+   Prices and run caps are already filled in.
+2. The student-owned items listed there: the merges, `AGENT-TEAM.md`, the peer playtest, the
+   recording, making the repository public, and the course submission.
 
 ## Facts established from the source (cite these in the map)
 
@@ -225,7 +216,5 @@ evaluation harness.
 
 ## Human-owned items still open
 
-- Confirm `SCOPE.md` against the Session 2 agreement.
-- Merge the PRs in order, and push tag `v1.0.0` at the end.
-- Set up Vertex credentials before the live evaluation.
-- Peer playtests, the narrated demo, and Asana links.
+See "The student owns" under "Midterm fixes" at the top of this page. The midterm needs no
+release tag and no Asana links.
