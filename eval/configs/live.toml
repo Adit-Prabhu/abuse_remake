@@ -1,3 +1,5 @@
+# SUPERSEDED on 2026-10-26, before it was ever run, by midterm.toml (see SUITE.md for why).
+# Kept for the record of what was declared on 2026-10-13.
 # The repeated live comparison: baselines and the model player under the same budgets.
 # Live players run only with --live. Run `abuse-eval estimate --config eval/configs/live.toml`
 # first and fill [prices] from the provider's price page (with the date) before running.

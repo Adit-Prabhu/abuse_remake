@@ -33,7 +33,7 @@ from pathlib import Path
 
 from .. import __version__
 from .interface import SCENARIOS, Budgets
-from .runner import git_sha, make_player, run_episode
+from .runner import code_identity, git_sha, make_player, run_episode
 from .stats import cluster_paired_diff, mean_ci, paired_diff, percentile, wilson
 
 EST_INPUT_TOKENS_PER_DECISION = 1800  # measured prompt sizes: ~700 system + ~700-1100 per turn (M2 most)
@@ -52,6 +52,9 @@ def load_config(path: Path) -> dict:
     for s in cfg["scenarios"]:
         if s not in SCENARIOS:
             raise SystemExit(f"unknown scenario {s!r}")
+    for s in cfg["budgets"].get("scenarios", {}):
+        if s not in cfg["scenarios"]:
+            raise SystemExit(f"budgets for {s!r}, which is not one of this config's scenarios")
     labels = [p["label"] for p in cfg["players"]]
     if len(set(labels)) != len(labels):
         raise SystemExit("player labels must be unique")
@@ -59,7 +62,10 @@ def load_config(path: Path) -> dict:
 
 
 def budgets_for(cfg: dict, scenario: str) -> Budgets:
-    b = cfg["budgets"]
+    """The scenario's budgets: the config's defaults, then any ``[budgets.scenarios.<name>]``
+    overrides. They depend only on the scenario, so every player gets the same."""
+    b = {k: v for k, v in cfg["budgets"].items() if k != "scenarios"}
+    b.update(cfg["budgets"].get("scenarios", {}).get(scenario, {}))
     return Budgets(max_ticks=int(b.get("max_ticks") or SCENARIOS[scenario].max_ticks),
                    max_decisions=int(b.get("max_decisions", 600)),
                    max_input_tokens=int(b.get("max_input_tokens", 0)),
@@ -138,7 +144,8 @@ def run(cfg: dict, out_dir: Path, live: bool, jobs: int = 1, log=sys.stderr, onl
               "packages": versions(), "live": live, "only": sorted(only) if only else None,
               "started": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
               "course_model": resolved_model if live else None,
-              "budgets": {s: asdict(budgets_for(cfg, s)) for s in cfg["scenarios"]}}
+              "budgets": {s: asdict(budgets_for(cfg, s)) for s in cfg["scenarios"]},
+              **code_identity()}
     (out_dir / "config.json").write_text(json.dumps(record, indent=2))
     results: list[dict] = list(done.values())
     sink = partial.open("a" if resume else "w")
@@ -203,20 +210,22 @@ def estimate(cfg: dict, max_output_tokens_per_request: int | None = None) -> dic
     live_jobs = [j for j in plan(cfg) if j["live"]]
     if max_output_tokens_per_request is None:  # what the live players will actually ask for
         max_output_tokens_per_request = max([_arg(j["args"], "--max-output-tokens", 1024) for j in live_jobs] or [1024])
-    dec = int(cfg["budgets"].get("max_decisions", 600))
-    ep_in = dec * EST_INPUT_TOKENS_PER_DECISION
-    ep_out_worst = dec * max_output_tokens_per_request
-    if cfg["budgets"].get("max_input_tokens"):
-        ep_in = min(ep_in, int(cfg["budgets"]["max_input_tokens"]))
-    if cfg["budgets"].get("max_output_tokens"):
-        ep_out_worst = min(ep_out_worst, int(cfg["budgets"]["max_output_tokens"]))
-    total_in, total_out = ep_in * len(live_jobs), ep_out_worst * len(live_jobs)
+    total_in = total_out = requests = 0
+    for j in live_jobs:
+        b = budgets_for(cfg, j["scenario"])
+        ep_in = b.max_decisions * EST_INPUT_TOKENS_PER_DECISION
+        ep_out_worst = b.max_decisions * max_output_tokens_per_request
+        total_in += min(ep_in, b.max_input_tokens) if b.max_input_tokens else ep_in
+        total_out += min(ep_out_worst, b.max_output_tokens) if b.max_output_tokens else ep_out_worst
+        requests += b.max_decisions
     if cfg["run"].get("max_input_tokens"):
         total_in = min(total_in, int(cfg["run"]["max_input_tokens"]))
     if cfg["run"].get("max_output_tokens"):
         total_out = min(total_out, int(cfg["run"]["max_output_tokens"]))
-    est = {"live_episodes": len(live_jobs), "max_decisions": dec, "input_tokens": total_in,
-           "output_tokens_worst_case": total_out, "requests_max": dec * len(live_jobs)}
+    decisions = {s: budgets_for(cfg, s).max_decisions for s in cfg["scenarios"]}
+    est = {"live_episodes": len(live_jobs),
+           "max_decisions": decisions if len(set(decisions.values())) > 1 else next(iter(decisions.values())),
+           "input_tokens": total_in, "output_tokens_worst_case": total_out, "requests_max": requests}
     est["cost_usd_worst_case"] = cost(cfg, total_in, total_out)
     return est
 
@@ -304,11 +313,15 @@ def render_report(rows: list[dict], record: dict) -> str:
     labels = [p["label"] for p in cfg["players"]]
     ref = cfg.get("reference", "scripted" if "scripted" in labels else labels[0])
     budgets = budgets_for(cfg, cfg["scenarios"][0])
+    own = {s: budgets_for(cfg, s) for s in cfg["scenarios"] if budgets_for(cfg, s) != budgets}
+    dirty = " with uncommitted changes" if record.get("src_dirty") else ""
+    identity = (f"; src tree `{record['src_tree'][:12]}`{dirty}, prompt `{record['prompt_sha']}`"
+                if record.get("prompt_sha") else "")
     lines = [
         f"# Evaluation report: {cfg['name']}",
         "",
-        f"Generated by `abuse-eval` from `results.jsonl`. Git `{record['git'][:12]}`, version {record['version']}, "
-        f"Python {record['python']}, started {record['started']} (UTC).",
+        f"Generated by `abuse-eval` from `results.jsonl`. Git `{record['git'][:12]}`{identity}, "
+        f"version {record['version']}, Python {record['python']}, started {record['started']} (UTC).",
         f"Live model calls: {'yes' if record['live'] else 'no'}"
         + (f"; requested model `{record['course_model']}`" if record.get("course_model") else "") + "."
         + (f" Players in this run: {', '.join(record['only'])}." if record.get("only") else ""),
@@ -319,7 +332,11 @@ def render_report(rows: list[dict], record: dict) -> str:
         f"limit, at most {budgets.max_action_ticks} ticks per action"
         + (f", {budgets.max_input_tokens} input tokens" if budgets.max_input_tokens else "")
         + (f", {budgets.max_output_tokens} output tokens" if budgets.max_output_tokens else "")
-        + (f", {budgets.max_wall_s:.0f} s" if budgets.max_wall_s else "") + ".",
+        + (f", {budgets.max_wall_s:.0f} s" if budgets.max_wall_s else "") + "."
+        + "".join(f" `{s}` has its own: {b.max_decisions} decisions"
+                  + (f", {b.max_input_tokens} input tokens" if b.max_input_tokens else "")
+                  + (f", {b.max_output_tokens} output tokens" if b.max_output_tokens else "")
+                  + (f", {b.max_wall_s:.0f} s" if b.max_wall_s else "") + "." for s, b in own.items()),
         "",
         "How to read the tables:",
         "- *planned* counts every episode in the plan; *n* is the number that ran.",

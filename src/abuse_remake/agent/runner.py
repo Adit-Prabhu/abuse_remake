@@ -41,6 +41,28 @@ def git_sha() -> str:
         return "unknown"
 
 
+def code_identity() -> dict:
+    """What identifies the code that ran, in any repository that holds it. ``src_tree`` is git's
+    hash of ``src/``, which is the same wherever the same files are committed (this repository
+    or the course submission folder); ``src_dirty`` says whether ``src/`` had uncommitted
+    changes; ``prompt_sha`` is the model player's prompt module, so a frozen prompt can be
+    checked."""
+    from . import prompts
+
+    root = Path(__file__).resolve().parents[3]
+
+    def git(*args: str) -> str:
+        try:
+            return subprocess.run(["git", *args], capture_output=True, text=True, timeout=5,
+                                  cwd=root).stdout.strip()
+        except (OSError, subprocess.TimeoutExpired):
+            return ""
+
+    return {"src_tree": git("rev-parse", "HEAD:./src") or "unknown",
+            "src_dirty": bool(git("status", "--porcelain", "--", "src")),
+            "prompt_sha": hashlib.sha256(Path(prompts.__file__).read_bytes()).hexdigest()[:12]}
+
+
 def make_player(spec: str, isolation: str = "process", player_args: list[str] | None = None,
                 decision_timeout: float = 90.0):
     if isolation == "inprocess":

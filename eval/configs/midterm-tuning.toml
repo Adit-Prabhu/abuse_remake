@@ -1,0 +1,36 @@
+# The tuning set for the midterm suite (SUITE.md). Prompt and baseline changes are tried only
+# here: one scenario, on seeds the reported suite never uses. Results from this config are
+# development notes, never reported as the comparison.
+name = "midterm-tuning"
+scenarios = ["level01-cp2"]
+seeds = [90, 91]
+difficulty = "hard"
+isolation = "process"
+decision_timeout = 60.0
+reference = "scripted"
+
+[budgets]
+max_decisions = 200
+max_input_tokens = 600000
+max_output_tokens = 150000
+max_wall_s = 3600
+
+[run]
+max_input_tokens = 2000000
+max_output_tokens = 400000
+
+[prices]
+date = ""
+source = ""
+input_per_mtok = 0.0
+output_per_mtok = 0.0
+
+[[players]]
+label = "scripted"
+player = "scripted"
+
+[[players]]
+label = "model-M1"
+player = "model"
+args = ["--provider", "vertex", "--memory", "M1", "--timeout", "20", "--max-output-tokens", "2048"]
+live = true
