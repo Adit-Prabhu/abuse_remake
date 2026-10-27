@@ -13,6 +13,7 @@ from abuse_remake.paths import repo_root
 
 ROUTES = [p for p in sorted((Path(repo_root()) / "evidence" / "routes").glob("*.json"))
           if json.loads(p.read_text())["format"] == "campaign-route-1"]
+SOLVER = sorted((Path(repo_root()) / "evidence" / "routes" / "solver").glob("*.json"))
 
 
 def _module():
@@ -28,7 +29,7 @@ def test_a_saved_route_finishes_its_level(path):
     assert route["format"] == "campaign-route-1" and campaign.playable(route["level"])
     mod = _module()
     g = mod.replay_route(route)
-    assert mod.finished(g, route["goal"])
+    assert mod.finished(g, route["goal"], route.get("mode", "remastered"))
     assert not g.player_dead and g.frames == route["ticks"]
 
 
@@ -112,3 +113,23 @@ def test_the_level_2_route_picks_up_its_three_placed_power_ups():
             break
     powers = ["ultra health", "sneaky", "fly"]
     assert [i for i in items if i in powers] == powers
+
+
+@pytest.mark.parametrize("path", SOLVER, ids=[p.stem for p in SOLVER])
+def test_a_solver_route_wins_its_scenario_under_classic_rules(path):
+    """The privileged solver's result for a reported situation (EVALUATION.md): a route that
+    starts where the agents' scenario starts and reaches the exit, under Classic rules, within
+    the scenario's tick limit."""
+    from abuse_remake.agent.interface import SCENARIOS
+
+    route = json.loads(path.read_text())
+    scenario = SCENARIOS[path.stem]
+    assert route["mode"] == "classic" and route["level"] == "level01" and route["difficulty"] == "hard"
+    if scenario.start is None:
+        assert "start" not in route
+    else:
+        assert tuple(route["start"]) == scenario.start
+    mod = _module()
+    g = mod.replay_route(route)
+    assert mod.finished(g, route["goal"], "classic") and not g.player_dead
+    assert g.frames == route["ticks"] <= scenario.max_ticks
