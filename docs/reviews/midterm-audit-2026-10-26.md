@@ -289,7 +289,7 @@ Leave out: `release.yml`, `live-eval.yml`, `packaging/` (optional), `runs/`, `ca
 Check before pushing:
 - `paths.repo_root()` resolves to the folder (it uses `parents[2]` of the package, so it
   should work), and the C-reference tests compile from the subfolder.
-- `grep -ri` the folder for keys, emails, local paths (`/Users/enigma`) and project IDs.
+- `grep -ri` the folder for keys, emails, local home-directory paths and project IDs.
 - The data is 8.6 MB. That's fine, but say in the README why it is vendored (checksummed
   original data, needed for the port).
 

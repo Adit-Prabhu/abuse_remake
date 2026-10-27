@@ -9,7 +9,7 @@ is compared with a scripted search baseline on a suite declared before any tunin
 |---|---|
 | Recording (3–5 min) | *link added when recorded* |
 | Evaluation report | [`EVALUATION.md`](EVALUATION.md) |
-| Agent-team log | [`AGENT-TEAM.md`](AGENT-TEAM.md) |
+| Agent-team log | `AGENT-TEAM.md`, written by the student (to come) |
 | Peer playtest notes | [`docs/playtests/`](docs/playtests/) |
 | Scope record | [`SCOPE.md`](SCOPE.md) |
 | Declared suite | [`SUITE.md`](SUITE.md) |
@@ -32,12 +32,12 @@ that is **not graded or evaluated**. Exclusions and dated scope changes are in
 ## Commands
 
 Every command runs from the project folder: **`midterms/adit-prabhu/`** in the course
-repository (this folder). You need [uv](https://docs.astral.sh/uv/) and Python 3.11 or 3.12. A C
+repository, or the root of the project repository. You need [uv](https://docs.astral.sh/uv/) and Python 3.11 or 3.12. A C
 compiler is optional: without one, the differential tests against the original C are skipped
 locally, and CI requires them. `ffmpeg` is needed only to write videos.
 
 ```sh
-cd midterms/adit-prabhu
+cd midterms/adit-prabhu                   # in the course repository
 uv sync --all-extras                      # the game, the players and the model SDKs
 ```
 
@@ -100,8 +100,9 @@ adapters.
 - `outcome()`.
 
 Every player is a separate process speaking JSON lines (`agent/protocol.py`). It gets only the
-observation and the legal actions, with no seed, no level file, no evaluator data and no
-credentials. The runner holds the authoritative game.
+observation and the legal actions, with no seed, no level file and no evaluator data. The
+runner holds the authoritative game. Only the model player's process gets credentials, and only
+the variables its provider's SDK reads. They never enter a prompt, an observation or a trace.
 
 | What | Where |
 |---|---|
@@ -113,25 +114,31 @@ credentials. The runner holds the authoritative game.
 ## Rules and sources
 
 The rule/source map has **152 rows**, and each carries an evidence label with a locator:
-- **122 `code`**: the C engine at `historicalsource/abuse@01cce80`, or the original Lisp, by
-  file and line;
-- **1 `observed`**: the compiled original C, run in a differential test;
+- **122 `code`**: the C engine at `historicalsource/abuse@01cce80`, or the original Lisp,
+  cited by file, almost always with lines;
+- **1 `observed`**: the level file read directly, to list its object types;
 - **2 `assumed`**: listed as open questions;
-- **27 `design`**: our own choices, each with its kind (harness, course requirement,
-  presentation, Remastered) and its reason. They point to `SCOPE.md`, `SUITE.md`,
-  `docs/action-interface.md`, `docs/budgets.md` and `docs/remastered.md`.
+- **24 `design`**: our own choices, each with its kind (harness, course requirement,
+  presentation, front end, port, Remastered) and its reason. They point to `SCOPE.md`,
+  `SUITE.md`, `docs/action-interface.md`, `docs/budgets.md` and `docs/remastered.md`.
 
-Some `code` rows are also corroborated by the release note (`manual`).
+Some rows carry a second label. Three are `observed`: two values read from the original data
+files, and the collision routine checked against the compiled original C (20,000 cases). One is
+`manual`: the 15 Hz cap, which the release note mentions. Properties
+of our own port that are not rules, such as the saved routes, are listed apart.
 
 The game reads the original files directly:
-- the C engine is public domain;
-- the levels, art and Lisp are the shareware data, whose release note grants use "however you
-  see fit";
-- the sounds and music are not public domain and are not included: the game synthesises its
-  own effects.
+- **The C engine** is public domain.
+- **The levels, the palette and 64 art files** are byte-identical to the 1995 shareware
+  release, whose note grants use "however you see fit".
+- **The Lisp and the rest of the art** come from the abuse.zoy.org packaging, whose `COPYING`
+  states they were released into the public domain. They include 2.0-era content, and the
+  instructor is asked to confirm their publication.
+- **The sounds and music** are not public domain and are not included: the game synthesises
+  its own effects.
 
-`data/original/PROVENANCE.md` quotes the terms, pins every file's checksum, and explains
-publication in this public repository. `docs/data-lineage.md` shows that the files match the
+`data/original/PROVENANCE.md` quotes every term, pins every file's checksum, and sets out the
+basis for publishing each part in this public repository. `docs/data-lineage.md` shows that the files match the
 1995 and 1996 releases.
 
 ## Design choices and the alternatives they beat
@@ -139,20 +146,20 @@ publication in this public repository. `docs/data-lineage.md` shows that the fil
 | Choice | We chose | Instead of | Why |
 |---|---|---|---|
 | Game | Reconstruct one complete level of Abuse | An original game, or several levels | One level has a full loop, a real ending and checkable fidelity. Scope went into evidence, not size |
-| Starting point | A clean Python port from the public-domain C and Lisp | Adapting the C++/SDL port and its Lisp interpreter | A pure, deterministic, headless engine with the interface and tests built in. Fidelity is checked against the compiled original C |
-| Timing | One logic tick per original frame, fixed at 15 Hz | A variable or 60 Hz step | `game.c:1630-1633` caps the original at 15 Hz. A fixed step makes every episode reproducible |
-| Actions | Macro actions (`move`, `jump`, `explore`, `goto`, `use`, `attack`, `weapon`), each 1–15 ticks, ending early when hurt or when a new threat appears | Raw inputs every tick (keys plus an aim angle) | Raw input means up to 9,000 calls per level and pixel-precise aim. Macros give one decision about every half second, and every player shares the same controllers, so the comparison is about decisions, not motor skill |
+| Starting point | A clean Python port of the original C and Lisp | Adapting the C++/SDL port and its Lisp interpreter | A pure, deterministic, headless engine with the interface and tests built in. Every rule cites its source line, and two core routines (collision and boundary flags) are checked against the compiled original C |
+| Timing | One logic tick per original frame, fixed at 15 Hz | A variable step, or a faster one | `game.c:1630-1633` caps the original at 15 Hz (`code`). That it ran at exactly the cap is `assumed`, an open question. A fixed step makes every episode reproducible |
+| Actions | Macro actions (`wait`, `move`, `jump`, `explore`, `goto`, `use`, `attack`, `weapon`), each 1–15 ticks, ending early when hurt or (except `attack`) when a new threat appears | Raw inputs every tick (keys plus an aim angle) | Raw input means up to 9,000 calls per level and pixel-precise aim. Macros give one decision about every half second, and every player shares the same controllers, so the comparison is about decisions, not motor skill |
 | Real time | The game pauses while a player decides | Running the clock during model latency | Slow players gain or lose no game time, so latency doesn't decide the result |
-| Observation | What the 316x162 screen shows: visible objects, their visible state, tile classes, the HUD | The full map, or pixels | It matches what a human sees. The full map would leak the level; pixels would need a vision model at many times the cost |
+| Observation | What the 316x162 screen shows: visible objects, their visible state, tile classes, the HUD | The full map, or pixels | It is what the screen shows a player (`docs/information-boundary.md` lists the two judgement calls). The full map would leak the level; pixels would need a vision model at many times the cost |
 | Navigation | `goto`/`explore` plan over tiles already seen (an automap) | A* over the whole map | Planning over unseen tiles would leak the layout |
 | Ending | Death ends an agent's episode | The original's respawn at the last console | A bounded episode with an explicit terminal reason. People keep the respawn |
 | Situations | Three checkpoint segments plus the full level | The full level only | From the start, the scripted baseline stalls in the first section on every seed. Segments test the later parts and separate the players |
 | Baseline | Scripted priority rules plus A* over the automap; random as a floor | Random only | Random is trivial. The scripted player is a real competitor with the same priors the model's prompt gets |
-| Solver | A privileged engine search, reported as an upper reference | No solver | It proves each situation can be won and bounds what is possible. It reads engine state, so it never competes |
+| Solver | A privileged engine search, reported as an upper reference | No solver | It shows which situations can be won, with a route CI replays, or reports that none was found. It reads engine state, so it never competes |
 | History | `M1` (the last 8 turns) against `M0` (current screen only) | Persistent memory only, or none | The game is partly observed, so the question is whether bounded history helps. `M2` (notes and an automap summary) is implemented but cut from the suite to fit the budget |
 | Metric | Wins, plus an evaluator-only progress measure | Wins only | Few wins are expected, and progress separates players that all lose. It is never shown to players |
 | Invalid actions | Refused, counted, fed back; one decision spent | Repairing to the nearest legal action | Repairs would hide the model's errors and inflate its score |
-| Model | Gemini flash-lite on Vertex AI | A larger model | It is covered by the course credit and has low latency. The same adapter supports Anthropic and OpenAI |
+| Model | Gemini flash-lite on Vertex AI | A larger model | The course credit covers it, and the brief names it as enough. The same adapter supports Anthropic and OpenAI. Latency and cost are measured in the run |
 
 ## Agent team
 
@@ -164,8 +171,8 @@ publication in this public repository. `docs/data-lineage.md` shows that the fil
   context that never wrote the code. Its records are in `docs/reviews/`.
 - **Playing agents:** the players above, with no repository tools.
 
-The student's own log is [`AGENT-TEAM.md`](AGENT-TEAM.md). The session-by-session record is
-`docs/agent-team-log.md`.
+The student's own log is `AGENT-TEAM.md`, written by the student (to come). The agents'
+session-by-session record is `docs/agent-team-log.md`.
 
 ## Where this was built
 

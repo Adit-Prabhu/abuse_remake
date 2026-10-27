@@ -45,36 +45,42 @@ Each decision the player gets two things, as plain JSON (`agent/observation.py`,
 
 ## Two judgement calls
 
-### Breakable walls (the original's "hidden walls")
+### Breakable walls (the original's "hidden walls") are secrets
 
 The original names these objects `HIDDEN_WALL1` to `HIDDEN_WALL_3FLR`
-(`data/original/lisp/doors.lsp:168-197`), but they are not invisible. Each is an ordinary drawn
-object:
-- its pictures come from `art/chars/sect.spe`, with no `dev_draw`, so it is drawn in play like
-  any enemy;
-- its picture changes as it takes damage (`hwall_damage`).
+(`data/original/lisp/doors.lsp:168-197`). Each is drawn in play from `art/chars/sect.spe`, with
+no `dev_draw`, and its picture changes as it takes damage (`hwall_damage`). Some only break
+after a switch activates them, because `hwall_damage` checks `(activated)`.
 
-`evidence/boundary/hidden-walls-classic.png` shows Level 1's first column of them, at x 210 in
-Classic at scale 3: cracked stone, unlike the smooth pillar to its left. A careful human can see
-it. `scripts/boundary_evidence.py` re-renders the screenshot.
+*Drawn* is not the same as *recognisable*. `evidence/boundary/hidden-wall-types.png` shows the
+first instance of each of the eight types in Level 1, in place, in Classic:
+- **Cracked stone, visibly unlike the scenery:** `HIDDEN_WALL1`, and partly `HIDDEN_WALL5`.
+- **Indistinguishable from the floor, wall or dark background around them:** the other six.
+  The front end even counts a destroyed one as a "secret".
 
-So a visible one is reported as `wall_block`, with whether it is damaged, and `attack W<n>` is
-legal while it is on screen. What a human cannot see is never reported:
-- its health;
-- whether it is activated (some break only after a switch activates them; `hwall_damage` checks
-  `(activated)`);
-- any wall off screen.
+`evidence/boundary/hidden-walls-classic.png` is the full view at the first column.
+`scripts/boundary_evidence.py` re-renders both.
 
-The prompt's "a breakable wall; shoot it" is manual-level advice. A wall that is not yet active
-simply does not break, and the player sees that.
+**Finding (2026-10-26).** Until this was checked, the observation reported every hidden wall on
+screen as a `wall_block` object, and `attack W<n>` was legal for it. So the observation and the
+legal-action list told an agent which pieces of scenery are breakable, which a human playing
+for the first time would not know. That is a leaked secret. The interface is being changed
+before any tuning or live run, so that an undamaged hidden wall shows only as what it looks
+like. The change will be described here once it lands.
 
-### The Classic HUD covers the bottom strip of the view
+### The Classic HUD covers a band of the view
 
-Classic draws its health, weapons and time over the bottom of the 316x162 play view: a strip
-44 window pixels high, about 15 game pixels at scale 3. The original drew its status bar below
-the view. An agent's observation covers the whole view, so at the very bottom of the screen it
-sees a little more than a human does. Agents and humans are never scored against each other,
-and `EVALUATION.md` notes this where it quotes human playtests.
+Classic draws its HUD over the play view, at fixed window pixels:
+- the health bar and the selected-weapon box are opaque;
+- the time, kills and secrets are bare text;
+- the band runs from 46 to 24 window pixels above the bottom, which is about 7 game pixels at
+  scale 3 (it shrinks as the window scale grows).
+
+The original drew its status bar outside the play view: the view is y 5..166 of the 320x200
+screen (`abuse/src/view.c:636-676`, the Timing table of the rule map). An agent's observation
+covers the whole view, so in that band it can see a little that a human cannot. Agents and
+humans are never scored against each other. Any comparison with human playtests has to say
+this.
 
 ## How it is enforced
 

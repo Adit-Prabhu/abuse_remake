@@ -2,7 +2,7 @@
 
 Every adapter makes exactly one request per decision:
 
-- no automatic retries (the course rule: a failed request is a refused decision, never a
+- no automatic retries (a course requirement: a failed request is a refused decision, never a
   silent paid retry), and SDK-level retries are switched off;
 - a per-request timeout and a per-request output-token cap;
 - structured JSON output against a fixed schema;

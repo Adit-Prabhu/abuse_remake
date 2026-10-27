@@ -1,7 +1,9 @@
 # Scope record: Abuse (Crack dot Com, 1996), Level 1
 
 > **Owner:** the student (Executive Producer and Creative Director). Level 1 was chosen on
-> 2026-10-13. This page was last revised on 2026-10-26, and changes are dated at the bottom.
+> 2026-10-13. The implementation agent drafted this revision on 2026-10-26 from the student's
+> decisions (`docs/reviews/midterm-audit-2026-10-26.md`). The student accepts it by merging,
+> and posts the change to the course's Week 3 thread. Changes are dated at the bottom.
 
 **In one sentence:** the graded game is **Classic mode, Level 1**: a faithful, deterministic port
 of the original rules on the original level file, played by people and by agents through the
@@ -89,9 +91,14 @@ checks the separation.
 - **Interface:** a title menu, a controls screen, the HUD in the original interface art, a
   gamepad, a resizable window and full screen.
 
-**Every level in the build can be finished, with evidence.** Each has a saved input route that
-CI replays to the level's exit (`evidence/routes/`, `tests/test_campaign_routes.py`): the
-training level and Level 2 under Remastered rules, and Level 1 under Classic rules.
+**Every level in the build must be finishable, with evidence.** The training level and Level 2
+each have a saved input route that CI replays to the level's exit (`evidence/routes/`,
+`tests/test_campaign_routes.py`).
+
+Level 1, the graded level, has no complete route yet. The solver has found Classic routes for
+START to console 2 (293 ticks) and for console 3 to the exit (337 ticks). The middle segment is
+still being searched, and the full route lands with its CI replay in a later PR. Until then this
+is an open item, not a claim.
 
 Both modes draw the level's own lights and interpolate 60 fps rendering between the 15 Hz ticks.
 The AI spectator (`abuse-replay`) always shows Classic rules.

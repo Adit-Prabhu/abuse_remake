@@ -63,7 +63,7 @@ Training messages appear above the HUD with the modern key in brackets, such as 
 
 **Where the power-ups are.** The shareware levels have only the speed power-up. Flight,
 invisibility and ultra health were registered-version content in 1995. So Remastered places
-them itself (`campaign.EXTRA_OBJECTS`, a `remastered design` rule):
+them itself (`campaign.EXTRA_OBJECTS`, a `design` (Remastered) rule):
 - **Training level:** invisibility in the upper corridor past the lift, flight on the ledge before
   the teleport door, and ultra health in the portal room. All three are on the saved route, so
   you meet each one in turn; each replaces the power before.

@@ -18,14 +18,16 @@ The originals are pinned:
 
 1. **Find the source.** Locate the rule in the original and quote the lines with `file:line`:
    `abuse/src/objects.c:899` for C, `data/original/lisp/ant.lsp:398` for Lisp. If the rule is
-   in neither, it is `assumed` or a course choice, and you say so.
+   in neither, it is `assumed`, or `design` if it is our own choice, and you say so.
 2. **Find or add the map row.** Quote the row and its label. Use the strongest honest label:
    - `code`: you read it in the original source;
    - `manual`: the manual or release notes say so;
    - `observed`: you ran the original (data or compiled original code) and name the method.
      Tests of our own port are checks, never `observed`;
    - `assumed`: none of the above. List it under "Open questions".
-   Remastered-only rules are labelled `remastered design`; harness choices `course choice`.
+   - `design`: our own rule or choice, not a claim about the original. Say its kind (harness,
+     course requirement, presentation, front end, port or Remastered) and the reason for it.
+   A property of our code that is not a rule (a check) goes under "Checks of our own port".
    Never promote a label without new evidence.
 3. **Write the test first.** Use a short deterministic scenario: a seed, the inputs, the
    expected state. Include at least one refused, illegal or boundary case near the rule. Run

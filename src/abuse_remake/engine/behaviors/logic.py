@@ -405,7 +405,7 @@ def tele_beam_ai(o) -> bool:
 @lisp("restart_ai")
 def restart_ai(o) -> bool:
     """people.lsp:873-904: a save console. The original asks for a save slot; we save to one
-    in-memory slot without the dialog (a course choice recorded in the rule map)."""
+    in-memory slot without the dialog (a `design` choice recorded in the rule map)."""
     s = o.aistate
     if s in (0, 1):
         o.next_picture()
