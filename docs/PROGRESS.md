@@ -12,6 +12,9 @@ The student reported two problems with the title menu, and each has its own PR, 
   closed first. Each switch also shrank the window; that is fixed too.
 - **#29 `feat/title-submenus`.** The level and the arena were both chosen with left and right on
   one page, which was easy to confuse. PLAY CAMPAIGN and HORDE now each open their own list.
+  A follow-up fixes Classic's title, which showed PLAY LEVEL 1 twice.
+- **#30 `feat/ghost-race`.** A GHOST setting in the campaign list, kept between sessions. The
+  ghost is now red, with a rim and a GHOST label, instead of the easy-to-miss light blue.
 
 ## Remastered polish (2026-10-15)
 

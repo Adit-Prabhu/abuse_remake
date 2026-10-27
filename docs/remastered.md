@@ -118,7 +118,7 @@ pixel size of the world.
 
 - **Title menu** (`game/screens.py`). The original title art and a menu:
   - PLAY CAMPAIGN opens a list of the levels only (Training, Level 1, Level 2), each with its
-    best time;
+    best time, and the GHOST setting (on or off, kept between sessions);
   - HORDE opens a list of the arenas only, each with its best score;
   - DIFFICULTY, MODE, CONTROLS and QUIT.
   Up and down (or W and S, or the mouse) pick a line; left and right (or the arrows on it)
@@ -187,7 +187,7 @@ screen and the window are shared.
 |---|---|---|---|
 | Quick restart | R | Back to the last console save at once (the original reloads the save after death) | `game/app.py` |
 | Stats screen | at the exit | Time, kills, secrets, deaths, damage taken, the player's own shots fired, distinct enemies hit, dashes, and your best time | `game/app.py`, `game/remaster.py` |
-| Ghost race | G toggles it | Your best finished run is shown as a translucent figure at the same tick of the run timer. Unlike the player, it is not interpolated between ticks | `game/remaster.py` |
+| Ghost race | GHOST in the campaign list, or G in play (the choice is kept) | Your best finished run is shown as a see-through red figure with a bright rim and a GHOST label, at the same tick of the run timer; a hint names it as the level starts. It replaced a light-blue figure that was easy to miss and hard to read at first glance (the student, 2026-10-27). Off only hides it: runs are still recorded and a new best still becomes the ghost. Unlike the player, it is not interpolated between ticks | `game/remaster.py` |
 | AI spectator and replay | `abuse-replay --player scripted` or `--trace FILE` | Watch any player (scripted, random, the model, or a `cmd:` program) under Classic rules, with a panel showing what it sees and chooses. A watched player gets the same budgets and fatal-error stops as in `abuse-agent`. Or replay a trace: every observation hash, every step and the final outcome must match. The output goes to the screen, or to MP4 with `--video` | `game/spectate.py` |
 
 Records, ghosts and Horde's high scores are kept per player in `~/.abuse_remake/`, never in the repo. Set

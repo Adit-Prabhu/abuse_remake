@@ -155,6 +155,72 @@ def test_ghost_is_recorded_saved_loaded_and_drawn(home):
     assert again.ghost_painter is not None
 
 
+def _saved_ghost(home):
+    app = make_app("remastered", frames=30)
+    app.run()
+    app.ghost_rec.save("hard")
+    return app.ghost_rec.rows
+
+
+def test_with_the_ghost_off_it_is_not_drawn_but_the_run_is_still_recorded(home):
+    """The student, 2026-10-27: a setting for the ghost; off hides it, and the best is still kept."""
+    from abuse_remake.game.remaster import ghost_shown, save_setting
+
+    _saved_ghost(home)
+    assert ghost_shown()  # on unless switched off
+    save_setting("ghost", False)
+    app = make_app("remastered", frames=20)
+    assert app.ghost and not app.show_ghost
+    app.run()
+    assert app.ghost_painter is None  # never drawn
+    assert len(app.ghost_rec.rows) == app.stats["ticks"] > 0  # still recorded, to save a new best
+    assert not any("GHOST" in m[0].upper() for m in app.hud.messages)
+
+
+def test_g_switches_the_ghost_setting_and_it_is_kept(home):
+    import pygame
+
+    app = make_app("remastered", frames=1)
+    app.state = "play"
+    assert app.show_ghost
+    app.on_key(pygame.K_g)
+    assert not app.show_ghost
+    assert make_app("remastered", frames=1).show_ghost is False  # kept for the next session
+
+
+def test_the_ghost_is_red_outlined_and_labelled_and_announced_once(home, monkeypatch):
+    import numpy as np
+    import pygame
+
+    from abuse_remake.game.remaster import GhostPainter
+
+    _saved_ghost(home)
+    app = make_app("remastered", frames=1)
+    painter = GhostPainter(pygame, app.sprites)
+    fig = app.game.world.types["DARNEL"].sequences["running"][0]
+    img = painter._image(fig, 1)
+    w, h = img.get_size()
+    px = np.frombuffer(pygame.image.tobytes(img, "RGBA"), np.uint8).reshape(h, w, 4).astype(int)
+    seen = px[..., 3] > 0
+    r, g, b = px[..., 0][seen], px[..., 1][seen], px[..., 2][seen]
+    assert (r > g + 60).mean() > 0.9 and (r > b + 60).mean() > 0.9  # red, not the old light blue
+    body = pygame.mask.from_surface(app.sprites.figure(fig)[0])
+    outline = seen.copy()
+    for y, x in zip(*np.nonzero(seen), strict=True):
+        if 0 < x <= body.get_size()[0] and 0 < y <= body.get_size()[1] and body.get_at((x - 1, y - 1)):
+            outline[y, x] = False
+    assert outline.sum() > 20  # a bright rim around the figure, outside its own pixels
+    said = []
+    monkeypatch.setattr(app.mhud.t, "text", lambda surf, text, *a, **k: said.append(text) or pygame.Rect(0, 0, 1, 1))
+    app.state = "play"
+    for i in range(3):
+        app.tick(i)
+        app.draw()
+    assert "GHOST" in said  # its label, over its head
+    hints = [m for m in app.hud.messages if "GHOST" in m[0].upper()]
+    assert len(hints) == 1  # said once, as the level starts
+
+
 def test_dash_key_quick_restart_and_stats_screen(home):
     import pygame
 

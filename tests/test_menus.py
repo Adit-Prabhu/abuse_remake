@@ -64,7 +64,7 @@ def test_each_list_holds_only_its_own_choices(home):
     assert not any(a.title.split(" (")[0].upper() in main for a in ARENAS.values())
     key(app, pygame.K_RETURN)
     levels = [campaign.title(n).upper() for n in campaign.playable_levels()]
-    assert labels(app) == [*levels, "BACK"]  # levels only
+    assert labels(app) == [*levels, "GHOST", "BACK"]  # levels only, and the campaign's ghost setting
     key(app, pygame.K_ESCAPE)
     key(app, pygame.K_DOWN)
     key(app, pygame.K_RETURN)
@@ -123,6 +123,25 @@ def test_the_lists_move_and_preview_with_the_keys(home):
     assert app.menu_page == "main" and app._menu_key() == "horde"
     key(app, pygame.K_UP)  # back to the campaign: a campaign game again, at the chosen start
     assert app._menu_key() == "campaign" and not app.horde and app.game.level == "level01"
+
+
+def test_the_campaign_list_switches_the_ghost(home):
+    app = make_app()
+    app._to_title()
+    key(app, pygame.K_RETURN)
+    for _ in range(len(labels(app))):
+        if app._menu_key() == "ghost":
+            break
+        key(app, pygame.K_DOWN)
+    level = app.game.level
+    assert app._menu_item()["value"] == "ON" and app.show_ghost
+    key(app, pygame.K_RIGHT)
+    assert app._menu_item()["value"] == "OFF" and not app.show_ghost
+    assert app.state == "title" and app.game.level == level  # a setting: nothing starts, the backdrop stays
+    key(app, pygame.K_RETURN)
+    assert app._menu_item()["value"] == "ON" and app.state == "title"
+    key(app, pygame.K_LEFT)
+    assert make_app().show_ghost is False  # kept for the next session
 
 
 def test_leaving_a_run_returns_to_the_main_page_on_its_line(home):

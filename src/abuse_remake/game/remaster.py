@@ -6,7 +6,8 @@ These never change the game's rules. The rule-changing mechanic (the dash) is in
 
 The ghost race: while you play, the player's position and animation frame are recorded every
 tick. When you finish the level faster than your best, that run becomes the ghost, and later
-runs show it as a translucent figure at the same tick of the run timer.
+runs show it as a see-through red figure labelled GHOST, at the same tick of the run timer. The
+campaign list's GHOST setting (or G in play) hides it; runs are still recorded either way.
 """
 
 from __future__ import annotations
@@ -42,6 +43,21 @@ def _write(path: Path, data) -> None:
         tmp.replace(path)
     except OSError:
         pass  # records are a convenience; a read-only home must not stop the game
+
+
+def load_settings() -> dict:
+    got = _read(data_dir() / "settings.json")
+    return got if isinstance(got, dict) else {}
+
+
+def save_setting(name: str, value) -> None:
+    _write(data_dir() / "settings.json", {**load_settings(), name: value})
+
+
+def ghost_shown() -> bool:
+    """The campaign's GHOST setting (on unless switched off). Off only hides the ghost: runs are
+    still recorded, and a new best still becomes the ghost."""
+    return load_settings().get("ghost", True) is not False
 
 
 RECORD_KEYS = {"level01": ("ticks", "kills", "secrets", "deaths", "damage_taken"), "horde": ("cleared", "kills")}
@@ -112,10 +128,14 @@ def load_ghost(difficulty: str, level: str = "level01") -> list[list] | None:
 
 
 class GhostPainter:
-    """Draws a recorded row as a translucent, tinted figure."""
+    """Draws a recorded row as a see-through red figure with a bright red rim. The light-blue
+    ghost it replaced was easy to miss and hard to read at first glance (the student,
+    2026-10-27); the app labels it GHOST as well."""
 
-    TINT = (120, 220, 255)
-    ALPHA = 110
+    TINT = (255, 70, 60)  # multiplied into the sprite's colours
+    LIFT = (110, 0, 0)  # then added, so the dark armour still reads red
+    ALPHA = 165
+    RIM = (255, 40, 32, 235)
 
     def __init__(self, pygame, sprites):
         self.pg = pygame
@@ -123,40 +143,57 @@ class GhostPainter:
         self.cache: dict = {}
 
     def _image(self, fig, direction: int):
+        """The figure, tinted and faded, inside a one-pixel rim (so the image is two pixels wider
+        and taller than the figure)."""
         key = (id(fig), direction > 0)
         img = self.cache.get(key)
         if img is None:
+            pg = self.pg
             fwd, back = self.sprites.figure(fig)
-            img = (fwd if direction > 0 else back).copy()
+            src = fwd if direction > 0 else back
             # tint and fade in the pixels themselves: a surface alpha on top of per-pixel alpha
             # takes pygame-ce's own blitter, which painted the whole rectangle on macOS
-            img.fill((*self.TINT, self.ALPHA), special_flags=self.pg.BLEND_RGBA_MULT)
+            body = src.copy()
+            body.fill((*self.TINT, 255), special_flags=pg.BLEND_RGBA_MULT)
+            body.fill((*self.LIFT, 0), special_flags=pg.BLEND_RGBA_ADD)
+            body.fill((255, 255, 255, self.ALPHA), special_flags=pg.BLEND_RGBA_MULT)
+            shape = pg.mask.from_surface(src)
+            rim = pg.mask.Mask((src.get_width() + 2, src.get_height() + 2))
+            for dx, dy in ((0, 1), (2, 1), (1, 0), (1, 2)):
+                rim.draw(shape, (dx, dy))
+            rim.erase(shape, (1, 1))
+            img = rim.to_surface(setcolor=self.RIM, unsetcolor=(0, 0, 0, 0))
+            img.blit(body, (1, 1), special_flags=pg.BLEND_RGBA_MAX)  # the rim and body never overlap
             self.cache[key] = img
         return img
 
-    def _blit(self, surf, fig, x, y, direction, xoff, yoff, dy=0) -> None:
+    def _blit(self, surf, fig, x, y, direction, xoff, yoff, dy=0) -> int:
+        """Draw one half; returns its top edge on ``surf``."""
         left = x - fig.xcfg if direction > 0 else x - (fig.width - fig.xcfg - 1)
-        top = y - fig.height + 1 + dy
-        surf.blit(self._image(fig, direction), (round(left - xoff), round(top - yoff)))
+        top = round(y - fig.height + 1 + dy - yoff)
+        surf.blit(self._image(fig, direction), (round(left - xoff) - 1, top - 1))
+        return top
 
-    def draw(self, surf, game, row: list, xoff: float, yoff: float) -> None:
+    def draw(self, surf, game, row: list, xoff: float, yoff: float) -> tuple[int, int] | None:
+        """Draw the ghost; returns the point above its head on ``surf``, for its label."""
         types = game.world.types
         x, y, d, state, frame = row[:5]
         bot = types.get("DARNEL")
         try:
             fig = bot.sequences[state][frame]
         except (AttributeError, KeyError, IndexError):
-            return
-        self._blit(surf, fig, x, y, d, xoff, yoff)
+            return None
+        top = self._blit(surf, fig, x, y, d, xoff, yoff)
         if len(row) >= 9:
             tname, tstate, tframe, td = row[5:9]
             try:
                 tfig = types[tname].sequences[tstate][tframe]
             except (KeyError, IndexError):
-                return
+                return round(x - xoff), top
             tx = x + (4 if d < 0 else 0)  # top_draw's offset (see render.py)
             ty = y + 29 - fig.height
-            self._blit(surf, tfig, tx, ty, td, xoff, yoff)
+            top = min(top, self._blit(surf, tfig, tx, ty, td, xoff, yoff))
+        return round(x - xoff), top
 
 
 def horde_key(difficulty: str, arena: str = "prison") -> str:
