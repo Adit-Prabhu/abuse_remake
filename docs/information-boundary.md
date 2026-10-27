@@ -60,40 +60,60 @@ switch activates them, and one strong hit can destroy a wall straight from frame
 - `evidence/boundary/hidden-wall-frames.png`: the same instances at frames 0, 1 and 2, with
   the blocking outline.
 
-Every sprite is opaque. The dark ones (luminance about 29) copy the background panels, and the
-bright ones (about 50) copy the ledges, floors and pillars. So each type has its own look:
+Every sprite is opaque, so each type is a picture painted to match something. The per-frame
+render is the evidence for what. Mean brightness (`evidence/boundary/hidden-wall-sprites.json`,
+written by the same script) supports it:
+- `HIDDEN_WALL3` and `_2x2` are dark (about 29), like the dark background panels;
+- the ledge, floor and pillar types are about 42-52;
+- `HIDDEN_WALL2` (about 42) is a lighter background panel, which matches the panels around it
+  in place.
+
+So each type has its own look:
 
 | Type | Uncracked, it looks like | Cracks show from frame |
 |---|---|---|
-| `HIDDEN_WALL1`, `HIDDEN_WALL5` | cracked stone (the column by the start) | 0, so it always looks breakable |
+| `HIDDEN_WALL1`, `HIDDEN_WALL5` | a plain pillar segment (5: pillar and machinery) | 1 |
 | `HIDDEN_WALL4`, `HIDDEN_WALL_3FLR`, `HIDDEN_WALL_3WAL` | a ledge, a floor, a pillar | 1 |
 | `HIDDEN_WALL_2x2` | the background | 1 |
 | `HIDDEN_WALL2` | the background | 2 |
 | `HIDDEN_WALL3` | the background | never: its cracks are invisible on the dark panels |
 
+The level places some walls already cracked, as visual hints. The column by the start is an
+example: at x 210, the blocks at y 29, 44 and 59 start at frames 1-2. Those at y 74 and 89 are
+plain.
+
 **What a player gets** (`observation.HIDDEN_WALL_LOOK`, `wall_look`):
-- **Looks cracked:** a `wall_block` object, with `cracks` (0 to 2), that `attack` and `goto` can
-  name.
-- **Looks like a ledge, floor or pillar:** solid cells (`#`) in the tile grid, exactly the
-  cells inside its outline. The navigation map remembers them off screen, like any wall seen
-  earlier, until it sees them without the wall. So nothing tells such a cell apart from a real
-  wall.
+- **Looks cracked** (any type, once its cracks show): a `wall_block` object, with `cracks`
+  (1 or 2), that `attack` and `goto` can name.
+- **Drawn as scenery** (a ledge, floor or pillar, or cracked): solid cells (`#`) in the tile
+  grid, exactly the cells inside its blocking outline. Its class comes from that outline,
+  which covers its whole picture, as a tile's class comes from its own outline. The navigation
+  map remembers the cells off screen, like any wall seen earlier, until it sees them without
+  the wall. So nothing tells such a cell apart from a wall tile with the same outline.
 - **Looks like the background:** nothing. The tile grid shows the tiles behind it. Collision
-  stops a player there, as it stops a human who walks into what looks like empty space.
+  stops a player there, as it stops a human who walks into what looks like empty space. (A
+  human would at least see their shots burst against it. The agent sees nothing.)
+
+**A residual we accept:** a hidden wall's outline is its whole picture box. A real pillar tile
+of the same width might have a narrower outline, and so be classed `+` rather than `#`.
 
 No wall is ever named before it looks breakable. A player shoots scenery that might break with
 `fire left|right|up|down`, which names nothing. A human can always shoot at a wall, so every
 player now can too.
 
-**History.** Until 2026-10-26 every hidden wall on screen was reported as a `wall_block`, which
-leaked six types' secrets. The first fix (PR #25) showed every uncracked wall as solid. Its
-review found two remaining leaks:
-- a solid lump appeared where the screen shows background;
-- the plain `HIDDEN_WALL1` was hidden while it looks exactly like the cracked ones beside it.
+**History.**
+- Until 2026-10-26, every hidden wall on screen was reported as a `wall_block`, which leaked six
+  types' secrets.
+- The first fix (PR #25) showed every uncracked wall as solid. Its review found a solid lump
+  where the screen shows background.
+- The second classed `HIDDEN_WALL1` and `HIDDEN_WALL5` as "always cracked". That was a misreading
+  of a low-resolution view, and named two plain walls at the start.
+- The rule above comes from the per-frame render, read at full size.
 
-Rendering every frame of every type produced the table above. Its tests are:
+Its tests:
+- `test_the_look_table_is_the_one_read_from_the_frames_evidence` (pinned);
 - `test_each_hidden_wall_shows_only_as_it_looks` (all eight types, uncracked and cracked);
-- `test_no_wall_is_named_before_it_looks_breakable_at_the_start`;
+- `test_at_the_start_only_the_walls_the_level_placed_cracked_are_named`;
 - `test_solid_looking_walls_are_remembered_off_screen_like_any_wall`;
 - `test_a_cracked_wall_blocks_navigation_over_its_whole_outline`.
 

@@ -431,16 +431,30 @@ def test_each_hidden_wall_shows_only_as_it_looks(name):
         named = [o for o in obs["objects"] if (o["x"], o["y"]) == (wall.x, wall.y)]
         assert named and named[0]["cracks"] == cracks_from
         assert f"attack {named[0]['id']}" in ep.legal_actions(PLAYER_ID)
+        assert set(_on_screen_cells(obs, wall_cells(wall))) == {"#"}  # a cracked wall is drawn and blocks
 
 
-def test_no_wall_is_named_before_it_looks_breakable_at_the_start():
+def test_the_look_table_is_the_one_read_from_the_frames_evidence():
+    """Pinned: evidence/boundary/hidden-wall-frames.png, read type by type (docs/information-boundary.md).
+    A change to the table must change this test and say what new evidence supports it."""
+    from abuse_remake.agent.observation import HIDDEN_WALL_LOOK
+    from abuse_remake.scope import LEVEL01_TYPES
+
+    assert HIDDEN_WALL_LOOK == {
+        "HIDDEN_WALL1": ("solid", 1), "HIDDEN_WALL5": ("solid", 1), "HIDDEN_WALL4": ("solid", 1),
+        "HIDDEN_WALL_3FLR": ("solid", 1), "HIDDEN_WALL_3WAL": ("solid", 1),
+        "HIDDEN_WALL2": ("background", 2), "HIDDEN_WALL_2x2": ("background", 1), "HIDDEN_WALL3": ("background", None),
+    }
+    assert {t for t in LEVEL01_TYPES if t.startswith("HIDDEN_WALL")} == set(HIDDEN_WALL_LOOK)
+
+
+def test_at_the_start_only_the_walls_the_level_placed_cracked_are_named():
+    """The column by the start (x 210): the level places the blocks at y 29, 44 and 59 already
+    cracked (frames 1-2), so they look breakable; those at y 74 and 89 are plain pillar (frame 0)."""
     ep = AbuseEpisode("level01", seed=0)
-    from abuse_remake.agent.observation import wall_look
-
-    shown = {(o["x"], o["y"]) for o in ep.observe(PLAYER_ID)["objects"] if o["kind"] == "wall_block"}
-    walls = [o for o in ep._game.world.objects if o.ctype.name.startswith("HIDDEN_WALL") and not o.deleted]
-    assert shown and all(wall_look(o) == "cracked" for o in walls if (o.x, o.y) in shown)
-    assert any(wall_look(o) != "cracked" and o.current_frame == 0 for o in walls)
+    named = {(o["x"], o["y"]) for o in ep.observe(PLAYER_ID)["objects"] if o["kind"] == "wall_block"}
+    assert {(210, 29), (210, 44), (210, 59)} <= named
+    assert not named & {(210, 74), (210, 89)}
 
 
 def test_a_hidden_wall_cracks_under_fire_and_is_then_shown():
@@ -483,6 +497,48 @@ def test_a_cracked_wall_blocks_navigation_over_its_whole_outline():
     wall.current_frame = 1
     nav = ep._nav()
     assert len(wall_cells(wall)) == 3 and all(nav.cls(c, r) == "#" for c, r in wall_cells(wall))
+
+
+def test_attack_and_fire_shoot_at_once_when_the_gun_already_points_that_way():
+    ep = AbuseEpisode("level01", seed=0)
+    ep.step(PLAYER_ID, "fire right")  # the gun now points right
+    assert next(ep._c_fire("right")).b2 == 1
+    assert next(ep._c_fire("left")).b2 == 0  # it must turn first: the shot would go right
+
+
+def test_a_shooting_action_returns_fire_even_while_being_hurt(monkeypatch):
+    """Hurt on every tick, a shooting action still gets its first shot off before it stops."""
+    ep = AbuseEpisode("level01", seed=0)
+    real = ep._tick
+
+    def hurting(*a, **k):
+        real(*a, **k)
+        ep._game.player.hp -= 1
+
+    monkeypatch.setattr(ep, "_tick", hurting)
+    before = ep.counters["shots_fired"]
+    r = ep.step(PLAYER_ID, "fire left")
+    assert ep.counters["shots_fired"] > before and r["ticks"] <= 12
+    r = ep.step(PLAYER_ID, "wait")
+    assert r["ticks"] == 1  # any other action stops at the first hurt
+
+
+def test_fire_keeps_going_when_a_new_threat_appears(monkeypatch):
+    ep = AbuseEpisode("level01", seed=0)
+    real = ep._visible
+    calls = {"n": 0}
+
+    def with_a_new_alien():
+        calls["n"] += 1
+        out = dict(real())
+        if calls["n"] > 1:
+            out["E99"] = {"id": "E99", "kind": "alien", "x": 0, "y": 0}
+        return out
+
+    monkeypatch.setattr(ep, "_visible", with_a_new_alien)
+    assert ep.step(PLAYER_ID, "fire right")["ticks"] == 12
+    calls["n"] = 0
+    assert ep.step(PLAYER_ID, "wait")["ticks"] < 8  # a waiting player stops for the new threat
 
 
 @pytest.mark.parametrize("way,angles", [("right", (330, 30)), ("left", (150, 210)), ("up", (60, 120)),

@@ -12,9 +12,12 @@ never used for tuning. `prompt_sha` is the hash of `src/abuse_remake/agent/promp
 ## Baseline rounds
 
 The scripted baseline may be changed only on the same tuning set, before the freeze
-(`SUITE.md`).
+(`SUITE.md`). Each result below comes from `eval/configs/midterm-tuning-offline.toml` (scripted
+only, `level01-cp2`, seeds 90 and 91, no model calls) at the commit named, so it can be re-run.
 
-| Round | Date | Change and why | Tuning result (`level01-cp2`, seeds 90 and 91) |
-|---|---|---|---|
-| B1 | 2026-10-26 | With hidden walls no longer named (PR #25), "break through" also fires at the scenery ahead when stuck (twice per spot), then at the floor (once per spot). **Deviation:** first motivated by offline `cp2` runs that include reported seeds 0-2 (stalled at (1168, 841) on 4 of 5) and by the evaluator's A* route, against the tuning rule (`SUITE.md`). Re-checked on 2026-10-27 on the tuning set alone: without the floor shot seed 90 dies at 0.060 progress, with it 0.254 | both seeds reach the bottom floor (y 1456), breaking 17 and 18 walls; progress 0.260 on each; both die there |
-| B2 | 2026-10-27 | The give-up rule (3 attacks that change nothing) compares a wall's `cracks`, since every shown wall now looks cracked and the old `damaged` flag no longer changes | 0.254 and 0.260, unchanged |
+| Round | Date | Change and why | Result (seed 90, seed 91) | At |
+|---|---|---|---|---|
+| B1 | 2026-10-26 | With hidden walls no longer named (PR #25), "break through" also fires at the scenery ahead when stuck (twice per spot), then at the floor (once per spot). **Deviation:** first motivated by offline `cp2` runs that include reported seeds 0-2 (stalled at (1168, 841) on 4 of 5) and by the evaluator's A* route, against the tuning rule (`SUITE.md`) | 0.260, 0.260 (17 and 18 walls broken) | `f611a7b` (PR #25 as first opened) |
+| B1 re-check | 2026-10-27 | The same rule judged on the tuning set alone, with and without the floor shot | without: 0.060, 0.260; with: 0.254, 0.260 | `5d26519` |
+| B2 | 2026-10-27 | The give-up rule (3 attacks that change nothing) compares a wall's `cracks`, since the old `damaged` flag no longer changes | 0.254, 0.260 | `5d26519` |
+| check | 2026-10-27 | No baseline change. The interface's second review fixes (the look table, aiming, returning fire) apply to every player | 0.260, 0.254 | the commit after `2ba01c6` that adds this row |

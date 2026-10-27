@@ -143,7 +143,7 @@ def view_rect(game) -> tuple[int, int, int, int]:
 # cracks show (None: they never show). All their sprites are opaque; the dark ones (luminance
 # about 29) copy the background panels, the bright ones (about 50) the ledges, floors and pillars.
 HIDDEN_WALL_LOOK = {
-    "HIDDEN_WALL1": ("cracked", 0), "HIDDEN_WALL5": ("cracked", 0),  # the cracked stone column
+    "HIDDEN_WALL1": ("solid", 1), "HIDDEN_WALL5": ("solid", 1),  # a plain pillar until it cracks
     "HIDDEN_WALL4": ("solid", 1), "HIDDEN_WALL_3FLR": ("solid", 1), "HIDDEN_WALL_3WAL": ("solid", 1),
     "HIDDEN_WALL2": ("background", 2), "HIDDEN_WALL_2x2": ("background", 1), "HIDDEN_WALL3": ("background", None),
 }
@@ -189,20 +189,13 @@ def _walls_on_screen(game, x0: int, y0: int, w: int, h: int):
 
 
 def scenery_cells(game, x0: int, y0: int, w: int, h: int) -> set[tuple[int, int]]:
-    """Cells of on-screen hidden walls that imitate a ledge, floor or pillar: shown, and
-    remembered, as solid like any wall."""
+    """Cells of on-screen hidden walls drawn as scenery that blocks: one that imitates a ledge,
+    floor or pillar, and one that shows cracks (also a ``wall_block``). Shown, and remembered by
+    the navigation map, as solid like any wall; the class comes from the wall's collision
+    outline, which covers its whole picture, as a tile's class comes from its outline."""
     out = set()
     for o in _walls_on_screen(game, x0, y0, w, h):
-        if wall_look(o) == "solid":
-            out |= wall_cells(o)
-    return out
-
-
-def cracked_wall_cells(game, x0: int, y0: int, w: int, h: int) -> set[tuple[int, int]]:
-    """Cells of on-screen hidden walls shown as ``wall_block`` objects, for the motor skills."""
-    out = set()
-    for o in _walls_on_screen(game, x0, y0, w, h):
-        if wall_look(o) == "cracked":
+        if wall_look(o) != "background":
             out |= wall_cells(o)
     return out
 

@@ -126,8 +126,9 @@ These are dated, and none came after a live call or any tuning of the model.
 - **2026-10-26, the interface (PR #25 and its review fixes).** Checking every hidden-wall type
   showed that the observation named camouflaged breakable walls, which leaked secrets. A hidden
   wall is now shown only as it looks (`docs/information-boundary.md`), and every player gains
-  `fire left|right|up|down`. `attack` and `fire` aim for two ticks before firing, because the
-  gun follows the pointer two ticks late. The suite itself (situations, seeds, players' code
+  `fire left|right|up|down`. `attack` and `fire` hold the trigger only while the gun is still
+  turning (it fires at the angle set the tick before), and get their first shot off before the
+  hurt stop. The suite itself (situations, seeds, players' code
   paths, budgets, metrics) is unchanged.
   - **Behaviour, not code:** the four always-legal `fire` actions change what the random player
     picks (it fired 87 times in one committed full-level episode), so its numbers moved.

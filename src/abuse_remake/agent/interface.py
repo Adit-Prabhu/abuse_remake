@@ -21,7 +21,8 @@ Actions (docs/action-interface.md) are strings taken from ``legal_actions()``:
 
 Each action runs a deterministic controller that turns it into the original's inputs (left,
 right, up, down, fire, aim, weapon keys) for up to 15 ticks. It stops early when the player is
-hurt, or (except during ``attack`` and ``fire``) when a new threat appears, so the agent can react. Every
+hurt (``attack`` and ``fire`` only after their first shot), or (except during ``attack`` and ``fire``)
+when a new threat appears, so the agent can react. Every
 player gets exactly the same controllers. Labels (``E3``) are given only at decision time, so
 nothing seen only in the middle of an action uses one up.
 
@@ -36,6 +37,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 from dataclasses import asdict, dataclass
 
 from ..engine.cmath import cdiv
@@ -43,10 +45,10 @@ from ..engine.game import Game, WeaponCommand
 from ..engine.view import Inputs
 from ..scope import FULL_LEVEL_TICK_LIMIT, SEGMENT_TICK_LIMIT
 from .nav import KnownMap, Navigator, blocked_cells, cell_of
-from .observation import WEAPON_NAMES, IdMap, build_observation, cracked_wall_cells, scenery_cells, view_rect
+from .observation import WEAPON_NAMES, IdMap, build_observation, scenery_cells, view_rect
 
 PLAYER_ID = "player"
-AIM_TICKS = 2  # the gun follows the pointer two ticks late, so attack and fire aim this long before firing
+AIM_TOLERANCE = 25  # degrees: attack and fire pull the trigger once the gun points this close
 INTERACTIVE = {"switch", "console", "teleporter", "door_teleporter", "exit", "lift"}
 TARGETABLE = {"alien", "turret", "boulder", "wall_block", "nest"}
 THREATS = {"alien", "turret", "boulder", "rock", "projectile"}
@@ -287,6 +289,8 @@ class AbuseEpisode:
                       "attack": self._c_attack, "fire": self._c_fire}[verb]
         gen = controller(arg)
         hp0 = self._game.player.hp
+        shots0 = self.counters["shots_fired"]
+        shooting = verb in ("attack", "fire")
         for _ in range(limit):
             if self._status()[0] != "playing":
                 break
@@ -295,8 +299,8 @@ class AbuseEpisode:
             except StopIteration:
                 break
             self._tick(inp)
-            if self._game.player.hp < hp0:
-                break  # hurt: give control back
+            if self._game.player.hp < hp0 and not (shooting and self.counters["shots_fired"] == shots0):
+                break  # hurt: give control back (a shooting action first gets its shot off)
             threats = {k for k, o in self._visible().items() if o["kind"] in THREATS}
             if threats - visible_before and verb not in ("attack", "fire"):
                 break  # something new and dangerous came into view
@@ -329,8 +333,7 @@ class AbuseEpisode:
 
     def _nav(self) -> Navigator:
         x0, y0, w, h = view_rect(self._game)
-        blocked = blocked_cells(self._visible().values()) | cracked_wall_cells(self._game, x0, y0, w, h)
-        return Navigator(self._game.world.tiles, self._known, blocked)
+        return Navigator(self._game.world.tiles, self._known, blocked_cells(self._visible().values()))
 
     def _follow(self, goal_cell, press_at_end: bool = False, close_px: int = 8, target_x: int | None = None):
         """Walk along an A* path over the automap toward goal_cell (and target_x, if given)."""
@@ -405,7 +408,7 @@ class AbuseEpisode:
         yield from self._follow(best)
 
     def _c_attack(self, oid):
-        for i in range(12):
+        for _ in range(12):
             o = self._visible().get(oid)
             if o is None:
                 return
@@ -417,18 +420,32 @@ class AbuseEpisode:
             ty = tgt.y - cdiv(tgt.picture_height(), 2)
             face = 1 if tgt.x > p.x else -1
             x = face if p.direction != face else 0  # turn to face the target, then stand still
-            yield Inputs(x=x, b2=int(i >= AIM_TICKS), pointer_x=tgt.x, pointer_y=ty)
+            yield Inputs(x=x, b2=int(self._aimed(tgt.x, ty)), pointer_x=tgt.x, pointer_y=ty)
+
+    def _aimed(self, px: int, py: int) -> bool:
+        """Whether a shot fired this tick would go toward (px, py). The player fires with the
+        angle its top half set last tick, because ``top_ai`` aims after ``cop_mover`` fires
+        (``engine/behaviors/player.py``), and a fresh game has no top half until its first tick.
+        So attack and fire hold the trigger only while the gun is still turning."""
+        p = self._game.player
+        top = p.objs[0] if p.objs else None
+        if top is None or "point_angle" not in top.lvars:
+            return False
+        want = math.degrees(math.atan2(p.y - 20 - py, px - p.x)) % 360
+        diff = abs(want - top.lvars["point_angle"] % 360)
+        return min(diff, 360 - diff) <= AIM_TOLERANCE
 
     def _c_fire(self, d):
         """Fire the current weapon that way without naming a target: what a human does when
         they shoot at scenery that might break."""
-        for i in range(12):
+        for _ in range(12):
             p = self._game.player
             ahead = 1 if p.direction > 0 else -1
             dx, dy, face = {"left": (-100, 0, -1), "right": (100, 0, 1),
                             "up": (10 * ahead, -100, 0), "down": (10 * ahead, 100, 0)}[d]
             x = face if face and p.direction != face else 0  # turn that way, then stand still
-            yield Inputs(x=x, b2=int(i >= AIM_TICKS), pointer_x=p.x + dx, pointer_y=p.y - 20 + dy)
+            yield Inputs(x=x, b2=int(self._aimed(p.x + dx, p.y - 20 + dy)), pointer_x=p.x + dx,
+                         pointer_y=p.y - 20 + dy)
 
     # --- traces ------------------------------------------------------------------------
     def snapshot_for_trace(self) -> dict:
