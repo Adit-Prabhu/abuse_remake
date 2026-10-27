@@ -164,8 +164,7 @@ class AbuseEpisode:
         if self.decisions >= self.budgets.max_decisions:
             return {"accepted": False, "error": "decision budget exhausted", "ticks": 0,
                     "observation": self.observe(player_id)}
-        legal = self.legal_actions(player_id)  # computed before this decision is counted
-        self.decisions += 1
+        legal = self.legal_actions(player_id)
         self._pending_events = []  # events are those since the last decision, refused or not
         if not isinstance(action, str):
             return self._refuse(f"<not text: {type(action).__name__}>", "action must be a string")
@@ -176,11 +175,15 @@ class AbuseEpisode:
             return self._refuse(action, reason)
         canonical = legal_lc[action]
         ticks = self._execute(canonical)
+        # counted after it runs: counted before, the decision that reached the cap saw the budget
+        # as spent and ran no ticks
+        self.decisions += 1
         self._last_result = {"accepted": True, "action": canonical, "error": None, "ticks": ticks}
         return {"accepted": True, "error": None, "ticks": ticks, "observation": self.observe(player_id)}
 
     # --- internals ---------------------------------------------------------------------
     def _refuse(self, action: str, reason: str) -> dict:
+        self.decisions += 1
         self.invalid_actions += 1
         self._last_result = {"accepted": False, "action": action[:200], "error": reason, "ticks": 0}
         return {"accepted": False, "error": reason, "ticks": 0, "observation": self.observe(PLAYER_ID)}

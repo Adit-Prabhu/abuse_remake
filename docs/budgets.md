@@ -37,6 +37,8 @@ own episode ending, so it is never confused with a death or a timeout.
 
 `tests/test_player_interface.py`:
 - `test_decision_budget_ends_the_episode`
+- `test_the_last_decision_under_the_cap_still_runs` (a regression: that decision used to run 0 ticks)
+- `test_a_refused_decision_at_the_cap_ends_the_episode_without_ticks`
 - `test_tick_limit_ends_the_episode`
 
 `tests/test_model_player.py`:

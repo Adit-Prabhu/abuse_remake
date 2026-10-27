@@ -112,6 +112,32 @@ def test_decision_budget_ends_the_episode():
     assert r["accepted"] is False and ep.decisions == 3  # after the end nothing is counted
 
 
+def test_the_last_decision_under_the_cap_still_runs():
+    """Regression (found by the bridge smoke run, 2026-10-15): the decision that reached the cap
+    was counted before it ran, so the controller saw the budget as spent and the action was
+    accepted with 0 ticks."""
+    ep = AbuseEpisode("level01", seed=0, budgets=Budgets(max_ticks=9000, max_decisions=2))
+    first = ep.step(PLAYER_ID, "wait")
+    last = ep.step(PLAYER_ID, "wait")
+    assert first["ticks"] == 8 and last["accepted"] and last["ticks"] == 8
+    assert ep.ticks == 16 and ep.outcome()["reason"] == "decision budget exhausted"
+
+
+def test_a_weapon_switch_at_the_cap_still_takes_effect():
+    ep = AbuseEpisode("level01", seed=0, budgets=Budgets(max_ticks=9000, max_decisions=1))
+    ep._game.view.weapons[1] = 5  # own grenades, as after a pickup
+    r = ep.step(PLAYER_ID, "weapon grenade")
+    assert r["accepted"] and r["ticks"] == 1 and ep._game.view.current_weapon == 1
+
+
+def test_a_refused_decision_at_the_cap_ends_the_episode_without_ticks():
+    ep = AbuseEpisode("level01", seed=0, budgets=Budgets(max_ticks=9000, max_decisions=1))
+    r = ep.step(PLAYER_ID, "fly away")
+    assert not r["accepted"] and r["ticks"] == 0 and ep.ticks == 0
+    assert ep.decisions == 1 and ep.invalid_actions == 1
+    assert ep.outcome()["reason"] == "decision budget exhausted"
+
+
 def test_tick_limit_ends_the_episode():
     ep = AbuseEpisode("level01", seed=0, budgets=Budgets(max_ticks=20, max_decisions=100))
     while ep.outcome()["status"] == "ongoing":
