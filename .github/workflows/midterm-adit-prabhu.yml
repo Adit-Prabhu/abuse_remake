@@ -1,6 +1,5 @@
 # The course repository's check for midterms/adit-prabhu/: deterministic tests only, no
-# network model calls and no secrets. In the project repository this file never triggers (it has
-# no midterms/ folder); there .github/workflows/ci.yml runs the same checks from the root.
+# network model calls and no secrets. The job runs only where that folder exists.
 name: midterm-adit-prabhu
 
 on:
@@ -14,7 +13,8 @@ permissions:
 
 jobs:
   deterministic:
-    name: Deterministic checks (Python ${{ matrix.python }})
+    name: midterm-adit-prabhu checks (Python ${{ matrix.python }})
+    if: hashFiles('midterms/adit-prabhu/pyproject.toml') != ''
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
@@ -42,7 +42,7 @@ jobs:
         run: uv run --frozen ruff check src tests scripts
       - name: Original data checksums
         run: uv run --frozen abuse-data verify
-      - name: Tests (rules, interface, limits, regressions, evidence replays, routes)
+      - name: Tests (rules, interface, limits, regressions, evidence replays)
         run: uv run --frozen pytest -v
-      - name: Evaluation smoke run (offline; live players are listed as not run)
+      - name: Evaluation smoke run (offline; live players are listed as not run; fails on a crash)
         run: uv run --frozen abuse-eval run --config eval/configs/ci-smoke.toml --out runs/ci-smoke
