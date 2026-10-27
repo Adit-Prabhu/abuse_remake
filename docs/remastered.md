@@ -258,3 +258,26 @@ this shows:
   its `bottom_damage` doubles damage; 2.0 divides by 5 and triples. This changes hearts, ultra
   health and every hit on extreme, in every level (Level 1 already follows 2.0;
   `docs/data-lineage.md`).
+
+## Developer test mode (the student's tool, locked)
+
+`uv run abuse-remake --dev` starts it. It works only on the machine whose
+`~/.abuse_remake/dev.key` holds the secret matching `KEY_SHA256` in `game/devmode.py`. The secret is
+in no file of the repository, its export or a release. Anywhere else, `--dev` is refused exactly
+like a made-up option, and `--help`, the title and the controls never mention it. The lock keeps
+dev mode out of the game as published. Someone who edits their own copy of the source can, of
+course, change anything. `scripts/new_dev_key.py` makes a key for another machine; its hash must
+then be committed.
+
+In dev mode:
+- the player takes no damage and health stays full;
+- guns 1-4 are owned and never run out (∞ on the HUD);
+- Tab opens the DEV MODE menu (the game waits): any of the four power-ups or none, and the two
+  switches above.
+
+A red DEV MODE badge stays on screen, on the title and in play, so no screenshot passes for real
+play. Dev mode is Remastered only: switching the title to Classic plays plain Classic rules. It
+never saves best times, ghosts or Horde scores; the end screens say "DEV MODE: NOT RECORDED". It
+cannot be combined with `--playtest` or `--record`. The rules are in `docs/rule-source-map.md`
+(Remastered mode), and `tests/test_devmode.py` checks the lock, the rules, the menu and that
+nothing is recorded.

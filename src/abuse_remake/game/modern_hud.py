@@ -18,6 +18,7 @@ import math
 import pygame
 
 from ..engine.behaviors.player import FAST_POWER, FLY_POWER, HEALTH_POWER, SNEAKY_POWER
+from ..engine.remastered import DEV_GUNS
 from . import ui
 from .ui import AMBER, CYAN, DIM, GREEN, ORANGE, RED, TEXT
 
@@ -97,8 +98,9 @@ class ModernHud:
             t.bar(screen, pygame.Rect(box.left + 4 * u, box.top + 13 * u, 46 * u, 6 * u),
                   1.0 - rs["cooldown"] / max(1, most), CYAN if ready else ui.GREY[0])
             x = box.right + 4 * u
-        # weapons
-        x = self._weapons(screen, v, x + 2 * u, h)
+        # weapons (all four endless in dev mode with unlimited ammo)
+        dev = game.remastered.dev if game.remastered is not None else None
+        x = self._weapons(screen, v, x + 2 * u, h, endless_guns=DEV_GUNS if dev and dev["ammo"] else 0)
         # time and counts
         s = app.stats
         secs = s.get("ticks", 0) // 15
@@ -113,11 +115,13 @@ class ModernHud:
         self._power(screen, app)
         if horde:
             self._horde(screen, app)
+        if dev is not None:  # above the health panel
+            dev_badge(t, screen, (4 * u, h - 39 * u - t.measure("DEV MODE")[1]), hint=True)
         if app.state == "play":  # prompts belong to play, not to the screens drawn over it
             self._messages(screen, app)
             self._help(screen, app)
 
-    def _weapons(self, screen, v, x, h) -> int:
+    def _weapons(self, screen, v, x, h, endless_guns: int = 0) -> int:
         t, u = self.t, self.u
         for i, ammo in enumerate(v.weapons[:7]):  # the status bar has icons for the seven weapons
             if ammo == -1:
@@ -130,7 +134,7 @@ class ModernHud:
                 screen.blit(img, (slot.left + 2 * u, slot.top + u))
             if sel:
                 pygame.draw.rect(screen, AMBER, slot, u)
-            endless = i == 0 and ammo == 0  # the laser never runs out
+            endless = (i == 0 and ammo == 0) or i < endless_guns  # the laser never runs out
             label, size = (chr(236), "big") if endless else (str(ammo), "small")
             t.text(screen, str(i + 1), (slot.left + 3 * u, slot.top + 2 * u), AMBER if sel else DIM)
             aw, ah = t.measure(label, size)
@@ -431,3 +435,19 @@ class ModernHud:
         if heart is not None:
             screen.blit(heart, (w // 2 - tw // 2 - 20 * u, foot.top + 17 * u))
         t.text(screen, line, (w // 2, foot.top + 19 * u), TEXT, align="center")
+
+
+def dev_badge(t: ui.Theme, screen, pos, hint: bool = False) -> pygame.Rect:
+    """DEV MODE in red, always on screen in developer test mode (devmode.py), so no screenshot or
+    recording of it passes for real play; ``hint`` adds the key that opens its menu."""
+    u = t.u
+    lw, lh = t.measure("DEV MODE")
+    tail = t.measure("MENU")[0] + t.measure("TAB")[0] + 16 * u if hint else 0
+    box = pygame.Rect(pos[0], pos[1], lw + 8 * u + tail, lh + 9 * u)
+    pygame.draw.rect(screen, (90, 14, 10), box)
+    pygame.draw.rect(screen, RED, box, u)
+    t.text(screen, "DEV MODE", (box.left + 4 * u, box.top + 4 * u), TEXT)
+    if hint:
+        k = t.key(screen, "TAB", (box.left + lw + 10 * u, box.top + 2 * u))
+        t.text(screen, "MENU", (k.right + 3 * u, box.top + 4 * u), DIM)
+    return box

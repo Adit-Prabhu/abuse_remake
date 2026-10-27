@@ -13,6 +13,13 @@ pressing). It moves with the engine's own collision (``try_move`` with feet and 
 it never passes through walls. The player cannot be hurt during the dash and for a few ticks
 after it. It has a cooldown, so it is a dodge, not a faster way to run.
 
+Developer test mode (``Game(dev=True)``, the student's testing tool; the app unlocks it only
+with a local key, ``game/devmode.py``): with ``dev["health"]`` the player takes no damage (the
+same ``player_iframes`` check as the dash) and health stays at its cap; with ``dev["ammo"]`` guns
+1-4 (laser, grenades, rockets, napalm) are owned and kept at ``MAX_AMMO``. Both are refilled before
+and after every tick. The later add-on weapons in slots 5-7 are not ported, so they are never
+given.
+
 All state is in ``world.globals["remastered"]``, so snapshots and restarts carry it.
 """
 
@@ -23,6 +30,7 @@ DASH_SPEED = 13  # pixels per tick; running speed is about 6 to 7
 DASH_IFRAMES = 7  # ticks without damage, counted from the start of the dash
 DASH_COOLDOWN = 18  # ticks from the start of one dash to the next
 NORMAL_PLAY = 1  # the cop's aistate in play (people.lsp; behaviors/player.py)
+DEV_GUNS = 4  # the laser, grenades, rockets and napalm: the weapons Level 1 has
 
 
 def _state(world) -> dict:
@@ -34,9 +42,11 @@ def _state(world) -> dict:
 
 
 class Remastered:
-    def __init__(self, game):
+    def __init__(self, game, dev: bool = False):
         self.game = game
-        _state(game.world)
+        st = _state(game.world)
+        if dev:
+            st["dev"] = {"health": True, "ammo": True}
         # Built once per Game, on its freshly loaded level (restores copy the world instead);
         # a Horde arena keeps only the map, so it gets no campaign extras
         from .campaign import EXTRA_OBJECTS
@@ -48,6 +58,39 @@ class Remastered:
     @property
     def state(self) -> dict:
         return _state(self.game.world)
+
+    @property
+    def dev(self) -> dict | None:
+        """Developer test mode's switches, or None in a normal game."""
+        return self.state.get("dev")
+
+    def dev_supplies(self) -> None:
+        dev = self.dev
+        if not dev:
+            return
+        from .behaviors.player import HEALTH_POWER
+        from .view import MAX_AMMO
+
+        p, v = self.game.player, self.game.view
+        if dev["health"]:
+            self.game.world.globals["player_iframes"] = 1  # bottom_damage ignores every hit
+            if p.aistate == NORMAL_PLAY:
+                p.set_hp(200 if p.lvars.get("special_power") == HEALTH_POWER else 100)
+        if dev["ammo"]:
+            for wtype in range(DEV_GUNS):
+                v.give_weapon(wtype)
+                v.add_ammo(wtype, MAX_AMMO)
+
+    def dev_power(self, power: int) -> None:
+        """Developer test mode's menu: carry ``power`` (0 drops it), as a power-up pickup gives one
+        (``campaign_objects._take_power``), from a fresh start."""
+        from .behaviors.player import HEALTH_POWER, give_player_health
+
+        p = self.game.player
+        p.lvars["special_power"] = power
+        p.lvars["used_special_power"] = 0
+        if power == HEALTH_POWER:
+            give_player_health(p, 100)
 
     def can_dash(self) -> bool:
         p = self.game.player
@@ -92,6 +135,7 @@ class Remastered:
 
     def before_step(self) -> None:
         self.game.world.globals["player_iframes"] = self.state["iframes"]
+        self.dev_supplies()
 
     def after_step(self) -> None:
         self._follow_exits()
@@ -116,3 +160,4 @@ class Remastered:
         st["iframes"] = max(0, st["iframes"] - 1)
         st["cooldown"] = max(0, st["cooldown"] - 1)
         self.game.world.globals["player_iframes"] = st["iframes"]
+        self.dev_supplies()

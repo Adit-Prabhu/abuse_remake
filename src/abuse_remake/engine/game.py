@@ -54,9 +54,12 @@ class WeaponCommand:
 class Game:
     def __init__(self, seed: int = 0, difficulty: str = DEFAULT_DIFFICULTY, level: str = LEVEL,
                  strict: bool = True, object_filter=None, remastered: bool = False, horde: bool = False,
-                 carry: Game | None = None, arena: str = "prison"):
+                 carry: Game | None = None, arena: str = "prison", dev: bool = False):
         """``carry``: the game whose exit led here. Its player and view go on into this level, as
-        they do when the original loads the next level (see ``_carry_over``)."""
+        they do when the original loads the next level (see ``_carry_over``). ``dev``: developer
+        test mode's rules (``engine/remastered.py``), Remastered only."""
+        if dev and not (remastered or horde):
+            raise ValueError("developer test mode needs Remastered rules")
         if horde:  # Remastered's Horde arena: the map without the level's objects
             from .horde import ARENAS, keep_for_horde
 
@@ -90,7 +93,7 @@ class Game:
         if remastered:  # rule changes for --mode remastered only; Classic never builds this
             from .remastered import Remastered
 
-            self.remastered = Remastered(self)
+            self.remastered = Remastered(self, dev=dev)
         self.horde = None
         if horde:
             from .horde import Horde

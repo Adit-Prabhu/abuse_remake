@@ -15,6 +15,10 @@ The student reported two problems with the title menu, and each has its own PR, 
   A follow-up fixes Classic's title, which showed PLAY LEVEL 1 twice.
 - **#30 `feat/ghost-race`.** A GHOST setting in the campaign list, kept between sessions. The
   ghost is now red, with a rim and a GHOST label, instead of the easy-to-miss light blue.
+- **#31 `feat/dev-mode`.** Developer test mode, for the student's testing only: no damage,
+  unlimited ammo for guns 1-4, and a Tab menu for any power-up. `--dev` works only with the
+  student's key (`~/.abuse_remake/dev.key`, never in the repository). The earlier `--dev-test`
+  was on `feat/codex-bridge`, which is not part of the submission.
 
 ## Remastered polish (2026-10-15)
 
