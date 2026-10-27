@@ -33,3 +33,5 @@ jobs:
         run: uv run --frozen abuse-data verify
       - name: Tests (no network, no model calls)
         run: uv run --frozen pytest -v
+      - name: Evaluation smoke run (offline; fails on a crash)
+        run: uv run --frozen abuse-eval run --config eval/configs/ci-smoke.toml --out runs/ci-smoke

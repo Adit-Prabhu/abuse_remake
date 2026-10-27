@@ -9,7 +9,9 @@ Classic mode, Level 1, scale 3. It writes:
   cropped around it, with its picture box outlined in yellow;
 - ``hidden-wall-frames.png``: the same instances drawn at frames 0, 1 and 2 (no cracks, then
   more), with the blocking outline in cyan. It is the evidence for
-  ``observation.HIDDEN_WALL_LOOK``.
+  ``observation.HIDDEN_WALL_LOOK``;
+- ``hidden-wall-sprites.json``: each type's sprite per frame: size, opaque share and mean
+  brightness of the opaque pixels.
 
 A development tool: it places the player directly, which no player can do.
 """
@@ -52,6 +54,7 @@ def main() -> int:
     print(f"wrote {OUT}: {walls[0].ctype.name} at ({walls[0].x}, {walls[0].y})")
     contact_sheet()
     frames_sheet()
+    sprite_stats(probe_game=a.game)
     return 0
 
 
@@ -142,6 +145,35 @@ def frames_sheet() -> None:
         y += max(c.get_height() for c in cs) + 26
     pygame.image.save(sheet, str(FRAMES))
     print(f"wrote {FRAMES}")
+
+
+def sprite_stats(probe_game) -> None:
+    """Size, opaque share and mean brightness (ITU-R 601 luma) of each hidden-wall frame."""
+    import json
+
+    import numpy as np
+
+    from abuse_remake.formats.tiles import load_palette
+    from abuse_remake.paths import data_root
+
+    pal = np.array(load_palette(data_root()).colors, dtype=float)
+    out = {}
+    for o in probe_game.world.objects:
+        name = o.ctype.name
+        if not name.startswith("HIDDEN_WALL") or name in out:
+            continue
+        frames = []
+        for fig in o.ctype.sequences["stopped"]:
+            im = fig.image
+            idx = np.frombuffer(im.pixels, dtype=np.uint8).reshape(im.height, im.width)
+            opaque = idx != 0
+            luma = pal[idx][..., :3] @ [0.299, 0.587, 0.114]
+            frames.append({"size": [im.width, im.height], "opaque": round(float(opaque.mean()), 3),
+                           "brightness": round(float(luma[opaque].mean()), 1) if opaque.any() else None})
+        out[name] = frames
+    path = OUT.with_name("hidden-wall-sprites.json")
+    path.write_text(json.dumps(dict(sorted(out.items())), indent=1) + "\n")
+    print(f"wrote {path}")
 
 
 if __name__ == "__main__":

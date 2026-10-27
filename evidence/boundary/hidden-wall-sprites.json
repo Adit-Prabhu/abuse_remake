@@ -1,0 +1,210 @@
+{
+ "HIDDEN_WALL1": [
+  {
+   "size": [
+    30,
+    15
+   ],
+   "opaque": 1.0,
+   "brightness": 48.3
+  },
+  {
+   "size": [
+    30,
+    15
+   ],
+   "opaque": 1.0,
+   "brightness": 47.8
+  },
+  {
+   "size": [
+    30,
+    15
+   ],
+   "opaque": 1.0,
+   "brightness": 46.0
+  }
+ ],
+ "HIDDEN_WALL2": [
+  {
+   "size": [
+    30,
+    15
+   ],
+   "opaque": 1.0,
+   "brightness": 42.4
+  },
+  {
+   "size": [
+    30,
+    15
+   ],
+   "opaque": 1.0,
+   "brightness": 39.6
+  },
+  {
+   "size": [
+    30,
+    15
+   ],
+   "opaque": 0.973,
+   "brightness": 37.0
+  }
+ ],
+ "HIDDEN_WALL3": [
+  {
+   "size": [
+    30,
+    15
+   ],
+   "opaque": 1.0,
+   "brightness": 28.9
+  },
+  {
+   "size": [
+    30,
+    15
+   ],
+   "opaque": 1.0,
+   "brightness": 25.3
+  },
+  {
+   "size": [
+    30,
+    15
+   ],
+   "opaque": 1.0,
+   "brightness": 23.9
+  }
+ ],
+ "HIDDEN_WALL4": [
+  {
+   "size": [
+    30,
+    15
+   ],
+   "opaque": 1.0,
+   "brightness": 52.2
+  },
+  {
+   "size": [
+    30,
+    15
+   ],
+   "opaque": 1.0,
+   "brightness": 49.9
+  },
+  {
+   "size": [
+    30,
+    15
+   ],
+   "opaque": 1.0,
+   "brightness": 48.1
+  }
+ ],
+ "HIDDEN_WALL5": [
+  {
+   "size": [
+    30,
+    15
+   ],
+   "opaque": 1.0,
+   "brightness": 41.8
+  },
+  {
+   "size": [
+    30,
+    15
+   ],
+   "opaque": 1.0,
+   "brightness": 38.7
+  },
+  {
+   "size": [
+    30,
+    15
+   ],
+   "opaque": 1.0,
+   "brightness": 34.7
+  }
+ ],
+ "HIDDEN_WALL_2x2": [
+  {
+   "size": [
+    60,
+    30
+   ],
+   "opaque": 1.0,
+   "brightness": 28.9
+  },
+  {
+   "size": [
+    60,
+    30
+   ],
+   "opaque": 1.0,
+   "brightness": 25.4
+  },
+  {
+   "size": [
+    60,
+    30
+   ],
+   "opaque": 1.0,
+   "brightness": 23.9
+  }
+ ],
+ "HIDDEN_WALL_3FLR": [
+  {
+   "size": [
+    90,
+    15
+   ],
+   "opaque": 1.0,
+   "brightness": 52.2
+  },
+  {
+   "size": [
+    90,
+    15
+   ],
+   "opaque": 1.0,
+   "brightness": 49.9
+  },
+  {
+   "size": [
+    90,
+    15
+   ],
+   "opaque": 1.0,
+   "brightness": 48.1
+  }
+ ],
+ "HIDDEN_WALL_3WAL": [
+  {
+   "size": [
+    30,
+    45
+   ],
+   "opaque": 1.0,
+   "brightness": 48.3
+  },
+  {
+   "size": [
+    30,
+    45
+   ],
+   "opaque": 1.0,
+   "brightness": 47.8
+  },
+  {
+   "size": [
+    30,
+    45
+   ],
+   "opaque": 1.0,
+   "brightness": 46.0
+  }
+ ]
+}

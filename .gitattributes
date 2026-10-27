@@ -1,2 +1,4 @@
 *.spe binary
 *.lsp text eol=lf
+# checksummed originals: never convert line endings (abuse-data verify)
+data/original/** -text

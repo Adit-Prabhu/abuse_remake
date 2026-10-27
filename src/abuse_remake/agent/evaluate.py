@@ -58,6 +58,9 @@ def load_config(path: Path) -> dict:
     labels = [p["label"] for p in cfg["players"]]
     if len(set(labels)) != len(labels):
         raise SystemExit("player labels must be unique")
+    for pair in cfg.get("compare", []):
+        if len(pair) != 2 or not set(pair) <= set(labels):
+            raise SystemExit(f"compare entries name two player labels: {pair!r}")
     return cfg
 
 
@@ -262,6 +265,7 @@ def summarize(rows: list[dict], cfg: dict) -> dict:
             rs = [r for r in ran if r["label"] == label and (scen == "all" or r["scenario"] == scen)]
             planned = [r for r in rows if r["label"] == label and (scen == "all" or r["scenario"] == scen)]
             lat = [r["latency_p50_s"] for r in rs if r.get("latency_p50_s") is not None]
+            lat95 = [r["latency_p95_s"] for r in rs if r.get("latency_p95_s") is not None]
             cats: dict = {}
             for r in rs:
                 for k, n in (r.get("error_categories") or {}).items():
@@ -284,6 +288,7 @@ def summarize(rows: list[dict], cfg: dict) -> dict:
                 "input_tokens": sum(int(r.get("input_tokens") or 0) for r in planned),
                 "output_tokens": sum(int(r.get("output_tokens") or 0) for r in planned),
                 "latency_p50": percentile(lat, 50),
+                "latency_p95": percentile(lat95, 50),
                 "reasons": _count(r["reason"] for r in planned),
             }
     return out
@@ -361,12 +366,13 @@ def render_report(rows: list[dict], record: dict) -> str:
         title = "All scenarios pooled" if scen == "all" else f"Scenario `{scen}`"
         lines += ["", f"## {title}", "",
                   "| player | planned | n | success | progress | deaths | kills | damage taken | invalid "
-                  "| failed requests | decisions | ticks | model calls | tokens in / out | latency p50 s | cost USD |",
+                  "| failed requests | decisions | ticks | model calls | tokens in / out | latency p50 / p95 s "
+                  "| cost USD |",
                   "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
         for label in labels:
             v = s[(label, scen)]
             c = cost(cfg, v["input_tokens"], v["output_tokens"]) if v["input_tokens"] or v["output_tokens"] else None
-            lat = "-" if v["latency_p50"] is None else f"{v['latency_p50']:.2f}"
+            lat = "-" if v["latency_p50"] is None else f"{v['latency_p50']:.2f} / {v['latency_p95']:.2f}"
             _, slo, shi = v["success"]
             succ = "n/a" if not v["n"] else f"{v['wins']}/{v['n']} [{slo:.2f}, {shi:.2f}]"
             lines.append(
@@ -397,6 +403,19 @@ def render_report(rows: list[dict], record: dict) -> str:
             lines.append(f"| {label} | {scen} | {n} | {_fmt_ci(m, lo, hi)} |")
         n, k, m, lo, hi = cluster_paired_diff(by[label], by.get(ref, {}))
         lines.append(f"| {label} | **pooled** ({k} scenarios) | {n} | {_fmt_ci(m, lo, hi)} |")
+    pairs = [tuple(pr) for pr in cfg.get("compare", [])]
+    if pairs:
+        lines += ["", "## Other paired comparisons (declared in the config)", "",
+                  "Mean difference in progress, the first player minus the second, on the same scenarios and seeds; "
+                  "intervals as above.", "", "| first | second | scenario | pairs | progress difference |",
+                  "|---|---|---|---|---|"]
+        for first, second in pairs:
+            for scen in cfg["scenarios"]:
+                a = {k: v for k, v in by.get(first, {}).items() if k[0] == scen}
+                n, m, lo, hi = paired_diff(a, by.get(second, {}))
+                lines.append(f"| {first} | {second} | {scen} | {n} | {_fmt_ci(m, lo, hi)} |")
+            n, k, m, lo, hi = cluster_paired_diff(by.get(first, {}), by.get(second, {}))
+            lines.append(f"| {first} | {second} | **pooled** ({k} scenarios) | {n} | {_fmt_ci(m, lo, hi)} |")
     lines += ["", "### Per-seed progress", "", "| scenario | seed | " + " | ".join(labels) + " |",
               "|---|---|" + "---|" * len(labels)]
     index = {(r["label"], r["scenario"], r["seed"]): r for r in rows}
@@ -495,9 +514,13 @@ def main(argv=None) -> int:
         print(f"abuse-eval: unknown labels in --only: {sorted(only - {p['label'] for p in cfg['players']})}",
               file=sys.stderr)
         return 2
-    run(cfg, out_dir, a.live, a.jobs, only=only, resume=a.resume)
+    rows = run(cfg, out_dir, a.live, a.jobs, only=only, resume=a.resume)
     write_report(out_dir, a.report_to)
     print(out_dir / "report.md")
+    crashed = [r for r in rows if r.get("crashed")]
+    if crashed:  # reported in full, but a run with a crash is not a clean run
+        print(f"abuse-eval: {len(crashed)} episode(s) crashed; see the report", file=sys.stderr)
+        return 1
     return 0
 
 
