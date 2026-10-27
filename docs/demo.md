@@ -8,7 +8,7 @@ panel shows each decision, its result, the baseline's note and the objects it co
 replay re-ran the evidence trace and matched all 147 observations, every step and the final outcome. Rebuild it with:
 
 ```sh
-uv run abuse-replay --trace evidence/traces/offline-v3/scripted-level01-cp3-s0.jsonl --headless \
+uv run abuse-replay --trace evidence/traces/offline-v4/scripted-level01-cp3-s0.jsonl --headless \
     --video evidence/video/scripted-level01-cp3-s0.mp4
 ```
 

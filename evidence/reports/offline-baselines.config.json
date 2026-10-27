@@ -34,7 +34,7 @@
     "run": {},
     "prices": {}
   },
-  "git": "d77dab931ea3629f5f3e5e4da5275276396efa74",
+  "git": "88670c469c3424381c622f9db78e278bee44dcc6",
   "version": "0.1.0",
   "python": "3.12.0",
   "packages": {
@@ -46,7 +46,7 @@
   },
   "live": false,
   "only": null,
-  "started": "2026-10-13T14:46:24+00:00",
+  "started": "2026-10-27T00:25:11+00:00",
   "course_model": null,
   "budgets": {
     "level01": {
