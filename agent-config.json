@@ -37,18 +37,17 @@
     "late reply after the decision timeout: dropped by request id, its tokens still counted",
     "repeating an action that does not move the player: visible in M1/M2 history; not prevented"
   ],
-  "evaluation_cases": "Offline and in CI: tests/test_player_interface.py, tests/test_model_player.py (mocked provider clients, real SDK error types), tests/test_evaluate.py (an eval smoke run, budget caps, statistics). Live: eval/configs/live-smoke.toml, then eval/configs/live.toml, through abuse-eval --live after the owner approves the estimate.",
+  "evaluation_cases": "Offline and in CI: tests/test_player_interface.py, tests/test_model_player.py (mocked provider clients, real SDK error types), tests/test_evaluate.py (an eval smoke run, budget caps, statistics, the tuning/report split) and tests/test_evidence.py (every committed trace replays). Live: the suite declared in SUITE.md before any tuning, eval/configs/midterm.toml (reported) and eval/configs/midterm-tuning.toml (tuning only), after eval/configs/live-smoke.toml, through abuse-eval --live once the owner approves the estimate.",
   "logging_policy": "Each decision's trace row (runs/<run>/traces/<player>/<scenario>-s<seed>.jsonl) records the tick, the action, whether it was accepted, the episode's and the player's errors, the raw reply (truncated to 600 characters), the note, the M2 notes, the usage (model, tokens, latency, error category) and a hash of the observation. Prompts are not stored: they are a pure function of the observation, which --full-obs stores. No credentials or environment are logged.",
   "human_override_points": [
     "choose the provider, the model (COURSE_MODEL) and the memory condition",
     "approve the token and cost estimate before any live run",
     "stop a run at any time (results are written as episodes finish)",
     "decide every reviewer finding",
-    "merge each PR and push the release tag"
+    "merge each PR and submit the course PR"
   ],
   "test_command": "uv run pytest",
-  "ci_workflow_path": ".github/workflows/ci.yml",
-  "live_workflow_path": ".github/workflows/live-eval.yml",
+  "ci_workflow_path": ".github/workflows/midterm-adit-prabhu.yml",
   "native_artifact": "src/abuse_remake/agent/players/model_player.py: a player program speaking the JSON-lines protocol in src/abuse_remake/agent/protocol.py, with structured output validated by the episode",
   "limits": {
     "max_decisions_per_episode": 600,
@@ -62,10 +61,11 @@
     "decision_timeout_seconds": 60,
     "max_input_tokens_per_episode": 600000,
     "max_output_tokens_per_episode": 150000,
-    "max_input_tokens_per_run": 30000000,
-    "max_output_tokens_per_run": 4000000,
+    "max_input_tokens_per_run": 20000000,
+    "max_output_tokens_per_run": 3000000,
     "history_turns": 8,
-    "notes_characters": 600
+    "notes_characters": 600,
+    "max_decisions_full_level_live_comparison": 600
   },
   "fallback": "A failed request is a refused decision: counted, fed back in last_result, never retried, repaired or replaced by a fixture. A fatal credential error ends the episode as 'player failed'. Live players are reported as 'not run' when --live is not given or the run's token cap is reached.",
   "limitations": [
@@ -73,7 +73,7 @@
     "The token budgets rely on the usage the player process reports from the provider's response.",
     "The scripted baseline is deterministic in practice, so intervals over seeds can have zero width; they measure seed variation, not other ways a player could play.",
     "Comparisons are between fixed players under equal budgets. Self-play alone does not establish learning or strong play; human playtests give the human reference.",
-    "Level 1 only. Death ends an episode, a course choice; the original reloads the last save.",
+    "Level 1 only. Death ends an episode, a design choice (harness); the original reloads the last save.",
     "The live comparison needs the owner's Vertex AI setup and has not been run at the time of writing."
   ],
   "agent_team": [
@@ -93,7 +93,7 @@
       "tools_and_permissions": "Repository read and write, tests, git on feature branches, opening PRs; no merges, no tags, no credential access without asking.",
       "outputs": "Feature branches, passing tests, map rows and a change summary per PR.",
       "handoff": "The PR and its summary go to the independent reviewer; findings and fixes are recorded in docs/reviews/PR-<n>.md.",
-      "human_approval": "The student merges every PR and pushes the release tag."
+      "human_approval": "The student merges every PR and submits the course PR."
     },
     {
       "role": "Reusable skill: port-classic-rule",

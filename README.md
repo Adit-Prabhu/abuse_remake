@@ -167,6 +167,13 @@ publication in this public repository. `docs/data-lineage.md` shows that the fil
 The student's own log is [`AGENT-TEAM.md`](AGENT-TEAM.md). The session-by-session record is
 `docs/agent-team-log.md`.
 
+## Where this was built
+
+The project was built in its own repository, [`Adit-Prabhu/abuse_remake`](https://github.com/Adit-Prabhu/abuse_remake),
+through stacked, reviewed PRs (#1-#8, #15-#20, and the midterm fixes from #21). This folder is
+an export of one commit of it, made by `scripts/export_submission.py`. `EVALUATION.md` gives
+that commit and the git tree hash of `src/`, which every evaluation run records.
+
 ## Repository map
 
 - `src/abuse_remake/formats/`: readers for the original SPEC files, tiles, sprites and levels.

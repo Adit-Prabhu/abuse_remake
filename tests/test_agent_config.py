@@ -2,6 +2,7 @@
 
 import json
 import re
+import subprocess
 import tomllib
 from pathlib import Path
 
@@ -24,10 +25,10 @@ def test_schema_and_required_fields():
         assert key in CFG, key
 
 
-def test_limits_match_the_code_and_the_live_config():
+def test_limits_match_the_code_and_the_declared_suite():
     lim = CFG["limits"]
     defaults = parser().parse_args([])
-    live = tomllib.loads((ROOT / "eval/configs/live.toml").read_text())
+    live = tomllib.loads((ROOT / "eval/configs/midterm.toml").read_text())
     assert lim["request_timeout_seconds"] == defaults.timeout
     assert lim["request_attempts"] == 1
     assert lim["max_decisions_per_episode"] == Budgets().max_decisions
@@ -35,6 +36,7 @@ def test_limits_match_the_code_and_the_live_config():
     assert lim["max_ticks_full_level"] == FULL_LEVEL_TICK_LIMIT and lim["max_ticks_segment"] == SEGMENT_TICK_LIMIT
     assert lim["history_turns"] == HISTORY_TURNS and lim["notes_characters"] == NOTES_MAX
     assert lim["max_decisions_per_episode_live_comparison"] == live["budgets"]["max_decisions"]
+    assert lim["max_decisions_full_level_live_comparison"] == live["budgets"]["scenarios"]["level01"]["max_decisions"]
     assert lim["max_input_tokens_per_episode"] == live["budgets"]["max_input_tokens"]
     assert lim["max_output_tokens_per_episode"] == live["budgets"]["max_output_tokens"]
     assert lim["max_input_tokens_per_run"] == live["run"]["max_input_tokens"]
@@ -47,11 +49,23 @@ def test_limits_match_the_code_and_the_live_config():
     assert CFG["model_choice"]["live_providers"] == list(PROVIDERS)
 
 
+def _repository_root() -> Path:
+    """The workflow lives at the repository's root: this folder in the project repository, two
+    levels up in the course repository (midterms/<login>/)."""
+    try:
+        top = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True,
+                             cwd=ROOT, timeout=5).stdout.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        top = ""
+    return Path(top) if top else ROOT
+
+
 def test_every_named_file_exists():
     text = json.dumps(CFG)
     paths = set(re.findall(r"((?:src|tests|eval|docs|\.claude|\.github)/[\w./-]+\.(?:py|md|toml|yml))", text))
-    paths |= {"AGENTS.md", "CLAUDE.md", "SCOPE.md"}
-    missing = [p for p in sorted(paths) if not (ROOT / p).exists()]
+    paths |= {"AGENTS.md", "CLAUDE.md", "SCOPE.md", "SUITE.md"}
+    missing = [p for p in sorted(paths)
+               if not ((_repository_root() if p.startswith(".github/") else ROOT) / p).exists()]
     assert not missing and len(paths) > 10, missing
 
 

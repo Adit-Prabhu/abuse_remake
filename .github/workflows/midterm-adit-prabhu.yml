@@ -1,0 +1,48 @@
+# The course repository's check for midterms/adit-prabhu/: deterministic tests only, no
+# network model calls and no secrets. In the project repository this file never triggers (it has
+# no midterms/ folder); there .github/workflows/ci.yml runs the same checks from the root.
+name: midterm-adit-prabhu
+
+on:
+  pull_request:
+    paths:
+      - 'midterms/adit-prabhu/**'
+      - '.github/workflows/midterm-adit-prabhu.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  deterministic:
+    name: Deterministic checks (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12']
+    defaults:
+      run:
+        working-directory: midterms/adit-prabhu
+    env:
+      SDL_VIDEODRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+      PYGAME_HIDE_SUPPORT_PROMPT: '1'
+      ABUSE_REQUIRE_C_REFERENCE: '1'  # the differential tests against the original C must run
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install (the model SDKs too, so the adapter tests use their real types)
+        run: uv sync --frozen --all-extras
+      - name: Lint
+        run: uv run --frozen ruff check src tests scripts
+      - name: Original data checksums
+        run: uv run --frozen abuse-data verify
+      - name: Tests (rules, interface, limits, regressions, evidence replays, routes)
+        run: uv run --frozen pytest -v
+      - name: Evaluation smoke run (offline; live players are listed as not run)
+        run: uv run --frozen abuse-eval run --config eval/configs/ci-smoke.toml --out runs/ci-smoke
