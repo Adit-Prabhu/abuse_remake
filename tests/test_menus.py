@@ -72,6 +72,19 @@ def test_each_list_holds_only_its_own_choices(home):
     assert labels(app) == [*(a.title.split(" (")[0].upper() for a in ARENAS.values()), "BACK"]  # arenas only
 
 
+@pytest.mark.parametrize("extra", [(), ("--mode", "classic"), ("--playtest", "--mode", "remastered")])
+def test_every_page_lists_each_line_once(home, extra):
+    """Regression (2026-10-27): Classic's title showed PLAY LEVEL 1 twice."""
+    app = make_app(*extra)
+    app._to_title()
+    pages = ["main", "campaign", "horde"] if app.modern else ["main"]
+    for page in pages:
+        app.menu_page = page
+        assert len(set(labels(app))) == len(labels(app)), (page, labels(app))
+    app.menu_page = "main"
+    assert labels(app)[0] == ("PLAY CAMPAIGN" if app.modern and not app.args.playtest else "PLAY LEVEL 1")
+
+
 def test_left_and_right_no_longer_change_the_level_or_arena_on_the_main_page(home):
     app = make_app()
     app._to_title()

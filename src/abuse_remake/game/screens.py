@@ -85,9 +85,6 @@ def menu_items(app, page: str | None = None) -> list[dict]:
         items.append({"key": "horde", "label": "HORDE", "value": None, "opens": True,
                       "desc": ["Survive endless waves in a sealed arena; upgrades between waves.",
                                "Enter to choose an arena."]})
-    else:
-        items.append({"key": "campaign", "label": "PLAY LEVEL 1", "value": None,
-                      "desc": ["The original Level 1, exactly as it played in 1996."]})
     items.append({"key": "difficulty", "label": "DIFFICULTY", "value": app.args.difficulty.upper(),
                   "desc": ["How hard enemies hit and how much health pickups give."]})
     items.append({"key": "mode", "label": "MODE", "value": app.args.mode.upper(),
