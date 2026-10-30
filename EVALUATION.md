@@ -6,6 +6,13 @@
 - **The live model comparison has not been run yet.** Its table and traces will be added here
   from the reported run, with the commit and `src` tree they ran on.
 
+**2026-10-30: the live path works.** The 20-request smoke run (`eval/configs/live-smoke.toml`,
+`level01-cp1` seed 0, model-M1) made 20 calls with 0 failures and 0 refused actions. Every
+answer came from `gemini-3.5-flash-lite`, as Vertex reported it. It used 26,264 input and 513
+output tokens (USD 0.009 at the dated prices), with latency 0.86 s p50 and 1.69 s p95
+(`evidence/reports/live-smoke.md`). It is a check of the path, not a result: 20 decisions,
+one episode, and not part of the suite.
+
 ## 1. The declared suite
 
 [`SUITE.md`](SUITE.md) was declared on 2026-10-26, before any live model call and before any
@@ -116,6 +123,8 @@ The five kinds of check the course asks for:
 ## 5. Traces
 
 - Offline: `evidence/traces/offline-v8/`, three traces, each replayed exactly in CI.
+- Live smoke: `evidence/traces/live-smoke/model-M1-level01-cp1-s0.jsonl`, the first live
+  episode (20 decisions, each with the model's raw answer), replayed exactly in CI.
 - Every run writes all of its traces to `runs/<run>/traces/`. Selected live traces will be
   committed under `evidence/traces/`.
 - `uv run abuse-replay --trace <file>` replays one with its decision panel and checks every

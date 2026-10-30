@@ -1,0 +1,78 @@
+{
+  "config": {
+    "name": "live-smoke",
+    "scenarios": [
+      "level01-cp1"
+    ],
+    "seeds": [
+      0
+    ],
+    "difficulty": "hard",
+    "isolation": "process",
+    "decision_timeout": 60.0,
+    "reference": "scripted",
+    "budgets": {
+      "max_decisions": 20,
+      "max_input_tokens": 80000,
+      "max_output_tokens": 25000
+    },
+    "run": {
+      "max_input_tokens": 80000,
+      "max_output_tokens": 25000
+    },
+    "prices": {
+      "date": "2026-10-26",
+      "source": "https://cloud.google.com/vertex-ai/generative-ai/pricing",
+      "input_per_mtok": 0.3,
+      "output_per_mtok": 2.5
+    },
+    "players": [
+      {
+        "label": "scripted",
+        "player": "scripted"
+      },
+      {
+        "label": "model-M1",
+        "player": "model",
+        "args": [
+          "--provider",
+          "vertex",
+          "--memory",
+          "M1",
+          "--timeout",
+          "20",
+          "--max-output-tokens",
+          "2048"
+        ],
+        "live": true
+      }
+    ]
+  },
+  "git": "b11efbd4757ea2abeda30e92139ba289bbcdf7a0",
+  "version": "0.1.0",
+  "python": "3.12.0",
+  "packages": {
+    "pygame-ce": "2.5.8",
+    "numpy": "2.5.4",
+    "google-genai": "2.30.0",
+    "anthropic": "0.125.0",
+    "openai": "2.54.0"
+  },
+  "live": true,
+  "only": null,
+  "started": "2026-10-30T15:40:50+00:00",
+  "course_model": "gemini-3.5-flash-lite",
+  "budgets": {
+    "level01-cp1": {
+      "max_ticks": 2700,
+      "max_decisions": 20,
+      "max_action_ticks": 15,
+      "max_input_tokens": 80000,
+      "max_output_tokens": 25000,
+      "max_wall_s": 0.0
+    }
+  },
+  "src_tree": "43f61111f21b9e7ff7daaab212c97c14910fcb74",
+  "src_dirty": false,
+  "prompt_sha": "4b949a8cede1"
+}

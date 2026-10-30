@@ -65,8 +65,13 @@ order.
 | #26 | `eval/live-run` | Dated Vertex prices; run caps that keep smoke, tuning and the reported run under USD 9.66 | config only |
 | #27 | `feat/level01-route` | The solver's Classic mode, scenario starts, `--press` and `--min-hp`; Level 1 finished from START (1,414 ticks) and from every checkpoint scenario, replayed in CI; `docs/level01-route.md` | `docs/reviews/PR-27.md` |
 
+Done on 2026-10-30 (`eval/live-smoke`): the live smoke run. Vertex works on the student's
+course project (set in `GOOGLE_CLOUD_PROJECT` at run time, never committed) with
+`COURSE_MODEL=gemini-3.5-flash-lite`: 20 calls, 0 failures, USD 0.009. The trace is in
+`evidence/traces/live-smoke/`.
+
 Still to come:
-- the live smoke run, tuning (`docs/prompt-log.md`), the freeze and the reported run;
+- tuning (`docs/prompt-log.md`), the freeze and the reported run;
 - the course submission, which the student makes: `scripts/export_submission.py` builds the
   `midterms/adit-prabhu/` folder in a clone of the course repository.
 
