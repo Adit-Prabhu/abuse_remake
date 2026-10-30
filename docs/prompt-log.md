@@ -7,7 +7,21 @@ never used for tuning. `prompt_sha` is the hash of `src/abuse_remake/agent/promp
 
 | Round | Date | `prompt_sha` | What changed and why | Tuning result (scripted vs model-M1) | Run |
 |---|---|---|---|---|---|
-| 0 | 2026-10-26 | declared `053f8d59b6c6`; now `4b949a8cede1` | The prompt as declared, before any live call. Changed before any tuning round by the interface fix (PR #25): it now describes `fire`, cracked walls, which actions ignore new threats, and the tip that shooting a wall or floor that stops you may show that it breaks. The tip shares the deviation recorded in `SUITE.md` | not yet run | |
+| 0 | 2026-10-26 | declared `053f8d59b6c6`; now `4b949a8cede1` | The prompt as declared, before any live call. Changed before any tuning round by the interface fix (PR #25): it now describes `fire`, cracked walls, which actions ignore new threats, and the tip that shooting a wall or floor that stops you may show that it breaks. The tip shares the deviation recorded in `SUITE.md` | 2026-10-30, `gemini-3.5-flash-lite`, 0 failed requests. Seed 90: scripted 0.254 (died), model-M1 0.011 (died at decision 58). Seed 91: scripted 0.254 (died), model-M1 0.000 (decision budget). Model cost USD 0.12 | `runs/tune-m1` at `7942def`, `src` tree `43f61111f21b`; report `evidence/reports/tuning-round1.md` |
+
+What round 1 showed (the tuning traces only; the smoke run was on held-out `level01-cp1` and is
+not used here):
+- **Stuck at a dead end.** On seed 91 the model spent 103 of its 200 decisions in the same
+  cell, against the wall at x 1168, y 841. It cycled `explore right` (which stops after 6
+  ticks there), `goto` an ammo pickup it could not reach, and `use C1` on a console it had
+  already saved at. It never tried `fire down` or `fire right`, although its history showed
+  its position not changing. The scripted baseline breaks the floor there with its stuck rule
+  (round B1) and drops to y 1111.
+- **Repeating an action that does nothing.** On seed 90 a fight broke the floor and the model
+  fell. It then sent `goto A6` 16 times, each ending after 1 tick, and reached the lower room
+  with 6 health, where it died.
+- Both are the named failure mode "repeating an action that does not move the player"
+  (`agent-config.json`).
 
 ## Baseline rounds
 
