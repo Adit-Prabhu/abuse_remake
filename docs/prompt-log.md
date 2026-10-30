@@ -25,11 +25,21 @@ not used here):
 
 | Round | Date | `prompt_sha` | What changed and why | Tuning result (scripted vs model-M1) | Run |
 |---|---|---|---|---|---|
-| 2 | 2026-10-30 | `52e0fd185e2d` | From round 1 only. "If an action keeps failing to move you, try something else" became a concrete stuck rule: if LAST ACTION shows few ticks or YOUR LAST TURNS show the same x and y, do not repeat the action; fire at the wall ahead, then down at the floor, then jump or turn back. Also: death ends the episode, so saving at a console does not help. This is the scripted baseline's own "break through" rule (round B1), so the two players keep the same priors; it names no place in the map | not yet run | |
+| 2 | 2026-10-30 | `52e0fd185e2d` | From round 1 only. "If an action keeps failing to move you, try something else" became a concrete stuck rule: if LAST ACTION shows few ticks or YOUR LAST TURNS show the same x and y, do not repeat the action; fire at the wall ahead, then down at the floor, then jump or turn back. Also: death ends the episode, so saving at a console does not help. This is the scripted baseline's own "break through" rule (round B1), so the two players keep the same priors; it names no place in the map | 2026-10-30, `gemini-3.5-flash-lite`, 0 failed requests. Seed 90: scripted 0.254 (died), model-M1 0.011 (died at decision 71). Seed 91: scripted 0.254 (died), model-M1 0.103 (decision budget). Mean 0.057, against 0.0055 in round 1. Model cost USD 0.14 | `runs/tune-m2` at `a11affa`, `src` tree `298297660541`; report `evidence/reports/tuning-round2.md` |
 
 **Freeze rule, set on 2026-10-30 before round 2 ran.** Round 2 is the last round. The frozen
 prompt is round 2's, unless model-M1's mean progress over seeds 90 and 91 in round 2 is lower
 than in round 1 (0.0055); then it is round 1's (`4b949a8cede1`). Nothing else decides it.
+
+**Result: round 2's prompt (`52e0fd185e2d`) is frozen**, since 0.057 is not lower than 0.0055.
+What round 2 showed:
+- On both seeds the model now broke through the floor at the dead end (18 walls broken on
+  each, as many as the baseline) and reached the lower room at y 1111.
+- Seed 90 reached it with 80 health and died there within 10 decisions. Seed 91 reached it
+  with 18 health, survived, and spent its last 120 decisions fighting in the room
+  (x 720-934), with `goto A4` sent 18 times in a row at one point.
+- The model still trails the baseline on the tuning set (0.057 against 0.254). No further
+  round is allowed.
 
 ## Baseline rounds
 

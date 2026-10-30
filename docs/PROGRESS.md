@@ -70,8 +70,11 @@ course project (set in `GOOGLE_CLOUD_PROJECT` at run time, never committed) with
 `COURSE_MODEL=gemini-3.5-flash-lite`: 20 calls, 0 failures, USD 0.009. The trace is in
 `evidence/traces/live-smoke/`.
 
+Also on 2026-10-30 (`eval/tuning`): two tuning rounds and the freeze (`docs/prompt-log.md`,
+the freeze table in `SUITE.md`). Live spending so far: USD 0.27.
+
 Still to come:
-- tuning (`docs/prompt-log.md`), the freeze and the reported run;
+- the reported run of `eval/configs/midterm.toml`, from the frozen `src` tree;
 - the course submission, which the student makes: `scripts/export_submission.py` builds the
   `midterms/adit-prabhu/` folder in a clone of the course repository.
 
