@@ -162,8 +162,8 @@ abuse-eval run --config eval/configs/midterm.toml --live --out runs/midterm --re
   `cp3` −0.735. The scripted baseline stalls in the full level's first section on every seed.
 - The scripted baseline's weak spot is the full level's first section, which it does not solve.
   It is a fixed rule set, and these numbers show where a stronger player has room to do better.
-- The live comparison has not been run yet. It needs the owner's Vertex setup and approval of
-  the estimated cost.
+- The live comparison was run on 2026-10-30, from the frozen commit. Its results are in
+  `EVALUATION.md` §2 and `evidence/reports/midterm.md`.
 
 Self-play alone does not establish learning or strong play. These are fixed players compared
 under equal budgets. Human playtests give the human reference; their protocol and notes go in

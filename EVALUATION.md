@@ -1,10 +1,10 @@
 # Evaluation
 
-**Status on 2026-10-27:**
-- The suite is declared (`SUITE.md`) and the offline baselines are run.
+**Status on 2026-10-30:**
+- The declared suite (`SUITE.md`) has been run once, live, from the frozen commit. All 48
+  planned episodes ran and are reported in §2.
 - The solver shows that all four situations can be won under Classic rules (seed 0; §3).
-- **The live model comparison has not been run yet.** Its table and traces will be added here
-  from the reported run, with the commit and `src` tree they ran on.
+- The limitations (§6) are the student's to write.
 
 **2026-10-30: the live path works.** The 20-request smoke run (`eval/configs/live-smoke.toml`,
 `level01-cp1` seed 0, model-M1) made 20 calls with 0 failures and 0 refused actions. Every
@@ -39,18 +39,94 @@ its own process. The privileged solver is reported separately, as an upper refer
 
 ## 2. Comparison table
 
-*Pending the reported live run.* The report `abuse-eval` writes for it will include, per
-situation and pooled:
-- wins/n with Wilson intervals;
-- progress;
-- deaths;
-- invalid actions, with failed requests counted separately;
-- decisions and ticks;
-- each episode's ending;
-- model calls, tokens, latency p50/p95, and cost from dated prices;
-- paired differences against `scripted`, and M1 against M0.
+The reported run: `eval/configs/midterm.toml` with `--live`, on 2026-10-30. It ran from the
+frozen commit `c05542c` (`src` tree `298297660541`, clean; prompt `52e0fd185e2d`), with
+`gemini-3.5-flash-lite` on Vertex AI, the ID Vertex reported for every call. **All 48 planned
+episodes ran, and none was re-run.** The full report, with every metric and each episode's
+ending, is `evidence/reports/midterm.md`; its data is in `midterm.results.jsonl` and
+`midterm.config.json` beside it.
+
+**Wins: 0/12 for every player** (Wilson 95% interval [0.00, 0.24]). No player finished any
+episode, though the solver finishes every situation (§3). So the comparison rests on
+progress, the evaluator's distance measure (1 = reached the exit).
+
+Progress, the mean over seeds 0–2, with a bootstrap 95% interval over seeds:
+
+| Situation | random | scripted | model-M0 | model-M1 |
+|---|---|---|---|---|
+| `level01-cp1` (held out) | 0.140 [0.110, 0.184] | 0.155 [0.155, 0.155] | 0.000 [0.000, 0.000] | 0.000 [0.000, 0.000] |
+| `level01-cp2` | 0.000 [0.000, 0.000] | 0.173 [0.000, 0.260], died 3/3 | 0.018 [0.000, 0.054], died 2/3 | 0.032 [0.000, 0.085], died 2/3 |
+| `level01-cp3` (held out) | 0.038 [0.038, 0.038] | 0.633 [0.573, 0.753], died 1/3 | 0.038 [0.038, 0.038] | 0.176 [0.038, 0.431] |
+| `level01` (held out) | 0.123 [0.098, 0.135], died 1/3 | 0.163 [0.163, 0.163] | 0.009 [0.009, 0.009] | 0.009 [0.009, 0.009] |
+| **Pooled** (12 episodes) | 0.075 [0.041, 0.110] | **0.281 [0.169, 0.413]** | 0.016 [0.006, 0.027] | 0.054 [0.009, 0.128] |
+
+Every other episode ended at its decision budget. A zero-width interval means a player did the
+same on all three seeds; it covers seeds, not other ways the player could have played.
+
+Paired differences in progress (same scenario and seed; pooled with a cluster bootstrap over
+scenarios, then seeds):
+
+| | `level01-cp1` | `level01-cp2` | `level01-cp3` | `level01` | Pooled |
+|---|---|---|---|---|---|
+| random − scripted | −0.015 [−0.045, 0.029] | −0.173 [−0.260, 0.000] | −0.595 [−0.716, −0.535] | −0.041 [−0.065, −0.028] | −0.206 [−0.471, −0.025] |
+| model-M0 − scripted | −0.155 [−0.155, −0.155] | −0.156 [−0.260, 0.000] | −0.595 [−0.716, −0.535] | −0.154 [−0.154, −0.154] | −0.265 [−0.485, −0.133] |
+| model-M1 − scripted | −0.155 [−0.155, −0.155] | −0.142 [−0.260, 0.011] | −0.457 [−0.694, −0.142] | −0.154 [−0.154, −0.154] | −0.227 [−0.401, −0.123] |
+| model-M1 − model-M0 | 0.000 [0.000, 0.000] | +0.014 [−0.054, 0.085] | +0.138 [0.000, 0.393] | 0.000 [0.000, 0.000] | +0.038 [−0.008, 0.133] |
+
+The model players' requests, failures and cost:
+
+| | model-M0 | model-M1 |
+|---|---|---|
+| Requests | 3,337 | 3,309 |
+| Failed requests (refused decisions, never retried) | 6 (timeout ×6) | 5 (timeout ×4, API error ×1) |
+| Illegal choices | 0 | 2 (`use D1`, not in the legal actions) |
+| Tokens in / out | 3,787,457 / 88,291 | 4,749,297 / 86,097 |
+| Input tokens per decision | 1,135 | 1,435 |
+| Latency p50 / p95 | 0.86 s / 1.73 s | 0.85 s / 1.43 s |
+| Cost at the dated prices | USD 1.36 | USD 1.64 |
+
+Live spending for the whole midterm: smoke USD 0.01, tuning USD 0.26, the reported run
+USD 3.00. In all, USD 3.27 of the USD 10 cap.
+
+### What the numbers say
+
+- **The scripted baseline is ahead of both model players** in every situation. Pooled, it
+  leads M1 by 0.227 and M0 by 0.265, with intervals that exclude 0. The cleanest held-out
+  situations (`level01-cp1`, `level01-cp3`, `level01`) point the same way.
+- **Neither model player beats random** on pooled progress: 0.054 (M1) and 0.016 (M0),
+  against random's 0.075. Random gets further from the start on `level01-cp1` and the full
+  level, where both model players stay near it.
+- **History (M1 against M0) cannot be told apart in progress** with 3 seeds: +0.038 pooled,
+  with an interval [−0.008, 0.133] that includes 0. The one visible gain, on `level01-cp3`, is
+  one seed (seed 2: 0.431 against 0.038). One behaviour does separate them. M0 cannot see that
+  it already saved, and used a console in 197 of its 3,337 decisions (5.9%); M1 in 32 of 3,309
+  (1.0%); scripted in 12 of 3,284 (0.4%).
+
+### What the traces show
+
+- **The model fixes on targets it never kills.** 73% of M0's decisions (2,442) and 63% of
+  M1's (2,096) were in runs of 20 or more identical `attack` actions; scripted's were 1%. Every
+  one of M0's, and 2,068 of M1's, were aimed at an alien hanging from the ceiling. The longest
+  run is `attack E1` 589 times in a row (M0, full level, seed 1); M1's is 228 (full level, seed
+  2). `E1` hangs up and to the right of the first console (dx +156, dy −25) and was never
+  killed. `level01-cp1` and `level01` both start near it, which is why both model players stay
+  at 0.000 and 0.009 there.
+- **The stuck rule added in tuning did not fire there.** It reacts to moves that do not move
+  the player; while attacking, the model was not trying to move.
+- **A difference in priors, found after the run.** The scripted baseline's fight rule leaves
+  hanging aliens alone (`agent/players/baselines.py`, rule 1). The prompt says aliens may hang,
+  but not that they can be left. `docs/information-boundary.md` said the prompt held the same
+  priors as the baseline; for this rule it did not, and that page now says so. Nothing was
+  changed: the suite and prompt are frozen, so a fix could only be a separate, labelled study.
+- The smoke run, on held-out `level01-cp1`, already showed 11 attacks in a row on the hanging
+  `E1`. The tuning rule kept that from being used to tune the prompt (`docs/prompt-log.md`).
+- Representative traces are in `evidence/traces/midterm/` (§5).
 
 ### Offline baselines (no model calls)
+
+This earlier offline run is kept for the record. For the comparison, the random and scripted
+rows of the reported run above replace it: they use the declared budgets (200 decisions, 600 for
+the full level) and seeds 0–2.
 
 `evidence/reports/offline-baselines.md` uses the offline config: 600 decisions for every
 scenario, seeds 0–4. It was generated on 2026-10-27 from the clean commit `72733d7`, with the
@@ -131,6 +207,15 @@ The five kinds of check the course asks for:
 - Offline: `evidence/traces/offline-v8/`, three traces, each replayed exactly in CI.
 - Live smoke: `evidence/traces/live-smoke/model-M1-level01-cp1-s0.jsonl`, the first live
   episode (20 decisions, each with the model's raw answer), replayed exactly in CI.
+- The reported run: `evidence/traces/midterm/`, five of its 48 traces, each replayed exactly
+  in CI:
+  - `model-M1-level01-cp3-s2`: the model's best episode (0.431);
+  - `model-M1-level01-cp1-s0`: a typical one, with 161 `attack E1` in a row at a hanging alien;
+  - `model-M0-level01-s0`: the full level, with 548 `attack E1` in a row;
+  - `model-M1-level01-cp2-s1`: a death;
+  - `scripted-level01-cp3-s1`: the baseline's best episode (0.753, then died).
+
+  All 48 are in the run folder, `runs/midterm/traces/`, which is not committed.
 - Every run writes all of its traces to `runs/<run>/traces/`. Selected live traces will be
   committed under `evidence/traces/`.
 - `uv run abuse-replay --trace <file>` replays one with its decision panel and checks every

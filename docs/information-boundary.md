@@ -158,7 +158,11 @@ holds the same priors the scripted baseline's rules contain, so neither player s
 head right first, shoot
 breakable walls, try switches, heal when hurt, deal with threats first, and when stuck shoot the
 wall ahead and then the floor (the baseline's "break through" rule, added to the prompt in
-tuning round 2, `docs/prompt-log.md`). It contains no map
+tuning round 2, `docs/prompt-log.md`). One rule was not carried over, and that was found only
+after the reported run: the baseline's fight rule leaves hanging aliens alone, while the prompt
+says aliens may hang but not that they can be left. The model spent most of its reported
+decisions attacking hanging aliens (`EVALUATION.md` §2). The prompt is frozen, so this stays as
+it is. It contains no map
 knowledge: nothing about where the exit, switches or secrets are
 (`test_system_prompt_has_no_map_knowledge`).
 

@@ -73,8 +73,13 @@ course project (set in `GOOGLE_CLOUD_PROJECT` at run time, never committed) with
 Also on 2026-10-30 (`eval/tuning`): two tuning rounds and the freeze (`docs/prompt-log.md`,
 the freeze table in `SUITE.md`). Live spending so far: USD 0.27.
 
+Also on 2026-10-30 (`eval/reported-run`): the reported run, from the frozen commit `c05542c`.
+All 48 episodes ran. No player won. Pooled progress: scripted 0.281, random 0.075, model-M1
+0.054, model-M0 0.016. The model players spent most of their decisions attacking hanging aliens,
+which the baseline's rules leave alone (`EVALUATION.md` §2). Reported run USD 3.00; USD 3.27
+in all.
+
 Still to come:
-- the reported run of `eval/configs/midterm.toml`, from the frozen `src` tree;
 - the course submission, which the student makes: `scripts/export_submission.py` builds the
   `midterms/adit-prabhu/` folder in a clone of the course repository.
 
