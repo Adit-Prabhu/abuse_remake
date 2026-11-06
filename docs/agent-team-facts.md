@@ -53,4 +53,4 @@ These are prompts only, so the student can answer each in their own voice.
 - What did you learn from the reviews? For example, the hidden-wall leak was found only because
   a reviewer refused one screenshot as evidence for eight wall types.
 - What would you do differently?
-- How did you use the peer playtest notes?
+- How did you use the human playtest notes?

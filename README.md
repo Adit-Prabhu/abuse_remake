@@ -10,7 +10,7 @@ is compared with a scripted search baseline on a suite declared before any tunin
 | Recording (3–5 min) | *link added when recorded* |
 | Evaluation report | [`EVALUATION.md`](EVALUATION.md) |
 | Agent-team log | `AGENT-TEAM.md`, written by the student (to come) |
-| Peer playtest notes | [`docs/playtests/`](docs/playtests/) |
+| Human playtest notes | [`docs/playtests/received/`](docs/playtests/received/) |
 | Scope record | [`SCOPE.md`](SCOPE.md) |
 | Declared suite | [`SUITE.md`](SUITE.md) |
 | Rule/source map | [`docs/rule-source-map.md`](docs/rule-source-map.md) |

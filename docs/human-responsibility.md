@@ -17,7 +17,7 @@ student decides and answers for the result.
 | Fidelity claims | Accept or reject each `assumed` row and each open question in the rule map | `docs/rule-source-map.md` |
 | Spending and credentials | Set up Vertex AI (ADC, project, region, `COURSE_MODEL`); approve the spending cap (USD 10, 2026-10-26) and each run's estimate before it starts | `SUITE.md`, `eval/configs/midterm.toml`, `abuse-eval estimate` |
 | Evaluation conclusions | Decide what the live comparison shows and what it does not, and write the limitations | `EVALUATION.md` |
-| Playtests | Recruit peers, run the protocol, get consent, write the notes. Agents never invent playtest notes | `docs/playtests/` |
+| Playtests | Recruit at least one player (anyone), run the protocol, get consent, write the notes. Agents never invent playtest notes | `docs/playtests/` |
 | Demonstration | Record and narrate the 3–5 minute recording | `docs/demo.md` |
 | Submission | Open the course PR from `midterms/adit-prabhu/`, submit its URL on CourseWorks | the course repository |
 | Disclosure | State how AI was used, in the student's own words | `AGENT-TEAM.md` |

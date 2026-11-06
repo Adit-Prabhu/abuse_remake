@@ -1,4 +1,5 @@
-# Notes received
+# Playtest notes
 
-Notes from peers who played this build, one file per session (`P<n>-<date>.md`, from
-`../template.md`). The course pairing's notes are due on 2026-11-06.
+Notes from people who played this build while the student watched without helping, one file
+per session (`P<n>-<date>.md`, from `../template.md`). The course asks for at least one session,
+by anyone; the notes are due before the submission on 2026-11-07.
