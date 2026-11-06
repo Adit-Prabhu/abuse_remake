@@ -27,7 +27,7 @@ prompt or baseline tuning. Its configs are `eval/configs/midterm.toml` (reported
 
 | Situation | Start | Ticks | Decisions | Seeds | Role |
 |---|---|---|---|---|---|
-| `level01-cp1` | console 1 | 2700 | 200 | 0, 1, 2 | held out |
+| `level01-cp1` | console 1 | 2700 | 200 | 0, 1, 2 | held out from tuning; its seed 0 was also the smoke run's episode, seen live before the freeze |
 | `level01-cp2` | console 2 | 2700 | 200 | 0, 1, 2 | tuned on seeds 90–91; the baseline's floor shot was first prompted by its seeds 0–2 (a recorded deviation, `SUITE.md`), so the cleanest held-out cases are the other three |
 | `level01-cp3` | console 3 | 2700 | 200 | 0, 1, 2 | held out |
 | `level01` | START | 9000 | 600 | 0, 1, 2 | held out |
@@ -82,44 +82,67 @@ The model players' requests, failures and cost:
 | Illegal choices | 0 | 2 (`use D1`, not in the legal actions) |
 | Tokens in / out | 3,787,457 / 88,291 | 4,749,297 / 86,097 |
 | Input tokens per decision | 1,135 | 1,435 |
-| Latency p50 / p95 | 0.86 s / 1.73 s | 0.85 s / 1.43 s |
+| Latency p50 / p95 (medians of the per-episode values) | 0.86 s / 1.73 s | 0.85 s / 1.43 s |
 | Cost at the dated prices | USD 1.36 | USD 1.64 |
 
-Live spending for the whole midterm: smoke USD 0.01, tuning USD 0.26, the reported run
-USD 3.00. In all, USD 3.27 of the USD 10 cap.
+Live spending for the whole midterm, estimated as the reported tokens times the dated list
+prices (not the billed amount): smoke USD 0.01, tuning USD 0.26, the reported run USD 3.00. In
+all, USD 3.27 of the USD 10 cap.
 
 ### What the numbers say
 
-- **The scripted baseline is ahead of both model players** in every situation. Pooled, it
-  leads M1 by 0.227 and M0 by 0.265, with intervals that exclude 0. The cleanest held-out
-  situations (`level01-cp1`, `level01-cp3`, `level01`) point the same way.
+- **The scripted baseline is ahead of both model players** on the mean in every situation.
+  On `level01-cp2` the paired intervals include 0, and M1 beat it on seed 1 (0.011 against
+  0.000). Pooled, it leads M1 by 0.227 and M0 by 0.265, with intervals that exclude 0, but the
+  pooled interval is a bootstrap over only 4 situations of 3 seeds each, so it is a rough
+  guide. The cleanest held-out situations (`level01-cp1`, `level01-cp3`, `level01`) point the
+  same way.
 - **Neither model player beats random** on pooled progress: 0.054 (M1) and 0.016 (M0),
   against random's 0.075. Random gets further from the start on `level01-cp1` and the full
   level, where both model players stay near it.
 - **History (M1 against M0) cannot be told apart in progress** with 3 seeds: +0.038 pooled,
   with an interval [−0.008, 0.133] that includes 0. The one visible gain, on `level01-cp3`, is
-  one seed (seed 2: 0.431 against 0.038). One behaviour does separate them. M0 cannot see that
+  one seed (seed 2: 0.431 against 0.038). The comparison is not quite neutral: the stuck rule
+  added in tuning was tuned with M1 only, and it points at "YOUR LAST TURNS", which M0 never
+  sees, so under M0 only the tick count can show the rule's condition. One behaviour does separate them. M0 cannot see that
   it already saved, and used a console in 197 of its 3,337 decisions (5.9%); M1 in 32 of 3,309
   (1.0%); scripted in 12 of 3,284 (0.4%).
 
 ### What the traces show
 
-- **The model fixes on targets it never kills.** 73% of M0's decisions (2,442) and 63% of
+- **The model fixes on targets it cannot hurt.** 73% of M0's decisions (2,442) and 63% of
   M1's (2,096) were in runs of 20 or more identical `attack` actions; scripted's were 1%. Every
-  one of M0's, and 2,068 of M1's, were aimed at an alien hanging from the ceiling. The longest
-  run is `attack E1` 589 times in a row (M0, full level, seed 1); M1's is 228 (full level, seed
-  2). `E1` hangs up and to the right of the first console (dx +156, dy −25) and was never
-  killed. `level01-cp1` and `level01` both start near it, which is why both model players stay
-  at 0.000 and 0.009 there.
-- **The stuck rule added in tuning did not fire there.** It reacts to moves that do not move
-  the player; while attacking, the model was not trying to move.
-- **A difference in priors, found after the run.** The scripted baseline's fight rule leaves
-  hanging aliens alone (`agent/players/baselines.py`, rule 1). The prompt says aliens may hang,
-  but not that they can be left. `docs/information-boundary.md` said the prompt held the same
-  priors as the baseline; for this rule it did not, and that page now says so. Nothing was
-  changed: the suite and prompt are frozen, so a fix could only be a separate, labelled study.
-- The smoke run, on held-out `level01-cp1`, already showed 11 attacks in a row on the hanging
-  `E1`. The tuning rule kept that from being used to tune the prompt (`docs/prompt-log.md`).
+  one of M0's, and 2,068 of M1's, were aimed at an alien hanging from the ceiling. Under the
+  ported rules a hanging alien takes no damage at all (`ant.lsp:398-449`, rule map row "Ant HP
+  by aitype", `test_hanging_ant_ignores_damage`). It stays hanging until the player is within
+  130 px of it horizontally and below it, and `attack` keeps the player standing still. So
+  these attacks could never do anything, and nothing on screen says so: there is no hit
+  feedback. The longest run is `attack E1` 589 times in a row (M0, full level, seed 1); M1's is
+  228 (full level, seed 2). `E1` hangs up and to the right of the first console (dx +156,
+  dy −25), outside that 130 px. `level01-cp1` and `level01` both start near it, which is why
+  both model players stay at 0.000 and 0.009 there.
+- **The stuck rule's condition was met, and the model did not follow it.** The frozen rule
+  says not to repeat an action when "YOUR LAST TURNS show the same x and y", with no limit to
+  moves. In `model-M1-level01-cp1-s0`, all 161 `attack E1` decisions are at x 287, y 76, 12
+  ticks each, so M1's history showed that condition for 160 turns. Read literally, the rule
+  also clashes with "deal with threats" (an attack never moves you), and `wait` and `weapon`
+  meet it too.
+- **The baseline knows more than the prompt says.** This was found after the run. The
+  baseline's fight rule leaves hanging aliens alone (`agent/players/baselines.py`, rule 1),
+  which builds in the engine rule above; the observation never shows it, and the prompt says
+  aliens may hang but not that they cannot be hurt then. Other baseline rules are missing from
+  the prompt too (listed in `docs/information-boundary.md`). The closest to this failure: the
+  baseline stops attacking an enemy after 20 attacks in a row, so none of its runs can be
+  longer. `docs/information-boundary.md` said the prompt held the same priors as the baseline;
+  it did not, and that page now says so. Nothing was changed: the suite and prompt are frozen,
+  so a fix could only be a separate, labelled study.
+- The smoke run, on `level01-cp1` seed 0 (a reported case, run live before the freeze but not
+  used for tuning), already showed 11 attacks in a row on the hanging `E1`. The tuning rule kept
+  that from being used to tune the prompt (`docs/prompt-log.md`).
+- The counts over all 48 episodes (the shares above, the run lengths, the console uses) come
+  from the run's traces, kept locally in `runs/midterm` and not committed; the hanging state was
+  found by replaying them. The committed traces let anyone check the 548- and 161-attack runs
+  and the two refused `use D1`.
 - Representative traces are in `evidence/traces/midterm/` (§5).
 
 ### Offline baselines (no model calls)

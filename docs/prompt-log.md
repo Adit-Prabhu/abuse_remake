@@ -41,6 +41,15 @@ What round 2 showed:
 - The model still trails the baseline on the tuning set (0.057 against 0.254). No further
   round is allowed.
 
+**Correction, 2026-11-06 (independent review of PRs #32-#34, `docs/reviews/PR-32-34.md`).** Round
+2's row says the stuck rule is the baseline's own, "so the two players keep the same priors".
+It is close, not the same: the baseline counts itself stuck when its x changes by less than 20
+px over 4 decisions, and then also tries a teleporter; the prompt says "the same x and y" or
+"few ticks", and names a history that only M1 and M2 show. The console sentence is not from the
+baseline at all (the baseline saves at each console once). Other baseline priors were never in
+the prompt; `docs/information-boundary.md` lists them. The prompt is frozen, so none of this
+changes it.
+
 ## Baseline rounds
 
 The scripted baseline may be changed only on the same tuning set, before the freeze

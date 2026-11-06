@@ -166,5 +166,5 @@ abuse-eval run --config eval/configs/midterm.toml --live --out runs/midterm --re
   `EVALUATION.md` §2 and `evidence/reports/midterm.md`.
 
 Self-play alone does not establish learning or strong play. These are fixed players compared
-under equal budgets. Human playtests give the human reference; their protocol and notes go in
-`docs/playtests/`, and none have been run yet.
+under equal budgets. Human playtests give the human reference; their protocol and notes are in
+`docs/playtests/`.

@@ -115,12 +115,18 @@ gives no p-values.
 
 | Item | Value |
 |---|---|
-| Frozen at commit | `a11affa` (2026-10-30, after tuning round 2; later commits change only docs and evidence, which `src_tree` shows) |
+| Frozen at commit | `a11affa` (2026-10-30, the commit tuning round 2 ran at); the reported run ran from `c05542c`, which changes only docs and evidence, so `src_tree` is the same |
 | `src` tree / `prompt_sha` | `298297660541` / `52e0fd185e2d` (`docs/prompt-log.md`, round 2, picked by the freeze rule set before it ran) |
 | Model ID | `gemini-3.5-flash-lite` (`COURSE_MODEL`; the ID Vertex reported for every call in smoke and tuning). No thinking budget is set: the model's default, about 27 output tokens per decision in tuning |
 | Prices (date, source, USD per million tokens in/out) | 2026-10-26, Vertex AI pricing page (`https://cloud.google.com/vertex-ai/generative-ai/pricing`), Gemini 3.5 Flash-Lite, global, standard: 0.30 in, 2.50 out (output includes reasoning) |
 | Worst-case spend by the token caps | smoke USD 0.07; tuning USD 0.97 per round, at most 2; reported run USD 7.65 (13M input, 1.5M output tokens). Total at most USD 9.66 |
 | Approved spending cap | **USD 10** for smoke + tuning + reported run, approved by the student on 2026-10-26 |
+
+**Correction, 2026-11-06 (independent review of PRs #32-#34).** The worst-case row above is not a
+strict bound. The run caps are checked only before each live episode starts, so a run can pass
+them by one episode's budget, and the estimate assumes 1,800 input tokens per decision rather
+than the per-episode cap. Counted by the caps, the total could reach about USD 11.6. The
+estimated spend was USD 3.27 (`EVALUATION.md` §2).
 
 ## Changes before any run
 

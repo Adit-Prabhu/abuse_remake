@@ -113,6 +113,25 @@ def test_decision_budget_ends_the_episode():
     assert r["accepted"] is False and ep.decisions == 3  # after the end nothing is counted
 
 
+def test_an_agent_episode_ends_at_death_even_after_saving_at_a_console():
+    """The model's prompt says so ("saving at a console does not help you"): agent episodes have
+    no save_hook, so a console save restores nothing, and death is terminal."""
+    ep = AbuseEpisode("level01-cp1", seed=0)
+    assert "save_hook" not in ep._game.world.globals
+    saved = False
+    for _ in range(6):
+        r = ep.step(PLAYER_ID, "use C1")
+        saved = saved or any(e["type"] == "checkpoint_saved" for e in r["observation"]["events"])
+        if saved:
+            break
+    assert saved and ep.counters["checkpoints"] == 1
+    ep._game.player.hp = 0
+    ep.step(PLAYER_ID, "wait")
+    out = ep.outcome()
+    assert out["status"] == "terminal" and out["reason"] == "player died"
+    assert ep.legal_actions(PLAYER_ID) == [] and ep.step(PLAYER_ID, "wait")["accepted"] is False
+
+
 def test_the_last_decision_under_the_cap_still_runs():
     """Regression: the decision that reached the cap was counted before it ran, so the controller
     saw the budget as spent and the action was accepted with 0 ticks. The offline evidence trace

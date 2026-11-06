@@ -245,9 +245,39 @@ def test_system_prompt_has_no_map_knowledge():
     # nothing from the map or the solver's walkthrough (docs/level01-route.md): the exit, the
     # switch that opens the trap door, the lift, the door teleporters
     for leak in ("2715", "1905", "2160", "2340", "1680", "lift up", "trap door", "NEXT_LEVEL", "ANT_ROOF",
-                 "aistate", "level01.spe", "rule-source-map", "level01-route"):
+                 "aistate", "level01.spe", "rule-source-map", "level01-route",
+                 # the tuning set's dead end and the room below it, where the round 2 rule came from
+                 "1168", "841", "1111"):
         assert leak not in SYSTEM
     assert system_prompt(True) != system_prompt(False) and '"notes"' in system_prompt(True)
+
+
+def test_the_frozen_prompt_is_the_one_the_reported_run_used():
+    # SUITE.md's freeze table and every reported run's config.json record this hash of prompts.py
+    from abuse_remake.agent.runner import code_identity
+
+    assert code_identity()["prompt_sha"] == "52e0fd185e2d"
+
+
+def test_the_stuck_rule_names_what_the_turn_and_the_m1_history_print():
+    """The round 2 stuck rule points at "LAST ACTION ... ticks" and at "YOUR LAST TURNS ... x and y".
+    The turn prints the first under every condition; only M1 and M2 print the second."""
+    assert "LAST ACTION shows few ticks" in SYSTEM and "YOUR LAST TURNS show" in SYSTEM
+    ep = AbuseEpisode("level01", seed=0)
+    mems = {c: Memory(c) for c in ("M0", "M1")}
+    for _ in range(2):
+        obs = ep.observe(PLAYER_ID)
+        for m in mems.values():
+            m.observe(obs)
+            m.record(obs["tick"], "move right")
+        ep.step(PLAYER_ID, "move right")
+    obs = ep.observe(PLAYER_ID)
+    for m in mems.values():
+        m.observe(obs)
+    turn = render_turn(obs, ep.legal_actions(PLAYER_ID), mems["M1"].render())
+    assert 'LAST ACTION: "move right" done (' in turn and " ticks)" in turn
+    assert "YOUR LAST 2 TURNS" in turn and f"at x {obs['player']['x']} y {obs['player']['y']}" in turn
+    assert mems["M0"].render() == ""  # M0 has no history: there, only the tick count can show it
 
 
 def test_decision_schema_is_strict():
