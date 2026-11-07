@@ -3,8 +3,9 @@
 > **Owner:** the student (Executive Producer and Creative Director). Level 1 was chosen on
 > 2026-10-13. The implementation agent drafted this revision on 2026-10-26 from the student's
 > decisions (`docs/reviews/midterm-audit-2026-10-26.md`). The student accepts it by merging. The
-> class held no Week 3 scope discussion, so this page is the scope record. Changes are dated at
-> the bottom.
+> scope record of origin is the student's Week 3 discussion post, which proposed a two-player
+> browser deathmatch. This page is the current scope. The change was posted as a reply in that
+> thread on 2026-11-07. Changes are dated at the bottom.
 
 **In one sentence:** the graded game is **Classic mode, Level 1**: a faithful, deterministic port
 of the original rules on the original level file, played by people and by agents through the
@@ -126,7 +127,8 @@ The AI spectator (`abuse-replay`) always shows Classic rules.
 
 | Date | Change | Decided by |
 |---|---|---|
-| 2026-10-13 | Abuse, Level 1 only; a Classic core plus a Remastered mode; Vertex AI for the live player | the student |
+| Week 3 | The scope record of origin, the student's Week 3 post: a two-player browser version of Abuse in TypeScript, aimed with the mouse, first to 25 kills, with scoring from `netcfg.c` and `clisp.c` and generic shapes instead of the original art | the student |
+| 2026-10-13 | Changed from the Week 3 deathmatch to Abuse, Level 1 only: single-player, in Python, on the original data; a Classic core plus a Remastered mode; Vertex AI for the live player | the student |
 | 2026-10-14 | Remastered grows: the training level, Level 2, the four power-ups, a bigger Horde. Classic and the evaluation unchanged | the student, against the agent's advice to finish the required items first |
 | 2026-10-26 | The graded scope restated as Classic Level 1, with Remastered optional and ungraded. Neon and the bridge excluded. The evaluation suite re-declared before any live call (`SUITE.md`) | the student, after the midterm audit (`docs/reviews/midterm-audit-2026-10-26.md`) |
 | 2026-10-27 | Remastered: separate level and arena lists on the title, a red labelled ghost with an on/off setting, and a developer test mode locked to the student's machine (PRs #28-#31). Classic and the evaluation unchanged | the student |

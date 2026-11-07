@@ -11,7 +11,7 @@ student decides and answers for the result.
 
 | Area | The student's responsibility | Where it shows |
 |---|---|---|
-| Scope | Choose the bounded classic (Level 1 of Abuse), record every change with its date (the class held no Week 3 scope discussion, so `SCOPE.md` is the record) | `SCOPE.md` (changes table) |
+| Scope | Choose the bounded classic (Level 1 of Abuse), record every change with its date (the Week 3 post is the record of origin, the change to it is posted in that thread, and `SCOPE.md` is the current scope) | `SCOPE.md` (changes table) |
 | Direction | Choose the provider, the Classic/Remastered split and the repo hosting; approve the plan | `docs/agent-team-log.md` |
 | Acceptance | Read each PR and its review record, decide every finding, and merge in order | PRs #1–#8, #15–#20 and the midterm PRs from #21, `docs/reviews/` |
 | Fidelity claims | Accept or reject each `assumed` row and each open question in the rule map | `docs/rule-source-map.md` |
