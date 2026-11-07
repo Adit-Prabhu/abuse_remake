@@ -29,6 +29,13 @@ DIFFICULTIES = ("easy", "medium", "hard", "extreme")
 DEFAULT_DIFFICULTY = "hard"  # abuse/hardness.lsp; startup.lsp falls back to 'hard as well
 
 
+def missing_behaviours(fun_names: dict[str, str], registry: dict[str, Callable]) -> list[str]:
+    """The ``slot=name`` functions in ``fun_names`` that no Python port provides. Drawing
+    functions belong to the renderer, so they are not counted."""
+    return [f"{slot}={name}" for slot, name in fun_names.items()
+            if slot not in ("draw_fun", "map_draw_fun", "get_cache_list_fun") and name not in registry]
+
+
 @dataclass
 class CharType:
     name: str
@@ -127,10 +134,7 @@ class World:
 
     def missing_behaviours(self, type_name: str) -> list[str]:
         """Lisp functions a type names that no Python port provides (draw functions excluded)."""
-        ct = self.types[type_name]
-        return [f"{slot}={name}" for slot, name in ct.fun_names.items()
-                if slot not in ("draw_fun", "map_draw_fun", "get_cache_list_fun")
-                and name not in self.registry]
+        return missing_behaviours(self.types[type_name].fun_names, self.registry)
 
     def type_index(self, name: str) -> int:
         return self.types[name].index
@@ -193,9 +197,10 @@ class World:
                     light.known = True
                     if light not in o.lights:
                         o.lights.append(light)
-        if self.strict:
+        if self.strict:  # Level 1's types, and the types of whichever level was loaded
             from ..scope import LEVEL01_TYPES
-            missing = {t: self.missing_behaviours(t) for t in LEVEL01_TYPES if t in self.types}
+            names = list(LEVEL01_TYPES) + sorted({o.ctype.name for o in self.objects} - LEVEL01_TYPES)
+            missing = {t: self.missing_behaviours(t) for t in names if t in self.types}
             missing = {t: m for t, m in missing.items() if m}
             if missing:
                 raise NotImplementedError(f"behaviours not ported yet: {missing}")

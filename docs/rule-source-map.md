@@ -182,12 +182,35 @@ made for the course and labelled as one. Details are in `docs/action-interface.m
 
 These rules exist only with `--mode remastered`. Classic mode, the fidelity tests and every
 evaluation run without them (`test_classic_games_and_agent_episodes_never_build_remastered_rules`,
-`test_remastered_without_a_dash_plays_exactly_like_classic`). Details are in `docs/remastered.md`.
+`test_remastered_without_a_dash_plays_exactly_like_classic`). On Level 1, Remastered without a
+dash plays exactly like Classic; the campaign's exit rule never shuts Level 1's exit. Details are
+in `docs/remastered.md`.
 
 | Rule | Our code | Evidence |
 |---|---|---|
 | Dash: 4 ticks at +13 px per tick with feet and head collision (the top half moves with it), 7 ticks without damage, an 18-tick cooldown; a teleport or death cancels it | `engine/remastered.py`; the damage check is in `player.bottom_damage` behind `player_iframes`, which Classic never sets | remastered design, not the original. Checked by the dash tests in `tests/test_remastered.py`, including a run where the player is hurt in both modes with identical results |
 | Horde: the arena is the longest flat floor with headroom in Level 1 (x 1680-2400). Ants start in `run_jump` with aistate 6, the state a crack releases them in. Waves are 2 + 2n ants, one every 18 ticks, with a 45-tick start and 90-tick breaks; aitype 0 until wave 3, then a mix. Ants spawn 30 px above the floor at the arena's ends, at the front of the object list, moving at 12 px per tick. After wave n, 2 + n//2 drops: health, then ammo. The player starts with 100 laser rounds and 6 grenades | `engine/horde.py` | remastered design. Only the release state follows `code`: `ant.lsp:524-551` (`crack_ai`). A crack instead adds the ant after itself, moving at 20 px per tick, with the crack's aitype. Checked by `test_horde_waves_drops_and_the_end` |
+
+## Remastered campaign (original rules for the levels after Level 1)
+
+Remastered mode can play the shareware training level, Level 1 and Level 2 in a row (added
+2026-10-14). A level is offered once all its object types are ported (`campaign.playable`). The
+levels are the shareware v1.01 files (`data/original/PROVENANCE.md`, `docs/data-lineage.md`
+point 4). Their objects follow the same `code` sources as Level 1's. None of this runs in
+Classic mode or an evaluation. `tests/test_classic_golden.py` pins Classic state hashes computed
+on `main` before the work began; it guards against drift, and it passes before and after by
+construction.
+
+| Rule | Our code | Evidence |
+|---|---|---|
+| An exit loads the level named by its `aistate`: `levels/level` + two digits + `.spe`. An exit numbered `end_level` (22) ends the game, and so ends the campaign. The training level's portal room has exits to Levels 1 to 4; Level 1's exit leads to Level 2, and Level 2's to Level 3 | `engine/campaign.py` `exit_level`, `exits` | `code`: `people.lsp:915-923` (`next_level_ai`), `people.lsp:978` (`end_level`). Checked by `test_each_level_exit_names_the_next_level` on the level files |
+| A level change keeps the player object and the view: health, weapons, ammo and the chosen weapon go on. The player is taken out of the old level, which unlinks its top half and lights. A level with no saved player info (all three campaign levels) then runs `set_player_defaults`, so a power-up ends, and puts the player at START. The random table position is global, so it carries on. A level holding saved player info cannot be carried into | `engine/game.py` `_carry_over` | `code`: `abuse/src/game.c:503-537` (`load_level` deletes only the level), `abuse/src/level.c:64-96` (`load_fail` removes each player first), `level.c:2521-2525` (unlink), `level.c:1815-1835` (`set_player_defaults` when there is no `player_info`; `level.c:1695-1813` is the saved-game path, refused here), `level.c:3068-3088` (`insert_players`), `imlib/jrand.c:6` (`rand_on`). Checked by `test_a_level_change_keeps_health_weapons_and_the_random_table`, `test_a_saved_game_level_cannot_be_carried_into` |
+| `set_player_defaults` also zeroes the player's `aistate_time`, as the Lisp `set_aistate` does. It has no effect on Level 1: a new player's time is already 0, and a player's time never advances (objects with a controller call `move`, not their AI) | `behaviors/player.py` `set_player_defaults` | `code`: `abuse/src/clisp.c:1074-1078`; `abuse/src/level.c:644-709` |
+| The new top half takes the chosen weapon one tick after the level starts | `cop_mover`, `top_ai` | `code`: `abuse/src/cop.c:613-618` makes the top half during the player's move; it joins the active list on the next tick |
+| Exits in Remastered mode: an exit to a playable level ends the level and the next one follows. An exit to a level that cannot be played stays shut, with a message, if the same level has another exit to a playable level (the training portals to Levels 3 and 4). Otherwise it ends the level and the campaign. If an open exit and a shut one are touched in the same tick, the open one wins. Level 1's exit is therefore never shut | `Remastered._follow_exits`, `campaign.exit_result` | remastered design. The original would try to load the file and show its `no_file` help if it is missing (`game.c:510-518`). Checked by `test_what_each_exit_does`, `test_level_1_exit_ends_the_level_and_the_campaign_goes_on_only_if_level_2_plays`, `test_an_exit_stays_shut_when_another_exit_of_the_level_can_be_played` |
+| Loading in strict mode refuses any level whose object types name a behaviour with no Python port | `World._load_objects`, `campaign.unported` | course choice: a development check, so no object runs with silently missing behaviour |
+| A restart with no console save in this level (death, or the pause menu's restart) returns to this level's start at full health; one after a console save returns to the save | `game/app.py` `_restore`, `campaign.restart_health`, `game/human_replay.py` | `code`: `people.lsp:515-520` (`restart_player` sets health to 100 before reloading the level). For Level 1 the start is already at full health. The weapons come from the snapshot of the level's start, as for Level 1 (a course choice: the original keeps the view's weapons as they were at death). Checked by `test_the_app_carries_on_to_the_next_level_and_a_restart_there_is_at_full_health` |
+| Records, ghosts and the evaluator's progress score keep a level reached from the one before apart from a fresh start | `game/app.py` `record_level`, `game/human_replay.py` | course choice: a carried run starts with different health and weapons |
 
 ## Open questions
 

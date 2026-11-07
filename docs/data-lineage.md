@@ -31,7 +31,17 @@ Label: `observed` (re-run the script to reproduce).
    The 72 definitions found only in our copy (plasma gun, light saber, death frisbee, boss,
    flyers, extra powers, debug keys) are registered-edition or later content. No Level 1
    object uses them.
-4. **The 1995 shareware Lisp is an earlier design.** 54 definitions differ from it, including
+4. **Remastered's campaign levels are the shareware files.** `levels/level00.spe` (the training
+   level) and `levels/level02.spe`, added on 2026-10-14 for Remastered mode only, are
+   byte-identical to the 1995 shareware v1.01 release and differ from the 2.00 data set. The
+   upstream repository's copies (`Xenoveritas/abuse@9d1f66f`, `data/levels/`) have the 2.00
+   bytes, the same as `abuse-lib-2.00.tar.gz`:
+   - level00: SHA-256 `46002eb0c4a3d90d1b6644b49604b805e455517c57bd7e28feb04fa3d08679c7`;
+   - level02: SHA-256 `bdd22091d8683b9a9a4fffa31e6ac82f87a80704b529feeab97ee082db24d95c`.
+   This one point is `observed` by hand (2026-10-14: the upstream files fetched with `gh api` and
+   hashed next to the files in the 2.00 archive); the script does not download the upstream
+   repository. So the shareware copies are the ones vendored.
+5. **The 1995 shareware Lisp is an earlier design.** 54 definitions differ from it, including
    `ANT_ROOF`, `SPRAY_GUN`, `SENSOR` and `RESTART_POSITION`. The C engine we port (from the
    public-domain release) is the 2.0-era engine; for example, it compiles `ant_ai`, `top_ai` and
    `sgun_ai` into C. So the 2.0-era Lisp is the consistent rule source.
@@ -55,6 +65,8 @@ Lisp is compared form by form, ignoring comments and whitespace.
 Source: `https://archive.org/download/Abuse_454/ABUSE101.zip` (SHA-256 `4e3db6ca92e53d9c…`)
 
 - `levels/level01.spe` byte-identical: **True**
+- `levels/level00.spe` byte-identical: **True**
+- `levels/level02.spe` byte-identical: **True**
 - palette in `art/back/backgrnd.spe` identical: **True**
 - art files byte-identical: 64; differing: 9 (art/back/backgrnd.spe, art/consfnt.spe, art/dev.spe, art/frame.spe, art/help.spe, art/icons.spe, art/smoke.spe, art/statbar.spe, art/title.spe); not vendored: 1
 - Lisp definitions identical: 343; differing: 54; only in vendored copy: 84
@@ -121,6 +133,8 @@ Source: `https://archive.org/download/Abuse_454/ABUSE101.zip` (SHA-256 `4e3db6ca
 Source: `http://abuse.zoy.org/raw-attachment/wiki/download/abuse-lib-2.00.tar.gz` (SHA-256 `263997a5e4ea70ac…`)
 
 - `levels/level01.spe` byte-identical: **True**
+- `levels/level00.spe` byte-identical: **False**
+- `levels/level02.spe` byte-identical: **False**
 - palette in `art/back/backgrnd.spe` identical: **True**
 - art files byte-identical: 73; differing: 8 (art/back/backgrnd.spe, art/dev.spe, art/fonts.spe, art/frame.spe, art/help.spe, art/icons.spe, art/smoke.spe, art/title.spe); not vendored: 1
 - Lisp definitions identical: 401; differing: 8; only in vendored copy: 72

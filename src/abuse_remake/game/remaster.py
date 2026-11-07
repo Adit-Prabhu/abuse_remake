@@ -22,8 +22,9 @@ def data_dir() -> Path:
     return Path(os.environ.get("ABUSE_REMAKE_HOME") or Path.home() / ".abuse_remake")
 
 
-def run_key(difficulty: str) -> str:
-    return f"level01-{difficulty}"
+def run_key(difficulty: str, level: str = "level01") -> str:
+    """Records and ghosts are kept per level and difficulty (Level 1's keys are unchanged)."""
+    return f"{level}-{difficulty}"
 
 
 def _read(path: Path):
@@ -66,10 +67,10 @@ def load_records() -> dict:
     return {k: v for k, v in got.items() if isinstance(k, str) and _valid_record(k, v)}
 
 
-def record_finish(difficulty: str, stats: dict) -> dict:
+def record_finish(difficulty: str, stats: dict, level: str = "level01") -> dict:
     """Store a finished run. Returns {"best": previous best or None, "new_best": bool}."""
     recs = load_records()
-    key = run_key(difficulty)
+    key = run_key(difficulty, level)
     prev = recs.get(key)
     new_best = prev is None or stats["ticks"] < prev.get("ticks", 1 << 30)
     if new_best:
@@ -92,12 +93,12 @@ class GhostRecorder:
             row += [top.ctype.name, top.state, top.current_frame, top.direction]
         self.rows.append(row)
 
-    def save(self, difficulty: str) -> None:
-        _write(data_dir() / f"ghost-{run_key(difficulty)}.json", {"version": GHOST_VERSION, "rows": self.rows})
+    def save(self, difficulty: str, level: str = "level01") -> None:
+        _write(data_dir() / f"ghost-{run_key(difficulty, level)}.json", {"version": GHOST_VERSION, "rows": self.rows})
 
 
-def load_ghost(difficulty: str) -> list[list] | None:
-    got = _read(data_dir() / f"ghost-{run_key(difficulty)}.json")
+def load_ghost(difficulty: str, level: str = "level01") -> list[list] | None:
+    got = _read(data_dir() / f"ghost-{run_key(difficulty, level)}.json")
     if not isinstance(got, dict) or got.get("version") != GHOST_VERSION:
         return None
     rows = got.get("rows")

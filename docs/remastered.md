@@ -5,10 +5,40 @@
 evaluation. The title screen toggles the mode (M), the difficulty (D) and Horde (H). Horde is
 Remastered only, so switching to Classic turns it off.
 
-Classic mode is the reconstruction: the original rules and the original 316x162 view. Every
-fidelity test and every evaluation runs Classic rules. Remastered keeps the same engine and level
-and adds the following. Mechanics that change rules live in the engine behind
+Classic mode is the reconstruction: the original rules and the original 316x162 view, on
+Level 1. Every fidelity test and every evaluation runs Classic rules. Remastered keeps the same
+engine and adds the following. Mechanics that change rules live in the engine behind
 `Game(remastered=True)`, which Classic and the playing-agent interface never build.
+
+## The campaign: Training, Level 1 and Level 2
+
+Remastered can play more of the original game than Level 1. The shareware v1.01 release has a
+training level (`level00`) and Level 2 (`level02`). Both are vendored byte for byte
+(`data/original/PROVENANCE.md`). Their objects are ported from the original Lisp and C like
+Level 1's, with `code` rows in `docs/rule-source-map.md`. A level is offered once every object in
+it is ported (`campaign.playable`), and the title screen lists the playable ones.
+
+- **Where to start.** L on the title screen picks the start level among the playable ones, or
+  use `--level`. Classic mode, playtests and Horde stay on Level 1.
+- **Exits lead on.** An exit loads the level its number names, as in the original
+  (`engine/campaign.py`). The training level ends in the original portal room, with exits to
+  Levels 1 to 4. Level 1's exit leads to Level 2, and Level 2's to Level 3.
+- **What carries over.** After the stats screen, Enter carries on into the next level. Your
+  health, weapons and ammo go with you, and a power-up ends, as in the original's level change
+  (`Game(carry=...)`).
+- **Exits that cannot lead on.** If the next level cannot be played (Level 3 is not in this
+  remake, and a level not yet ported cannot be played), the exit stays shut, with a message, when
+  the level has another way on: the training portals to Levels 3 and 4. Otherwise the level ends
+  and so does the campaign. Level 1 can therefore always be finished.
+- **Restarts.** Quick restart and death go back to this level's last console save. With no save,
+  they go to this level's start, at full health, as the original's `restart_player` does.
+- **Records.** Best times and ghosts are kept per level and difficulty. A level reached from the
+  one before is kept apart from a fresh start of it.
+- **Replays.** A recorded session follows the level changes (`abuse-replay --human-trace`).
+
+The shareware levels were built for the 1995 shareware Lisp, while the rules we port are the
+2.0-era Lisp (`docs/data-lineage.md`). Differences found in play are listed at the end of this
+page.
 
 ## Presentation (no rule changes)
 
@@ -40,10 +70,26 @@ Records and ghosts are kept per player in `~/.abuse_remake/`, never in the repo.
 
 `tests/test_remastered.py` checks:
 - Classic games and agent episodes never build Remastered or Horde rules;
-- Remastered without a dash gives the same state hash as Classic;
+- Remastered without a dash gives the same state hash as Classic on Level 1 (the campaign never shuts Level 1's exit);
 - the dash's distance, its stop at walls, its invulnerability and cooldown, and that it survives a
   save and restore;
 - Horde's waves, drops and end, its determinism, and its app screen;
 - records, the ghost's recording, saving and drawing, quick restart, and the stats screen;
 - replays (including detecting a tampered trace), that spectating leaves the game unchanged, and
   video output.
+
+`tests/test_campaign.py` checks:
+- the vendored levels' bytes against the shareware v1.01 release;
+- each level's object types against `scope.py`;
+- strict loading;
+- the exits and what a level change carries;
+- locked exits;
+- the app's level choice and carry-on;
+- a human trace across a level change.
+
+`tests/test_classic_golden.py` pins Classic state hashes computed on `main` before the campaign
+work, so Classic cannot drift.
+
+## Known differences in the campaign levels
+
+None recorded yet.

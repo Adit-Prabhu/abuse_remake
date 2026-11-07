@@ -77,3 +77,22 @@ screen, the ghost race and the Horde arena (`docs/remastered.md`). The AI specta
   2026-10-13 to match the build.)
 - Features that change rules exist only behind `--mode remastered`.
 - Fidelity tests and agent evaluations always run in Classic mode.
+
+### Remastered campaign (2026-10-14)
+
+> **Drafted by the implementation agent on 2026-10-14 from the student's choices. TODO
+> (student):** confirm or edit this paragraph; it records a scope change.
+
+The student chose to extend Remastered mode, not Classic. The extension covers:
+- the shareware training level and Level 2, played with Level 1 as a campaign;
+- the four original power-ups (speed, flight, invisibility, ultra health);
+- a larger Horde.
+
+The extra levels come from the shareware v1.01 release (`data/original/PROVENANCE.md`). Their
+objects are hand-ported from the same Lisp and C sources as Level 1's. Each object gets a row in
+`docs/rule-source-map.md` and the independent review. The fidelity claim and the agent evaluations
+stay on Classic Level 1, and `tests/test_classic_golden.py` pins Classic's behaviour.
+
+If the student confirms this, "Out of scope" above should be amended:
+- "Other levels" would become "Other levels, except Remastered's campaign";
+- "extra powers" would become "extra powers, except the four power-ups in Remastered".
