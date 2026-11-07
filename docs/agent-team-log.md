@@ -15,6 +15,25 @@
 | Reusable skills | used by the implementation agent | its permissions | `.claude/skills/port-classic-rule/`, `.claude/skills/agent-eval/` |
 | Playing agents | random, scripted (rules plus A* search), the model player (Gemini on Vertex by default) | the JSON-lines protocol only, in a separate process | `src/abuse_remake/agent/players/` |
 
+## Sessions
+
+The implementation agent's Claude Code sessions that built this repository, read from Claude
+Code's local session records (an ID is the first 8 characters of the session's). The PRs are in
+this repository (`Adit-Prabhu/abuse_remake`). The transcripts are not committed, because they
+hold the student's email address and home paths; course staff can ask for them. The Codex
+sessions of 2026-10-15/16 kept their own records and are not listed. The student left their
+polish out of this line on 2026-10-26.
+
+| Session | Dates | What it built | Skill invoked | Independent reviewers it started |
+|---|---|---|---|---|
+| `8edb689b` | 2026-10-13 | PRs #1-#8: the data readers, the engine, the Level 1 objects, the game, the player interface, the model player, Remastered, the configuration record and the skills | | 9 read-only `Explore` agents briefed with `rules-reviewer.md` (`docs/reviews/PR-1.md` to `PR-7.md`, with follow-up passes) |
+| `e154cf79` | 2026-10-13/14 | PRs #12-#14, Neon Protocol v2 (not part of the submission) | | 1 |
+| `c467df34` | 2026-10-14/15 | PRs #15-#19, the Remastered expansion | | 4 `rules-reviewer` (`PR-15.md` to `PR-18.md`) |
+| `d402f892` | 2026-10-15 | PR #20, Remastered polish | | 1 `rules-reviewer` (`PR-20.md`) |
+| `13004a9b` | 2026-10-26 to 10-28 | the rubric audit (`docs/reviews/midterm-audit-2026-10-26.md`), PRs #21-#31, and the early draft course PR #58 (closed) | `port-classic-rule`, for the developer test mode (#31) | 8 `rules-reviewer` (`PR-21.md`, `PR-23.md`, `PR-24.md`, `PR-25.md`, `PR-27.md`, `PR-31.md`, with follow-up passes) |
+| `8dedd503` | 2026-10-30 to 11-07 | PRs #32-#35: the live smoke run, tuning, the reported run and the submission prep | `agent-eval`, for the live smoke run (#32), carried through #33 and #34 | 1 `rules-reviewer` (`PR-32-34.md`) |
+| `cba76f6b` | 2026-11-07 | a check of the course PR (#88) against the rubric, and documentation corrections after it | | none (documents only, no rule changed) |
+
 ## Human decisions (2026-10-13)
 
 - Chose the classic: Abuse (`historicalsource/abuse`). Asked for a modern-feeling version with

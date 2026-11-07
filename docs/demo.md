@@ -11,17 +11,29 @@ from `README.md` and the PR description.
 |---|---|---|---|
 | 1 | 0:00 | `uv run abuse-remake --mode classic`: 30 s of play, a switch, an ant, a console | What Abuse is; the scope (Classic Level 1); win = exit + Down, loss = death |
 | 2 | 0:40 | `docs/rule-source-map.md`, one row (the laser fires every 3 ticks with ammo, every 5 without, `cop.c:238-265`), and the label counts | How fidelity is evidenced: `code`, `observed`, `assumed`, `design` |
-| 3 | 1:10 | `uv run abuse-replay --trace <a live model-M1 trace>`. Say on screen that it is a replay of trace X | **The model choosing actions**: the side panel shows its observation, the legal actions, its choice and its note. Point at one refused action and its feedback in the next turn |
-| 4 | 2:40 | The same situation with `--player scripted` for 20 s | What the baseline is (rules + A* over the automap) and that both get the same interface |
-| 5 | 3:10 | The comparison table in `EVALUATION.md` | Wins and progress per situation, held-out cases, invalid actions, tokens, latency, cost. Say what the numbers do not show |
-| 6 | 4:00 | The limitations paragraph | Small sample (3 seeds), the evaluator-only progress measure, where every player fails, what the peers said |
+| 3a | 1:10 | `uv run abuse-replay --trace evidence/traces/midterm/model-M1-level01-cp3-s2.jsonl --speed 2`. Say that it is a replay of a live reported episode (model-M1, `level01-cp3`, seed 2), not a new run | **The model choosing actions**: the side panel shows its observation, the legal actions, its choice and its note. This is its best reported episode (progress 0.431; it ran out of decisions, it did not win). At decision 143 (tick 1409, about 47 s in at speed 2) it sends `use D1`, which is not in the legal actions: point at the refusal and at its feedback in the next turn |
+| 3b | 2:20 | `uv run abuse-replay --trace evidence/traces/midterm/model-M1-level01-cp1-s0.jsonl --speed 2`, the first 20 s | **How it fails**: from decision 10 it sends `attack E1` at a hanging alien 161 times in a row ("Shoot the hanging alien to clear the path ahead"), and ends with progress 0. The baseline leaves hanging aliens alone; the prompt never said they can be left |
+| 4 | 2:40 | `uv run abuse-replay --player scripted --scenario level01-cp3 --seed 2`, 20 s (no model calls; the same episode as the reported scripted run, progress 0.573) | What the baseline is (rules + A* over the automap) and that both get the same interface |
+| 5 | 3:10 | The comparison table in `EVALUATION.md` §2 | Wins (0 of 12 for every player), progress per situation, held-out cases, failed requests and illegal actions, tokens, latency, cost. Say what the numbers do not show |
+| 6 | 4:00 | The limitations paragraph (`EVALUATION.md` §6) | Small sample (3 seeds per situation), the evaluator-only progress measure, no player wins, the scripted baseline beats both model players, what the playtester did |
+
+The limits to say out loud, in your own words:
+- No player, model or scripted, finished Level 1 in the reported run.
+- The scripted baseline beat both model players by a wide margin; M1 (history) against M0
+  (observation only) is too close to call with 3 seeds.
+- The replays are recorded live episodes, replayed exactly; nothing in the video is a new model
+  call, and no move is chosen by hand.
+- Progress is the evaluator's distance measure. The players never see it.
 
 ## Before recording
 
 - Close anything that shows credentials: terminal history, environment variables, cloud
   consoles. Use a clean shell.
 - Pick the replayed trace before recording, and don't choose it just because it looks good. If
-  the model fails, show the failure and explain it.
+  the model fails, show the failure and explain it. The two model traces above are its best
+  reported episode and its most common failure; say that they were chosen that way.
+- Check each command once before recording: the window opens, and the replay matches its trace
+  to the end.
 
 ## Generated video (evidence, not the recording)
 

@@ -7,10 +7,10 @@ is compared with a scripted search baseline on a suite declared before any tunin
 
 | | |
 |---|---|
-| Recording (3–5 min) | *link added when recorded* |
+| Recording (3–5 min) | [Abuse Midterm Video](https://youtu.be/Sv1Ex4Y5H7M) (4:51, YouTube, unlisted) |
 | Evaluation report | [`EVALUATION.md`](EVALUATION.md) |
-| Agent-team log | `AGENT-TEAM.md`, written by the student (to come) |
-| Peer playtest notes | [`docs/playtests/`](docs/playtests/) |
+| Agent-team log | [`AGENT-TEAM.md`](AGENT-TEAM.md), written by the student |
+| Human playtest notes | [`docs/playtests/received/`](docs/playtests/received/) |
 | Scope record | [`SCOPE.md`](SCOPE.md) |
 | Declared suite | [`SUITE.md`](SUITE.md) |
 | Rule/source map | [`docs/rule-source-map.md`](docs/rule-source-map.md) |
@@ -118,7 +118,7 @@ The rule/source map has **152 rows**, and each carries an evidence label with a 
   cited by file, almost always with lines;
 - **1 `observed`**: the level file read directly, to list its object types;
 - **2 `assumed`**: listed as open questions;
-- **24 `design`**: our own choices, each with its kind (harness, course requirement,
+- **27 `design`**: our own choices, each with its kind (harness, course requirement,
   presentation, front end, port, Remastered) and its reason. They point to `SCOPE.md`,
   `SUITE.md`, `docs/action-interface.md`, `docs/budgets.md` and `docs/remastered.md`.
 
@@ -172,7 +172,7 @@ basis for publishing each part in this public repository. `docs/data-lineage.md`
   context that never wrote the code. Its records are in `docs/reviews/`.
 - **Playing agents:** the players above, with no repository tools.
 
-The student's own log is `AGENT-TEAM.md`, written by the student (to come). The agents'
+The student's own log is [`AGENT-TEAM.md`](AGENT-TEAM.md), written by the student. The agents'
 session-by-session record is `docs/agent-team-log.md`.
 
 ## Where this was built

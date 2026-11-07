@@ -106,8 +106,9 @@ instructor, who resolves unclear publication rights under the course brief.
     public domain".
   - We rely on that statement for these files. Classic Level 1's rules are ported from this Lisp,
     and its sprites and the Remastered interface draw on this art.
-  - **Open item for the student:** confirm with the instructor that publishing these files is
-    acceptable. If it is not, replace them before the folder is published.
+  - **Asked of the instructor:** the course PR (#88, 2026-11-07) asks the instructor to confirm
+    that publishing these files is acceptable, as the brief provides for unclear publication
+    rights. If it is not, they will be replaced.
 
 **Excluded:** the WAVs and music (Bobby Prince), the retail and registered data downloaded only
 for the lineage comparison, and anything from other games.
