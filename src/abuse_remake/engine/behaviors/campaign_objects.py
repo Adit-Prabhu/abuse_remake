@@ -12,6 +12,10 @@ They are ported from the 2.0-era Lisp in data/original/lisp, as Level 1's object
 - strait_rocket_ai, animate_ai, eg_explo_ufun: ant.lsp:63-104
 - fast_ai, sneaky_power_ai, fly_power_ai, health_power_ai: powerup.lsp:39-108. Using a power is
   cop.c (do_special_power and undo_special_power, in player.py), already ported for Level 1.
+- Level 2: block_ai (duong.lsp:117-135), step_ai (ladder.lsp:31-43), pusher_ai and pusher_cons
+  (general.lsp:4-24), track_ai, track_cons, track_fire and track_set_angle (guns.lsp:313-430),
+  rob1_ai, rob_cons, jug_ai, jug_cons and explo_damage (jugger.lsp:4-190), grenade_ufun
+  (weapons.lsp:120-132).
 
 The shareware levels were built for the 1995 shareware Lisp. Where it differs from the 2.0 rules
 used here, docs/remastered.md lists it (for example, the 1995 train_ai also froze the player).
@@ -32,7 +36,14 @@ from .lispfns import (
     do_damage,
     facing,
     find_rgb,
+    go_state,
     hurt_radius,
+    lcos,
+    lisp_try_move,
+    lmod,
+    lmul,
+    lnum,
+    lsin,
     play_sound,
     random,
     set_aistate,
@@ -40,9 +51,11 @@ from .lispfns import (
     set_frame_angle,
     state_time,
     touching_bg,
+    toward,
 )
 from .player import FAST_POWER, FLY_POWER, HEALTH_POWER, SNEAKY_POWER, give_player_health
 from .weapons import bounce_move, fire_object
+from .world_objects import push_char
 
 # --- ladders -------------------------------------------------------------------------------------
 
@@ -366,3 +379,279 @@ def fly_power_ai(o) -> bool:
 @lisp("health_power_ai")
 def health_power_ai(o) -> bool:
     return _take_power(o, HEALTH_POWER, "ultra health")  # powerup.lsp:93-102
+
+
+# --- Level 2: blocks, steps and pushers ----------------------------------------------------------
+
+@lisp("block_ai")
+def block_ai(o) -> bool:
+    """duong.lsp:117-125: at no health a block crumbles, then goes."""
+    if o.hp <= 0:
+        if o.state == "dieing":
+            return o.next_picture()
+        play_sound(o, "CRUMBLE_SND")
+        o.set_state("dieing")
+    return True
+
+
+@lisp("step_ai")
+def step_ai(o) -> bool:
+    """ladder.lsp:31-36: the step is there while unlinked or its first link is on."""
+    if not o.objs or o.objs[0].aistate != 0:
+        o.set_state("stopped")
+    else:
+        o.set_state("running")  # "step_gone"
+    return True
+
+
+@lisp("pusher_cons")
+def pusher_cons(o) -> None:
+    set_aistate(o, 4)  # general.lsp:4: the speed is kept in aistate
+
+
+@lisp("pusher_ai")
+def pusher_ai(o) -> bool:
+    """general.lsp:5-14: while on, a touching player is moved ``aistate`` pixels its way."""
+    if not o.objs or o.objs[0].aistate != 0:
+        o.next_picture()
+        if touching_bg(o):
+            xamount = o.aistate if o.direction > 0 else -o.aistate
+            lisp_try_move(o.world.bg(o), xamount, 0)
+    return True
+
+
+# --- Level 2: the tracking gun --------------------------------------------------------------------
+
+@lisp("track_cons")
+def track_cons(o) -> None:
+    """guns.lsp:355-362."""
+    lv = o.lvars
+    lv["angle"] = 270
+    lv["track_speed"] = 1
+    lv["fire_delay"] = 5
+    lv["burst_total"] = 3
+    lv["continue_time"] = 8
+    lv["track_start_angle"] = 180
+    lv["track_end_angle"] = 359
+
+
+def track_fire(o) -> None:
+    """guns.lsp:364-378: one shot of type ``aitype`` from the barrel's end, 2 degrees either
+    way at random; then the next shot of the burst, or the pause after it."""
+    lv = o.lvars
+    a = lv["angle"]
+    x = o.x + lnum(lmul(lcos(a), 18))
+    y = o.y - 15 - lnum(lmul(lsin(a), 15))
+    fire_object(o, o.aitype, x, y, lmod(a + (2 - random(o, 5)), 360), o.world.bg(o))
+    if lv["burst_total_left"] in (0, 1):
+        lv["continue_time_left"] = lv["continue_time"]
+    else:
+        lv["burst_total_left"] -= 1
+        lv["fire_delay_left"] = lv["fire_delay"]
+    o.set_state("firing")
+    set_frame_angle(o, 0, 359, a)
+
+
+def track_set_angle(o, new_angle: int) -> None:
+    """guns.lsp:380-385: only angles inside the gun's arc are taken."""
+    lv = o.lvars
+    start, end = lv["track_start_angle"], lv["track_end_angle"]
+    if start > end:
+        if end <= new_angle <= start:
+            lv["angle"] = new_angle
+    elif start <= new_angle <= end:
+        lv["angle"] = new_angle
+
+
+@lisp("track_ai")
+def track_ai(o) -> bool:
+    """guns.lsp:387-430: off until activated; then it opens and turns toward a point 8 px above
+    the player's feet by at most ``track_speed`` degrees a tick, inside its arc. It fires whenever
+    that turn (``angle_add``, capped at ``track_speed``) is under 5 degrees and its delays are 0,
+    so a slow gun fires even when it cannot reach the player. Shots are ``fire_delay`` + 1 ticks
+    apart in a burst of ``burst_total``, with ``continue_time`` + 1 ticks between bursts; the
+    counters start at 0, so the first burst is one shot."""
+    if o.hp == 0:
+        return False
+    if not activated(o):
+        o.targetable_on = 0
+        o.set_state("stopped")
+        return True
+    if o.state == "stopped":
+        o.targetable_on = 1
+        o.set_state("opening")
+        return True
+    if o.state == "opening" and o.next_picture():
+        return True
+    lv = o.lvars
+    o.set_state("spinning")
+    set_frame_angle(o, 0, 359, lv["angle"])
+    if lv["continue_time_left"] == 0:
+        if lv["fire_delay_left"] == 0:
+            bg = o.world.bg(o)
+            pangle = atan2(o.y - bg.y + 8, bg.x - o.x)
+            angle = lv["angle"]
+            clock_dist = angle - pangle if pangle < angle else angle + (360 - pangle)
+            closest = 360 - clock_dist if clock_dist > 180 else clock_dist
+            angle_add = lv["track_speed"] if closest >= lv["track_speed"] else closest
+            if clock_dist > 180:  # which way round is shorter
+                track_set_angle(o, lmod(angle + angle_add, 360))
+            else:
+                track_set_angle(o, lmod(angle - angle_add + 360, 360))
+            if angle_add < 5:  # nearly on target: fire
+                track_fire(o)
+        else:
+            lv["fire_delay_left"] -= 1
+    else:
+        lv["continue_time_left"] -= 1
+        if lv["continue_time_left"] == 0:
+            lv["burst_total_left"] = lv["burst_total"]
+    return True
+
+
+# --- Level 2: the cleaner robot and the Juggernaut ------------------------------------------------
+
+@lisp("explo_damage")
+def explo_damage(o, amount, from_obj, hitx, hity, push_xvel, push_yvel) -> None:
+    """jugger.lsp:153-157: a small explosion near its middle (it ignores where the hit was); never pushed."""
+    o.world.spawn("EXPLODE6", o.x + (10 - random(o, 20)), o.y - random(o, 30), 0)
+    o.damage_fun(amount, from_obj, hitx, hity, 0, 0)
+    if o.hp == 0:
+        play_sound(o, "BLOWN_UP")
+
+
+@lisp("rob_cons")
+def rob_cons(o) -> None:
+    o.xvel = 2  # jugger.lsp:159
+
+
+ROB_EXPLOSIONS = ((5, -10, 0), (-5, -15, 2), (10, -2, 1), (-10, -20, 3), (20, -27, 4), (-25, -30, 2),
+                  (20, -5, 4), (-3, -1, 5))  # jugger.lsp:137-144: (dx, dy, delay)
+
+
+@lisp("rob1_ai")
+def rob1_ai(o) -> bool:
+    """jugger.lsp:103-149: the cleaner robot waits (hidden, or pushing the player away) until
+    its link is on, fades in if it was hidden, then rolls ahead by ``xvel`` a tick while there is
+    room 23 pixels ahead, pushing the player. At no health it explodes and goes 3 ticks later."""
+    if o.fade_count != 0:  # fading in
+        o.set_fade_count(o.fade_count - 1)
+    s = o.aistate
+    if s == 0:  # wait for the sensor
+        if o.lvars["rob_hiden"] == 1:
+            o.targetable_on = 0
+            o.set_state("rob_hiding")
+        else:
+            o.targetable_on = 1
+            push_char(o, 30, 55)
+        if not o.objs or o.objs[0].aistate != 0:
+            if o.lvars["rob_hiden"] == 1:
+                o.set_fade_count(15)
+            set_aistate(o, 1)
+        return True
+    if s == 1:  # roll toward the player
+        push_char(o, 30, 55)
+        o.next_picture()
+        if cmod(state_time(o), 6) == 0:
+            play_sound(o, "CLEANER_SND")
+        lisp_try_move(o, 0, 10)
+        if o.direction > 0:
+            if can_see(o, o.x, o.y, o.x + o.xvel + 23, o.y, False):
+                o.x += o.xvel
+        elif can_see(o, o.x, o.y, o.x - o.xvel - 23, o.y, False):
+            o.x -= o.xvel
+        if o.hp <= 0:
+            for dx, dy, delay in ROB_EXPLOSIONS:
+                o.world.spawn("EXPLODE1", o.x + dx, o.y + dy, delay)
+            o.world.emit("enemy_killed", uid=o.uid, type=o.ctype.name, x=o.x, y=o.y)
+            set_aistate(o, 2)
+        return True
+    if s == 2:  # dead: go after 3 ticks
+        push_char(o, 30, 55)
+        return state_time(o) < 3
+    return False  # (select) with no match returns nil
+
+
+@lisp("jug_cons")
+def jug_cons(o) -> None:
+    o.lvars["throw_xvel"] = 13  # jugger.lsp:69-72
+    o.lvars["throw_yvel"] = -10
+    o.change_aitype(10)
+
+
+@lisp("jug_ai")
+def jug_ai(o) -> bool:
+    """jugger.lsp:4-67: when activated, a walking Juggernaut stomps toward the player through
+    its walk animation and throws a grenade at the end of it; a stationary one throws one every
+    ``aitype`` ticks. At no health it plays its death and counts as a kill."""
+    if o.hp <= 0:
+        if o.state == "dieing":
+            if not o.next_picture():
+                v = o.world.bg(o).controller
+                if v is not None:
+                    v.kills += 1
+                o.world.emit("enemy_killed", uid=o.uid, type=o.ctype.name, x=o.x, y=o.y)
+                return False
+            return True
+        o.set_state("dieing")
+        return o.state == "dieing"  # set_state's value (clisp.c:1152-1157)
+    if not activated(o):
+        o.targetable_on = 0
+        return True
+    o.targetable_on = 1
+    push_char(o, 35, 40)
+    lv = o.lvars
+    s = o.aistate
+    if s == 0:  # prepare to walk toward the player
+        if lv["stationary"] == 0:
+            o.set_state("running")
+            go_state(o, 1)
+        elif state_time(o) > o.aitype:
+            o.set_state("weapon_fire")
+            set_aistate(o, 2)
+    elif s == 1:  # walk toward the player
+        if lv["stationary"] == 0:
+            o.direction = toward(o)
+            curx, cury = o.x, o.y  # in case it walks off a cliff
+            if o.next_picture():
+                if o.current_frame == 8:
+                    play_sound(o, "JSTOMP_SND")
+            else:
+                play_sound(o, "JSTOMP_SND")
+                o.set_state("weapon_fire")
+                set_aistate(o, 2)
+            if can_see(o, o.x, o.y, o.x, o.y + 5, False):
+                o.x, o.y = curx, cury
+                lisp_try_move(o, 0, 10)
+        elif state_time(o) > o.aitype:
+            o.set_state("weapon_fire")
+            set_aistate(o, 2)
+    elif s == 2:  # start firing
+        if state_time(o) > 3:
+            xspeed = lv["throw_xvel"] * o.direction
+            yspeed = lv["throw_yvel"]
+            g = o.world.spawn("GRENADE", o.x, o.y - 24, 1)
+            grenade_ufun(g, o, None)
+            g.xvel, g.yvel = xspeed, yspeed
+            go_state(o, 3)
+        else:
+            o.next_picture()
+    elif s == 3:  # wait for the throw animation
+        if not o.next_picture():
+            set_aistate(o, 0)
+    return True
+
+
+@lisp("grenade_ufun")
+def grenade_ufun(o, creator, _unused=None) -> None:
+    """weapons.lsp:120-132: a thrown grenade takes its thrower's direction and speed."""
+    o.direction = creator.direction
+    play_sound(o, "GRENADE_THROW")
+    if o.aitype == 1:
+        o.xvel = 13 + random(o, 2) if o.direction > 0 else -13 + random(o, 2)
+        o.yvel = -4
+    elif o.aitype == 2:
+        o.xvel = 7 + random(o, 2) if o.direction > 0 else -7 + random(o, 2)
+        o.yvel = -10
+    o.xvel += creator.xvel
+    o.add_object(creator)

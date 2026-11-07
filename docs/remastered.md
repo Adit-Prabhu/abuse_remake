@@ -65,6 +65,9 @@ them itself (`campaign.EXTRA_OBJECTS`, a `remastered design` rule):
 - **Training level:** invisibility in the upper corridor past the lift, flight on the ledge before
   the teleport door, and ultra health in the portal room. All three are on the saved route, so
   you meet each one in turn; each replaces the power before.
+- **Level 2:** ultra health on the upper corridor just after the first cleaner robot, flight in
+  the long hall, and invisibility on the way to the far-right ladders. All three are on the
+  saved route. Level 2 also has the original speed power-up, off the route.
 - **Level 1:** none. Its objects stay the original's, so Remastered Level 1, started fresh,
   still plays exactly like Classic. Reached from the training level, it starts with whatever was
   carried in. Ultra health can carry up to 200 health into Level 1; the power itself ends at
@@ -74,8 +77,34 @@ them itself (`campaign.EXTRA_OBJECTS`, a `remastered design` rule):
 **Proof the level can be finished.** `scripts/route_search.py` searches the engine for inputs
 that finish a level. `evidence/routes/level00.json` is the route it found through the training
 level: up the lift, across the upper rooms, through the teleporters, past all four power-ups and
-into the portal room's exit to Level 1, in 559 ticks (37 seconds) on hard.
+into the portal room. It was found for the portal to Level 1 (559 ticks); now that Level 2 is
+playable, the portal to Level 2 opens on its way there, so the saved route ends at that portal,
+in 556 ticks (37 seconds) on hard.
 `tests/test_campaign_routes.py` replays it exactly, and checks that it picks up all four power-ups.
+
+## Level 2
+
+Level 2 is a large loop: its exit is just below the start, behind a long way round. Its new
+objects are breakable blocks, steps that come and go with their switches, pushers, ceiling
+tracking guns that fire rockets, cleaner robots that roll out of hiding, and Juggernauts that
+stomp toward you and throw grenades. They are ported from the original Lisp
+(`engine/behaviors/campaign_objects.py`, rows in `docs/rule-source-map.md`). Level 1's exit now
+leads on to Level 2, and so does the training level's second portal. Level 2's own exit leads to
+Level 3, which is not in this remake, so the campaign ends there.
+
+**Proof Level 2 can be finished.** `evidence/routes/level02.json` finishes it in 2,435 ticks (2:42)
+on hard. On the way it fights the cleaner robots, opens the start corridor, rides three lifts,
+uses two teleport doors and three teleporters, solves the three-switch gate puzzle, crosses the
+lava room, loops round the far right, saves at the console that opens the last door, and springs
+up the left shaft to the exit. It also picks up the three placed power-ups. No unguided search
+could find so long a loop: the route was built segment by segment, from short searches
+(`route_search.py --prefix --to`) and scripted steps (a switch press, a lift ride, a teleport),
+then replayed whole. The small scripts that chained those segments were development scratch work
+and are not in the repo, so the route can be replayed from the repo but not rebuilt from it.
+`tests/test_campaign_routes.py` replays it exactly and checks that it ends the level, alive, on
+its last input, with the three pickups; it does not check each step of the walkthrough above.
+The proof is for Remastered Level 2 with its placed power-ups, on hard with seed 0: it does not
+show whether the level can be finished without the ultra health it picks up early.
 
 ## Presentation (no rule changes)
 
@@ -143,7 +172,8 @@ this shows:
   GREEN_FLYER other names for WHO (`FLYER.LSP:123-128`). So in 1995 a WHO ignored rockets fired
   by any WHO. In 2.0, which we port, only rockets fired by a FLYER or GREEN_FLYER are ignored. The training level's
   flyers are all WHOs, so here they can hurt, and kill, each other and themselves.
-- **Kills.** The 1995 `flyer_ai` adds no kill when a flyer dies; 2.0 does.
+- **Kills.** The 1995 `flyer_ai` and `jug_ai` add no kill when a flyer or a Juggernaut dies;
+  2.0 does. The Juggernaut's death timing is the same.
 - **Flight and invisibility need the registered engine.** The C runs them only when the
   registration file is present (`cop.c:444`, `cop.c:483`, `game.c:2545-2555`). Remastered
   plays as the registered build. A shareware engine would ignore the special key for these two.
