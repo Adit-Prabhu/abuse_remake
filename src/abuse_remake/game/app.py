@@ -31,12 +31,13 @@ from pathlib import Path
 from ..engine import campaign
 from ..engine.game import Game, WeaponCommand
 from ..engine.horde import ARENAS, CARDS
+from ..engine.horde import VERSION as HORDE_VERSION
 from ..engine.view import VIEW_H, VIEW_W, Inputs
 from ..engine.world import DIFFICULTIES
 
 TICK = 1.0 / 15.0
 # The training level's messages name the original keys (english.lsp:226-246); the modern ones too
-MODERN_KEYS = {0: "  (or J)", 5: "  (or left Shift)", 6: "  (or Q/E, the mouse wheel)", 7: "  (W or Up)",
+MODERN_KEYS = {0: "  (or J)", 5: "  (or Shift)", 6: "  (or Q/E, the mouse wheel)", 7: "  (W or Up)",
                8: "  (S or Down)", 2: "  (S or Down)", 3: "  (S or Down)", 4: "  (S or Down)",
                11: "  (S or Down)"}
 MAX_CATCHUP = 4 * TICK  # after a stall, run at most 4 owed ticks instead of all of them
@@ -55,8 +56,9 @@ def parse_args(argv=None):
     p.add_argument("--playtest", action="store_true", help="record into playtests/raw/ with a session id")
     p.add_argument("--horde", action="store_true", help="Remastered's Horde: survive waves of enemies")
     p.add_argument("--arena", choices=sorted(ARENAS), default="prison", help="Horde's arena (A on the title)")
-    p.add_argument("--level", choices=campaign.LEVELS, default="level01",
-                   help="where Remastered's campaign starts (Classic is Level 1; Horde uses --arena)")
+    p.add_argument("--level", choices=campaign.LEVELS, default=None,
+                   help="where Remastered's campaign starts (default: Training from the title menu, Level 1 with "
+                        "--skip-title; Classic is Level 1; Horde uses --arena)")
     p.add_argument("--skip-title", action="store_true")
     p.add_argument("--frames", type=int, default=0, help="run N display frames with scripted input, then exit")
     p.add_argument("--screenshot", type=Path, help="save the last frame (with --frames)")
@@ -65,10 +67,14 @@ def parse_args(argv=None):
         p.error("--horde is a Remastered rule set; it cannot run with --mode classic")
     if args.arena != "prison" and not args.horde:
         p.error("--arena is for Horde; add --horde")
-    if args.level != "level01" and (args.mode == "classic" or args.playtest or args.horde):
+    if args.level not in (None, "level01") and (args.mode == "classic" or args.playtest or args.horde):
         p.error("--level is for Remastered's campaign; Classic mode and playtests are Level 1, Horde uses --arena")
-    if not campaign.playable(args.level):
+    if args.level is not None and not campaign.playable(args.level):
         p.error(f"{campaign.title(args.level)} is not playable yet: its objects are not all ported")
+    # the title menu's campaign starts with Training; --skip-title (and tests) start at Level 1
+    first = campaign.playable_levels()[0]
+    args.menu_level = args.level or first
+    args.level = args.level or "level01"
     if args.mode is None:
         args.mode = "classic" if args.playtest else "remastered"
     return args
@@ -92,8 +98,11 @@ class App:
         scale = args.scale or max(2, min((info.current_w or 1600) // self.view_w,
                                          ((info.current_h or 900) - 80) // self.view_h))
         self.scale = scale
-        flags = pygame.FULLSCREEN if args.fullscreen else 0
-        self.screen = pygame.display.set_mode((self.view_w * scale, self.view_h * scale), flags)
+        from .display import opaque_surface, window_flags
+
+        size = (self.view_w * scale, self.view_h * scale)
+        self.window = pygame.display.set_mode(size, window_flags(args))
+        self.screen = opaque_surface(size)  # every frame is drawn here, then copied to the window
         pygame.display.set_caption("Abuse — Level 1 (remake)")
         from .audio import Audio
         from .hud import Hud
@@ -104,15 +113,29 @@ class App:
         self.sprites = SpriteCache()
         self.audio = Audio(enabled=not args.no_audio and not args.frames, modern=args.mode == "remastered")
         self.hud = Hud(self.sprites)
+        from .modern_hud import ModernHud
+        from .screens import Screens
+
+        # the interface's pixel: one game pixel in Remastered; Classic's view is shorter, so its
+        # menus count 216 rows (its HUD stays the original-style one)
+        self.mhud = ModernHud(self.sprites, size[1] // 270 if self.modern else max(1, size[1] // 216))
+        self.screens = Screens(self.mhud.t)
         self.particles = Particles()
         self.seed = args.seed if args.seed is not None else int(time.time()) % 1024
         if not self.modern or getattr(args, "horde", False):
             args.level = "level01"  # the campaign is Remastered only; Horde picks its level by arena
+        if not hasattr(args, "menu_level"):
+            args.menu_level = args.level
+        if not hasattr(args, "menu_index"):
+            args.menu_index = 1 if getattr(args, "horde", False) else 0
+        self.state = "play" if (args.skip_title or args.frames) else "title"
+        if self.state == "title" and self.modern and not getattr(args, "horde", False) and not args.playtest:
+            args.level = args.menu_level  # the title shows where the campaign starts
         self.level = getattr(args, "level", "level01")
         self.Renderer = Renderer
         self.joystick = None
         self.clock = pygame.time.Clock()
-        self.state = "play" if (args.skip_title or args.frames) else "title"
+        self.help_return = "title"
         self.trace = getattr(self, "trace", None)  # one trace per session, kept across title toggles
         self.joy_rest: list[float] = []
         self.ghost_painter = None
@@ -128,6 +151,9 @@ class App:
         self.game = Game(seed=self.seed, difficulty=self.args.difficulty, level=self.level, remastered=self.modern,
                          horde=self.horde, arena=self.arena)
         self.pending_card: int | None = None
+        self.card_focus = 0  # the card Enter takes; arrows and the mouse move it
+        self.last_clear: dict | None = None  # the bonuses of the wave just cleared, for the cards
+        self.power_used = True  # False from getting a held power until its key is first held
         self.renderer = self.Renderer(self.game, self.sprites, self.view_w, self.view_h)
         self.renderer.modern = self.modern
         self.game.world.globals["save_hook"] = self._on_console_save
@@ -138,7 +164,7 @@ class App:
         self.show_ghost = True
         self._write({"kind": "new_game", "seed": self.seed, "difficulty": self.args.difficulty,
                      "mode": self.args.mode, "horde": self.horde, "level": self.level, "arena": self.arena,
-                     "horde_version": 2,
+                     "horde_version": HORDE_VERSION,
                      "rules": "remastered" if self.modern else "classic"})
 
     def _level_started(self) -> None:
@@ -226,7 +252,7 @@ class App:
         down = keys[pg.K_s] or keys[pg.K_DOWN]
         y = -1 if up else (1 if down else 0)
         fire = mb[0] or keys[pg.K_j]
-        special = mb[2] or keys[pg.K_LSHIFT]
+        special = mb[2] or keys[pg.K_LSHIFT] or (self.modern and keys[pg.K_RSHIFT])
         mx, my = pg.mouse.get_pos()
         px, py = self.screen_to_game(mx, my)
         if self.joystick is not None:
@@ -274,31 +300,7 @@ class App:
         while running:
             dt = self.clock.tick(60) / 1000.0
             for ev in pg.event.get():
-                if ev.type == pg.QUIT:
-                    running = False
-                elif ev.type == pg.JOYDEVICEADDED and self.joystick is None:
-                    self.joystick = pg.joystick.Joystick(ev.device_index)
-                    self.joy_rest = [self.joystick.get_axis(i) for i in range(self.joystick.get_numaxes())]
-                elif ev.type == pg.JOYDEVICEREMOVED:
-                    self.joystick, self.joy_rest = None, []
-                elif ev.type == pg.MOUSEBUTTONDOWN and ev.button == 2 and self.state == "play":
-                    self.pending_weapon = WeaponCommand(cycle=-1)  # middle button: previous weapon
-                elif ev.type == pg.KEYDOWN:
-                    running = self.on_key(ev.key) and running
-                elif ev.type == pg.MOUSEWHEEL and self.state == "play":
-                    self.pending_weapon = WeaponCommand(cycle=-1 if ev.y > 0 else 1)
-                elif ev.type == pg.JOYBUTTONDOWN and self.state == "play" and ev.button in (4, 5):
-                    self.pending_weapon = WeaponCommand(cycle=-1 if ev.button == 4 else 1)
-                elif self._cards_up() and ev.type == pg.JOYBUTTONDOWN and ev.button in (0, 1, 2):
-                    self.pending_card = ev.button  # A, B, X choose a card while they are up
-                    self.card_masks_input = True
-                elif self._cards_up() and ev.type == pg.MOUSEBUTTONDOWN and ev.button == 1:
-                    hit = [i for i, r in enumerate(self.hud.card_rects) if r.collidepoint(ev.pos)]
-                    if hit:
-                        self.pending_card = hit[0]
-                        self.card_masks_input = True
-                elif ev.type == pg.JOYBUTTONDOWN and self.state == "play" and ev.button == 2 and self.modern:
-                    self.pending_dash = True
+                running = self.on_event(ev) and running
             if self.state == "play":
                 self.advance(dt if not self.args.frames else TICK / 2, frames)
             self.draw()
@@ -313,6 +315,89 @@ class App:
         pg.quit()
         return 0
 
+    def on_event(self, ev) -> bool:
+        """Handle one window event; False asks to quit."""
+        pg = self.pg
+        if ev.type == pg.QUIT:
+            return False
+        if ev.type == pg.KEYDOWN:
+            from .display import is_fullscreen_key
+
+            if is_fullscreen_key(ev.key, getattr(ev, "mod", 0)):
+                self.toggle_fullscreen()  # in every state, and nothing else: no start, no dash
+                return True
+            return self.on_key(ev.key)
+        if self.state in ("title", "briefing", "help", "horde_over", "complete", "dead") and (
+                ev.type in (pg.JOYHATMOTION, pg.JOYBUTTONDOWN)):
+            return self._pad_menu(ev)  # the D-pad and A, B drive the menus and screens
+        if ev.type == pg.JOYDEVICEADDED and self.joystick is None:
+            self.joystick = pg.joystick.Joystick(ev.device_index)
+            self.joy_rest = [self.joystick.get_axis(i) for i in range(self.joystick.get_numaxes())]
+        elif ev.type == pg.JOYDEVICEREMOVED:
+            self.joystick, self.joy_rest = None, []
+        elif ev.type == pg.MOUSEBUTTONDOWN and ev.button == 2 and self.state == "play":
+            self.pending_weapon = WeaponCommand(cycle=-1)  # middle button: previous weapon
+        elif ev.type == pg.MOUSEWHEEL and self.state == "play":
+            self.pending_weapon = WeaponCommand(cycle=-1 if ev.y > 0 else 1)
+        elif ev.type == pg.JOYBUTTONDOWN and self.state == "play" and ev.button in (4, 5):
+            self.pending_weapon = WeaponCommand(cycle=-1 if ev.button == 4 else 1)
+        elif self._cards_up() and ev.type == pg.JOYBUTTONDOWN and ev.button in (0, 1, 2):
+            self.pending_card = ev.button  # A, B, X choose a card while they are up
+            self.card_masks_input = True
+        elif self._cards_up() and ev.type == pg.MOUSEBUTTONDOWN and ev.button == 1:
+            hit = [i for i, r in enumerate(self.mhud.card_rects) if r.collidepoint(ev.pos)]
+            if hit:
+                self.pending_card = hit[0]
+                self.card_masks_input = True
+        elif self._cards_up() and ev.type == pg.MOUSEMOTION:
+            hit = [i for i, r in enumerate(self.mhud.card_rects) if r.collidepoint(ev.pos)]
+            if hit:
+                self.card_focus = hit[0]
+        elif self.state == "title" and ev.type == pg.MOUSEMOTION:
+            hit = [i for r, i in self.screens.rows if r.collidepoint(ev.pos)]
+            if hit and hit[0] != self.menu_index:
+                self.menu_focus(hit[0])
+        elif self.state == "title" and ev.type == pg.MOUSEBUTTONDOWN and ev.button == 1:
+            arrow = [(i, d) for r, i, d in self.screens.arrows if r.collidepoint(ev.pos)]
+            if arrow:
+                self.menu_focus(arrow[0][0])
+                self.menu_change(arrow[0][1])
+            elif any(r.collidepoint(ev.pos) for r, _ in self.screens.rows):
+                return self.menu_activate()
+        elif self.state in ("briefing", "help") and ev.type == pg.MOUSEBUTTONDOWN and ev.button == 1:
+            return self.on_key(pg.K_RETURN)
+        elif ev.type == pg.JOYBUTTONDOWN and self.state == "play" and ev.button == 2 and self.modern:
+            self.pending_dash = True
+        return True
+
+    def _pad_menu(self, ev) -> bool:
+        """A gamepad on the menus: the D-pad is the arrow keys, A is Enter (Space after a death,
+        as the original asks), B is Esc."""
+        pg = self.pg
+        if ev.type == pg.JOYHATMOTION:
+            hx, hy = ev.value
+            k = pg.K_UP if hy > 0 else pg.K_DOWN if hy < 0 else pg.K_LEFT if hx < 0 else pg.K_RIGHT if hx > 0 else None
+            return self.on_key(k) if k is not None else True
+        if ev.button == 0:
+            return self.on_key(pg.K_SPACE if self.state == "dead" else pg.K_RETURN)
+        if ev.button == 1 and self.state != "title":  # B backs out; on the title it does not quit
+            return self.on_key(pg.K_ESCAPE)
+        return True
+
+    def toggle_fullscreen(self) -> None:
+        """Full screen on or off. The frame keeps its size; SDL scales it (``pygame.SCALED``)."""
+        pg = self.pg
+        self.args.fullscreen = not getattr(self.args, "fullscreen", False)
+        if self.args.frames:
+            return  # headless: there is no window
+        try:
+            pg.display.toggle_fullscreen()
+        except pg.error:
+            from .display import window_flags
+
+            pg.display.set_mode(self.screen.get_size(), window_flags(self.args))
+        self.window = pg.display.get_surface()
+
     def advance(self, dt: float, frame_no: int = 0) -> None:
         """Run the 15 Hz ticks that ``dt`` seconds of display time owe, and none after the end."""
         self.acc = min(self.acc + dt, MAX_CATCHUP)
@@ -322,41 +407,31 @@ class App:
 
     def on_key(self, key) -> bool:
         pg = self.pg
+        if key == pg.K_F1 and self.state in ("title", "play", "paused", "briefing"):
+            self.help_return = "paused" if self.state == "play" else self.state
+            self.state = "help"  # the controls and the HUD's legend; play waits
+            return True
         if self.state == "title":
-            if key in (pg.K_RETURN, pg.K_SPACE):
+            return self._title_key(key)
+        if self.state == "help":
+            if key in (pg.K_F1, pg.K_ESCAPE, pg.K_RETURN, pg.K_SPACE):
+                self.state = self.help_return
+        elif self.state == "briefing":
+            if key in (pg.K_RETURN, pg.K_SPACE, pg.K_KP_ENTER):
                 self.state = "play"
-            elif key == pg.K_m:
-                self.args.mode = "classic" if self.modern else "remastered"
-                if self.args.mode == "classic":
-                    self.args.horde = False  # Horde is Remastered only
-                self.__init__(self.args)
-                self.state = "title"
-            elif key == pg.K_h:
-                self.args.horde = not getattr(self.args, "horde", False)
-                if self.args.horde:
-                    self.args.mode = "remastered"
-                self.__init__(self.args)
-                self.state = "title"
-            elif key == pg.K_d:
-                i = DIFFICULTIES.index(self.args.difficulty)
-                self.args.difficulty = DIFFICULTIES[(i + 1) % len(DIFFICULTIES)]
-                self.new_game()
-            elif key == pg.K_a and self.horde:
-                keys = list(ARENAS)
-                self.args.arena = keys[(keys.index(self.arena) + 1) % len(keys)]
-                self.new_game()
-            elif key == pg.K_l and self.modern and not self.horde and not self.args.playtest:
-                levels = campaign.playable_levels()
-                i = levels.index(self.level) if self.level in levels else -1
-                self.args.level = levels[(i + 1) % len(levels)]
-                self.new_game()
             elif key == pg.K_ESCAPE:
-                return False
+                self.state = "title"
         elif self.state == "play":
+            cards = self._cards_up()
             if key == pg.K_ESCAPE:
                 self.state = "paused"
-            elif self.horde and self.game.horde.state["cards"] and pg.K_1 <= key <= pg.K_3:
+            elif cards and pg.K_1 <= key <= pg.K_3:
                 self.pending_card = key - pg.K_1  # while upgrade cards are up, 1/2/3 choose one
+            elif cards and key in (pg.K_LEFT, pg.K_a, pg.K_RIGHT, pg.K_d):
+                n = len(self.game.horde.state["cards"])
+                self.card_focus = (self.card_focus + (-1 if key in (pg.K_LEFT, pg.K_a) else 1)) % n
+            elif cards and key in (pg.K_RETURN, pg.K_KP_ENTER):
+                self.pending_card = self.card_focus
             elif pg.K_1 <= key <= pg.K_7:
                 self.pending_weapon = WeaponCommand(select=key - pg.K_1)
             elif key == pg.K_q:
@@ -371,7 +446,7 @@ class App:
                 self.renderer.lighting = not self.renderer.lighting
             elif self.modern and key == pg.K_f:
                 self.pending_dash = True
-            elif self.modern and key == pg.K_r:
+            elif self.modern and key == pg.K_r and not self.horde:  # Horde has no consoles: R would end the run
                 self._restore("checkpoint")  # quick restart at the last console
                 self.hud.say("Back to the last console")
             elif self.modern and key == pg.K_g:
@@ -382,6 +457,8 @@ class App:
             elif key == pg.K_r:
                 self._restore("level_start")
                 self.state = "play"
+            elif key == pg.K_t:
+                self._to_title()
             elif key == pg.K_x:
                 return False
         elif self.state == "dead":
@@ -391,12 +468,142 @@ class App:
         elif self.state == "complete" and self.next_level and key in (pg.K_RETURN, pg.K_SPACE):
             self.change_level(self.next_level)
             self.state = "play"
+        elif self.state == "horde_over" and key in (pg.K_RETURN, pg.K_SPACE):
+            self.seed = (self.seed + 1) % 1024  # another run in the same arena
+            self.new_game()
+            self.state = "play"
         elif self.state in ("complete", "horde_over"):
             if key in (pg.K_RETURN, pg.K_SPACE, pg.K_ESCAPE):
-                self.seed = (self.seed + 1) % 1024
-                self.new_game()
-                self.state = "title"
+                self._to_title()
         return True
+
+    def _to_title(self) -> None:
+        self.seed = (self.seed + 1) % 1024
+        if self.modern and not self.horde and not self.args.playtest:
+            self.args.level = self.args.menu_level  # the title shows where the campaign starts
+        self.new_game()
+        self.state = "title"
+
+    # --- the title menu (screens.py draws it) ---
+    @property
+    def menu_index(self) -> int:
+        from .screens import menu_items
+
+        return min(self.args.menu_index, len(menu_items(self)) - 1)
+
+    def _title_key(self, key) -> bool:
+        pg = self.pg
+        if key in (pg.K_UP, pg.K_w):
+            self.menu_focus(self.menu_index - 1)
+        elif key in (pg.K_DOWN, pg.K_s):
+            self.menu_focus(self.menu_index + 1)
+        elif key in (pg.K_LEFT, pg.K_RIGHT):
+            self.menu_change(-1 if key == pg.K_LEFT else 1)
+        elif key in (pg.K_RETURN, pg.K_SPACE, pg.K_KP_ENTER):
+            return self.menu_activate()
+        elif key == pg.K_m:
+            self._set_mode("classic" if self.modern else "remastered")
+        elif key == pg.K_h:
+            self.args.horde = not getattr(self.args, "horde", False)
+            if self.args.horde:
+                self.args.mode = "remastered"
+            self.args.menu_index = 1 if self.args.horde else 0
+            self.__init__(self.args)
+            self.state = "title"
+        elif key == pg.K_d:
+            self._cycle_difficulty(1)
+        elif key == pg.K_a and self.horde:
+            self._cycle_arena(1)
+        elif key == pg.K_l and self.modern and not self.horde and not self.args.playtest:
+            self._cycle_level(1)
+        elif key == pg.K_ESCAPE:
+            return False
+        return True
+
+    def _menu_key(self) -> str:
+        from .screens import menu_items
+
+        return menu_items(self)[self.menu_index]["key"]
+
+    def menu_focus(self, index: int) -> None:
+        """Move the title's highlight. The backdrop follows: the campaign's level or the arena."""
+        from .screens import menu_items
+
+        self.args.menu_index = index % len(menu_items(self))
+        key = self._menu_key()
+        if key == "campaign" and self.horde:
+            self.args.horde = False
+            self.args.level = self.args.menu_level
+            self.new_game()
+        elif key == "horde" and not self.horde:
+            self.args.horde = True
+            self.new_game()
+
+    def menu_change(self, d: int) -> None:
+        key = self._menu_key()
+        if key == "campaign" and self.modern and not self.args.playtest:
+            self._cycle_level(d)
+        elif key == "horde":
+            self._cycle_arena(d)
+        elif key == "difficulty":
+            self._cycle_difficulty(d)
+        elif key == "mode":
+            self._set_mode("classic" if self.modern else "remastered")
+
+    def menu_activate(self) -> bool:
+        key = self._menu_key()
+        if key == "campaign":
+            self.state = "play"
+        elif key == "horde":
+            self.state = "briefing"  # how Horde works, before wave 1
+        elif key in ("difficulty", "mode"):
+            self.menu_change(1)
+        elif key == "controls":
+            self.help_return = "title"
+            self.state = "help"
+        elif key == "quit":
+            return False
+        return True
+
+    def _cycle_level(self, d: int) -> None:
+        levels = campaign.playable_levels()
+        i = levels.index(self.args.menu_level) if self.args.menu_level in levels else -1
+        self.args.level = self.args.menu_level = levels[(i + d) % len(levels)]
+        self.args.horde = False
+        self.new_game()
+
+    def _cycle_arena(self, d: int) -> None:
+        keys = list(ARENAS)
+        self.args.arena = keys[(keys.index(self.arena) + d) % len(keys)]
+        self.args.horde = True
+        self.new_game()
+
+    def _cycle_difficulty(self, d: int) -> None:
+        i = DIFFICULTIES.index(self.args.difficulty)
+        self.args.difficulty = DIFFICULTIES[(i + d) % len(DIFFICULTIES)]
+        self.new_game()
+
+    def _set_mode(self, mode: str) -> None:
+        from .screens import menu_items
+
+        self.args.mode = mode
+        if mode == "classic":
+            self.args.horde = False  # Horde is Remastered only
+        self.__init__(self.args)
+        self.args.menu_index = [it["key"] for it in menu_items(self)].index("mode")
+        self.state = "title"
+
+    def best_time(self, level: str) -> str | None:
+        from .remaster import load_records, run_key
+
+        rec = load_records().get(run_key(self.args.difficulty, level))
+        return clock_text(rec["ticks"]) if rec else None
+
+    def best_score(self, arena: str) -> int | None:
+        from .remaster import horde_top
+
+        top = horde_top(self.args.difficulty, arena)
+        return top[0]["score"] if top else None
 
     def stats_lines(self) -> list[str]:
         s = self.stats
@@ -425,9 +632,11 @@ class App:
     def horde_over_lines(self) -> list[str]:
         st = self.game.horde.state
         f = self.finish or {}
+        waves = f"{st['cleared']} wave{'s' if st['cleared'] != 1 else ''} cleared"
+        kills = f"{st['kills']} kill{'s' if st['kills'] != 1 else ''}"
         lines = [f"HORDE OVER - {ARENAS[self.arena].title}",
-                 f"score {st['score']}   waves cleared {st['cleared']}   kills {st['kills']}   "
-                 f"best combo x{st['best_combo']}"]
+                 f"SCORE {st['score']}",
+                 f"{waves}, {kills}, best combo x{st['best_combo']}"]
         by = ", ".join(f"{n} {HORDE_NAMES.get(k, k)}" for k, n in sorted(st["kills_by"].items()))
         if by:
             lines.append(by)
@@ -437,8 +646,9 @@ class App:
         if top:
             lines.append("top 5 of the table:")
         for i, r in enumerate(top[:5]):
-            lines.append(f"{i + 1}. {r['score']}  ({r['cleared']} waves, {r['kills']} kills)")
-        return lines + ["Enter to continue"]
+            lines.append(f"{i + 1}. {r['score']}  ({r['cleared']} wave{'s' if r['cleared'] != 1 else ''}, "
+                         f"{r['kills']} kill{'s' if r['kills'] != 1 else ''})")
+        return lines
 
     def _rebind(self):
         self.renderer.game = self.game
@@ -458,12 +668,14 @@ class App:
         if getattr(self, "card_masks_input", False):  # the click or button that chose a card
             self.card_masks_input = False  # does not also fire, jump or act this tick
             inp = Inputs(x=inp.x, pointer_x=inp.pointer_x, pointer_y=inp.pointer_y)
+        power_before = self.game.player.lvars.get("special_power", 0)  # before a card can give one
         if card is not None and self.game.horde is not None:
             self.game.horde.choose(card)  # recorded as asked, like a dash
         hp_before = self.game.player.hp
         self.game.step(inp, weapon)
         self.renderer.note_tick()
         self.stats["ticks"] += 1
+        self._note_power(power_before, inp)
         if self.ghost_rec is not None:
             self.ghost_rec.capture(self.game)
         w = self.game.world
@@ -475,12 +687,20 @@ class App:
                 self.hit_uids.add(e.data["target"])
                 self.stats["enemies_hit"] = len(self.hit_uids)
             elif e.kind == "horde_wave":
-                boss = "  - BOSS WAVE" if e.data.get("boss") else ""
-                self.hud.say(f"Wave {e.data['wave']}: {e.data['size']} incoming{boss}")
+                boss = " - BOSS WAVE!" if e.data.get("boss") else ""
+                self.hud.say(f"WAVE {e.data['wave']}: {e.data['size']} ENEMIES{boss}")
             elif e.kind == "horde_cleared":
-                self.hud.say(f"Wave {e.data['wave']} cleared - supplies dropped. Pick an upgrade: 1, 2 or 3")
+                self.last_clear = {"bonus": e.data.get("bonus", 0), "clean": e.data.get("clean", 0)}
+                self.card_focus = 0  # the cards screen says the rest
             elif e.kind == "horde_card":
-                self.hud.say(f"Upgrade: {CARDS[e.data['card']]}")
+                from .modern_hud import CARDS as CARD_ART
+                from .modern_hud import POWER_CARDS
+
+                name, _, what, _ = CARD_ART.get(e.data["card"], (e.data["card"], None, CARDS[e.data["card"]], 0))
+                if e.data["card"] not in POWER_CARDS:  # a power's own prompt says what it does
+                    self.hud.say(f"{name}: {what}")
+            elif e.kind == "boss_life":
+                self.hud.say(f"THE BOSS GETS BACK UP - {e.data['lives'] + 1} LIVES LEFT")
             elif e.kind == "wall_destroyed":
                 self.stats["secrets"] += 1
             elif e.kind == "help":
@@ -529,6 +749,20 @@ class App:
                 if self.finish["new_best"] and self.ghost_rec is not None:
                     self.ghost_rec.save(self.args.difficulty, self.record_level)
 
+    def _note_power(self, before: int, inp: Inputs) -> None:
+        """A newly carried power gets a big prompt; one used by holding a key stays flagged on
+        the HUD until that key is first held."""
+        from ..engine.behaviors.player import FAST_POWER, FLY_POWER, SNEAKY_POWER
+
+        held = (FAST_POWER, FLY_POWER, SNEAKY_POWER)
+        now = self.game.player.lvars.get("special_power", 0)
+        if now != before and now:
+            self.power_used = now not in held
+            if self.modern:
+                self.mhud.show_power(now)
+        if inp.b1 and now in held:
+            self.power_used = True
+
     def draw(self):
         pg = self.pg
         alpha = min(1.0, self.acc / TICK) if self.state == "play" else 1.0
@@ -546,34 +780,46 @@ class App:
                 self.ghost_painter.draw(surf, self.game, row, xoff, yoff)
             self.particles.draw(surf, xoff, yoff)
         pg.transform.scale(surf, self.screen.get_size(), self.screen)
-        if self.state in ("play", "paused", "dead", "complete", "horde_over"):
+        playing = self.state in ("play", "paused", "dead", "complete", "horde_over") or (
+            self.state == "help" and self.help_return != "title")
+        if playing and self.modern:
+            self.mhud.draw(self.screen, self)
+            if self._cards_up():
+                self.mhud.draw_cards(self.screen, self)
+        elif playing:
             self.hud.draw(self.screen, self.game, self.stats)
-        if self.horde and self.state == "play":
-            self.hud.draw_horde(self.screen, self.game)
         if self.state == "play":
             mx, my = pg.mouse.get_pos()
             pg.draw.circle(self.screen, (255, 80, 80), (mx, my), 9, 1)
             pg.draw.line(self.screen, (255, 80, 80), (mx - 13, my), (mx - 5, my))
             pg.draw.line(self.screen, (255, 80, 80), (mx + 5, my), (mx + 13, my))
+        sc = self.screens
         if self.state == "title":
-            start = f"    Start: {campaign.title(self.level)} (L)" if self.modern and not self.horde else ""
-            levels = ", ".join(campaign.title(n) for n in campaign.playable_levels())
-            self.hud.center(self.screen, ["ABUSE", "Level 1 — reconstructed" if not self.modern
-                                          else f"Remastered — {levels}",
-                                          f"Mode: {self.args.mode} (M)    Difficulty: {self.args.difficulty} (D)"
-                                          + (f"    HORDE (H): {ARENAS[self.arena].title} (A)" if self.horde
-                                             else "    Horde: off (H)") + start,
-                                          "Enter to start    Esc to quit"],
-                            "Original game © 1996 Crack dot Com (public-domain code and shareware data)")
+            sc.title(self.screen, self)
+        elif self.state == "briefing":
+            sc.briefing(self.screen, self)
+        elif self.state == "help":
+            sc.help(self.screen, self)
+        elif self.modern and self.state == "paused":
+            sc.pause(self.screen, self)
+        elif self.modern and self.state == "dead":
+            sc.dead(self.screen, self)
+        elif self.modern and self.state == "complete":
+            sc.complete(self.screen, self, self.stats_lines())
+        elif self.state == "horde_over":
+            sc.horde_over(self.screen, self, self.horde_over_lines())
         elif self.state == "paused":
             self.hud.center(self.screen, ["PAUSED", "Esc resume    R restart level    X quit"])
         elif self.state == "dead":
             self.hud.center(self.screen, ["YOU DIED", "Space to restart from the last save"])
         elif self.state == "complete":
             self.hud.center(self.screen, self.stats_lines())
-        elif self.state == "horde_over":
-            self.hud.center(self.screen, self.horde_over_lines())
-        pg.display.flip()
+        self.present()
+
+    def present(self) -> None:
+        """Copy the drawn frame to the window and show it."""
+        self.window.blit(self.screen, (0, 0))
+        self.pg.display.flip()
 
 
 HORDE_NAMES = {"ANT_ROOF": "ants", "FLYER": "flyers", "GREEN_FLYER": "green flyers", "ROB1": "robots",

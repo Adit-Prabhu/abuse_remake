@@ -4,6 +4,35 @@ This page lets a fresh session (human or agent) pick up the build. Update it wit
 The approved plan is summarised in the "Branches and PRs" table below; `SCOPE.md` is the scope
 record.
 
+## Remastered polish (2026-10-15)
+
+The student played the stack and reported:
+- Horde on Level 2 felt poorly made: you could fall into holes and never get back up;
+- the upgrade cards (blue boxes) did not match the game's look;
+- nobody said how to use a power-up;
+- unexplained white bars on screen;
+- the window could not be resized or put into full screen;
+- training seemed to be gone;
+- the ghost had a black background again.
+
+Causes and fixes (R6, #20, `feat/rm-polish` on R5):
+- **The white bars and the ghost's box were one macOS-only bug.** The macOS window surface has an
+  alpha channel; drawing straight onto it made pygame-ce fill every text box and the ghost's
+  rectangle. The dummy driver used by tests and screenshots has no alpha, so it never showed.
+  Frames are now drawn on opaque surfaces (`game/display.py`, `tests/test_display.py`), checked
+  on the real Cocoa driver too.
+- **Holes.** Horde removes every object, including the ladders and lifts out of each room. The
+  arenas are now sealed with the level's own tiles (`horde.SEALS`); Horde traces are version 3.
+- **Look and teaching.** The cards, the HUD and every Remastered screen are drawn from the
+  original's interface art (`game/ui.py`, `modern_hud.py`, `screens.py`). Every HUD element is
+  labelled, powers show how to use them, Horde has a briefing, and F1 explains the controls and
+  the screen.
+- **Full screen.** A resizable, scaled window; F11, Alt+Enter or Cmd+F.
+- **Training.** It was there, but the title started at Level 1 and only the L key reached it.
+  The title is now a menu whose campaign starts with Training.
+
+Still the student's: play it on their Mac and accept or reject the feel.
+
 ## Remastered expansion (2026-10-14)
 
 The student chose to grow Remastered mode, and approved the plan:
@@ -22,10 +51,12 @@ state hashes computed on `main` before the work.
 | R3 (#17) | `feat/rm-level02` | R2 | Level 2 objects (blocks, steps, pushers, tracking gun, cleaner robot, Juggernaut, thrown grenades), Level 2 route |
 | R4 (#18) | `feat/rm-horde2` | R3 | Horde 2: arenas (prison, rooftop, Juggernaut floor), roster, boss, cards, score and combos, top-10 tables |
 | R5 (#19) | `docs/rm-evidence` | R4 | Screenshots (`scripts/remastered_evidence.py`, `evidence/remastered/`), review records, these notes |
+| R6 (#20) | `feat/rm-polish` | R5 | The macOS display fix, a resizable window and full screen, sealed Horde arenas, the interface in the original's art (title menu, HUD, cards, briefing, controls screen), power prompts |
 
 How to pick it up:
-- `uv run abuse-remake` and press L on the title to choose the start level, or H for Horde and A
-  for its arena. `--level level00` and `--horde --arena rooftop` do the same from the command line.
+- `uv run abuse-remake` opens the title menu: PLAY CAMPAIGN (left and right choose the start
+  level) or HORDE (left and right choose the arena). `--level level00` and `--horde --arena
+  rooftop` do the same from the command line.
 - `uv run python scripts/route_search.py --level level02 --goal level03 --via "x,y;..." --out F`
   finds a route; `tests/test_campaign_routes.py` replays every saved route.
 - A new campaign level needs:

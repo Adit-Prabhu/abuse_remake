@@ -363,7 +363,7 @@ def test_training_messages_reach_the_hud_with_the_modern_keys(home):
 
     app.game.step = step_keeping_help
     app.tick(0)
-    assert app.hud.help_text == "Hold down the right mouse button to use special powers  (or left Shift)"
+    assert app.hud.help_text == "Hold down the right mouse button to use special powers  (or Shift)"
     from abuse_remake.game.hud import POWER_IMAGES
 
     assert all(app.sprites.image("art/misc.spe", name) is not None for name in POWER_IMAGES.values())

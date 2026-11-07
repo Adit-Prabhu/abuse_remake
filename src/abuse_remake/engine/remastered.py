@@ -5,6 +5,8 @@ Classic mode never creates this object, and no fidelity test or evaluation runs 
 ``bottom_damage`` ignores damage while ``player_iframes`` is above zero, and the campaign
 (``_follow_exits``) may keep a level going after its exit sets ``level_complete``, when that exit
 leads to a level that cannot be played and another exit can. Level 1's exit is never kept shut.
+Horde (``horde.py``) adds a third: ``World.activate_for_views`` also activates
+``world.globals["awake_area"]``, the whole arena, which only Horde sets.
 
 The dash: a short burst along the ground or through the air in the direction you face (or are
 pressing). It moves with the engine's own collision (``try_move`` with feet and head checks), so
@@ -49,8 +51,9 @@ class Remastered:
 
     def can_dash(self) -> bool:
         p = self.game.player
+        cards = self.game.world.globals.get("horde", {}).get("cards")  # Horde's cards hold play still
         return self.state["cooldown"] == 0 and p.aistate == NORMAL_PLAY and p.state not in ("dieing", "dead") \
-            and not p.lvars.get("is_teleporting")
+            and not p.lvars.get("is_teleporting") and not cards
 
     def request_dash(self, direction: int = 0) -> bool:
         """Start a dash toward ``direction`` (-1 or 1), or the way the player faces if 0."""
@@ -96,8 +99,9 @@ class Remastered:
         p = self.game.player
         if st.pop("announce", False):
             self.game.world.emit("dash", x=p.x, y=p.y, direction=st["dash_dir"])
-        if st["dash_left"] > 0 and (p.aistate != NORMAL_PLAY or p.lvars.get("is_teleporting")):
-            st["dash_left"] = 0  # a teleport or death cancels the rest of the dash
+        cards = self.game.world.globals.get("horde", {}).get("cards")
+        if st["dash_left"] > 0 and (p.aistate != NORMAL_PLAY or p.lvars.get("is_teleporting") or cards):
+            st["dash_left"] = 0  # a teleport, death or Horde's upgrade cards cancel the rest of the dash
         if st["dash_left"] > 0:
             _, xv, _ = p.try_move(p.x, p.y, DASH_SPEED * st["dash_dir"], 0, 3)
             p.x += xv

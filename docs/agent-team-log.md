@@ -73,6 +73,21 @@ it in a fresh context, and the agent fixed or recorded every finding. The studen
   - Several usage limits interrupted reviews, which were resumed.
   - A test that killed enemies outside a tick hid that Horde reads damage only from inside one.
 
+## Remastered polish (2026-10-15)
+
+> Drafted by the implementation agent. **TODO (student):** check these lines.
+
+- **Human decisions.** The student played the stack and listed what felt poorly made. They chose
+  to seal the Horde arenas rather than open their lower floors, said the "white bars" were in the
+  HUD and the black-backed ghost was the ghost race runner, and approved the written plan
+  (`~/.claude/plans/remastered-polish.md`).
+- **What went wrong.** Every screenshot and test ran on SDL's dummy driver, whose surfaces have
+  no alpha channel. The macOS window has one, and on it the HUD's text and the ghost were drawn as
+  solid boxes. The agent had reviewed only headless screenshots, so it never saw what the student
+  saw. The fix was found by running the game on the real Cocoa driver. Display checks now include
+  that, and `tests/test_display.py` stands in for the macOS format.
+- **Handoffs.** One PR, #20, on #19. A fresh read-only reviewer checked the Horde engine change.
+
 ## What went wrong, and what changed
 
 - **Provenance.** The agent first claimed a data lineage it had not verified. The PR #1

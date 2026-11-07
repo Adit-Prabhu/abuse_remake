@@ -11,6 +11,8 @@ This mirrors the start of play in historicalsource/abuse@01cce80:
 from __future__ import annotations
 
 import hashlib
+import sys
+from array import array
 from dataclasses import dataclass
 from functools import cache
 
@@ -103,7 +105,10 @@ class Game:
                 self.view.last_weapon()
             elif weapon.cycle > 0:
                 self.view.next_weapon()
-        self.view.set_input(inputs or Inputs(pointer_x=self.player.x + 100, pointer_y=self.player.y - 20))
+        inputs = inputs or Inputs(pointer_x=self.player.x + 100, pointer_y=self.player.y - 20)
+        if self.horde is not None:
+            inputs = self.horde.hold(inputs)  # Horde's upgrade cards hold play still
+        self.view.set_input(inputs)
         if self.remastered is not None:
             self.remastered.before_step()
         self.world.step()
@@ -167,8 +172,12 @@ class Game:
                       f"{o.direction},{sorted(o.lvars.items())}").encode())
         v = self.view
         h.update(f"{v.weapons},{v.current_weapon},{v.ambient},{v.pan_x},{v.pan_y}".encode())
-        if self.horde is not None:  # Horde's score, cards and timers (Classic never has them)
+        if self.horde is not None:  # Horde's score, cards and timers, and its sealed map (never Classic)
             h.update(repr(sorted(self.horde.state.items())).encode())
+            cells = array("H", self.world.tiles.cells)
+            if sys.byteorder != "little":
+                cells.byteswap()  # the same hash on every machine
+            h.update(cells.tobytes())
         return h.hexdigest()
 
 

@@ -2,8 +2,8 @@
 
 `uv run abuse-remake` starts in Remastered mode, and `--mode classic` gives the faithful port.
 `--playtest` starts in Classic mode, because playtests are the human reference for the Classic
-evaluation. The title screen toggles the mode (M), the difficulty (D) and Horde (H). Horde is
-Remastered only, so switching to Classic turns it off.
+evaluation. The title is a menu (see "The interface" below): play the campaign, play Horde, and
+set the difficulty and the mode. Horde is Remastered only, so switching to Classic turns it off.
 
 Classic mode is the reconstruction: the original rules and the original 316x162 view, on
 Level 1. Every fidelity test and every evaluation runs Classic rules. Remastered keeps the same
@@ -18,8 +18,10 @@ training level (`level00`) and Level 2 (`level02`). Both are vendored byte for b
 Level 1's, with `code` rows in `docs/rule-source-map.md`. A level is offered once every object in
 it is ported (`campaign.playable`), and the title screen lists the playable ones.
 
-- **Where to start.** L on the title screen picks the start level among the playable ones, or
-  use `--level`. Classic mode and playtests stay on Level 1; Horde picks its map by arena.
+- **Where to start.** The title's PLAY CAMPAIGN line starts at Training; left and right pick
+  another playable level (L does the same), or use `--level`. `--skip-title` with no `--level`
+  starts at Level 1, as before. Classic mode and playtests stay on Level 1; Horde picks its map
+  by arena.
 - **Exits lead on.** An exit loads the level its number names, as in the original
   (`engine/campaign.py`). The training level ends in the original portal room, with exits to
   Levels 1 to 4. Level 1's exit leads to Level 2, and Level 2's to Level 3.
@@ -106,6 +108,61 @@ its last input, with the three pickups; it does not check each step of the walkt
 The proof is for Remastered Level 2 with its placed power-ups, on hard with seed 0: it does not
 show whether the level can be finished without the ultra health it picks up early.
 
+## The interface (no rule changes)
+
+Remastered's screens are drawn from the original game's own interface art (`game/ui.py`): its
+8x8 and 5x7 fonts (`art/fonts.spe`), its window texture and bevel colours (`art/frame.spe`),
+the status bar's weapon icons (`art/statbar.spe`), the title art (`art/title.spe`) and the
+power-up and pickup sprites. Everything is measured in game pixels, so the interface keeps the
+pixel size of the world.
+
+- **Title menu** (`game/screens.py`). The original title art and a menu:
+  - PLAY CAMPAIGN (from Training, or another start level);
+  - HORDE (choose the arena; your best score is shown);
+  - DIFFICULTY, MODE, CONTROLS and QUIT.
+  Up and down (or W and S, or the mouse) pick a line; left and right (or the arrows on it)
+  change it; Enter or a click starts it. The backdrop shows what Enter would start. The old letter
+  keys still work: M, D, H, A and L.
+- **The HUD** (`game/modern_hud.py`). Every part is labelled:
+  - HEALTH: a heart, a meter and health over its limit (200 with ultra health);
+  - DASH: its key and a meter that refills after each dash;
+  - weapons: the original icons, each with its key and ammo; the one in your hands is lit and
+    framed, and the laser's ammo shows the original font's infinity sign when it cannot run out;
+  - TIME, KILLS and, in the campaign, SECRETS;
+  - POWER at the top right: the power's icon, HOLD SHIFT / RMB for the ones you hold, and in Horde
+    the wave it ends with. It pulses until you first hold the key.
+- **Power prompts.** Getting a power shows a large prompt, such as "FLIGHT! HOLD SHIFT OR RIGHT
+  MOUSE TO FLY". Right Shift works as well as left Shift in Remastered.
+- **Horde.**
+  - A briefing before wave 1: the goal, the upgrades, power-ups, score and the controls.
+  - One panel at the top left: WAVE, ENEMIES LEFT (or STARTS IN 3, 2, 1 between waves), SCORE and
+    COMBO with its time left.
+  - The boss's health, with a notch between lives.
+  - Between waves, each pickup on the floor is named.
+  - The upgrade screen: "WAVE n CLEARED" with the bonuses earned, then three cards. Each card
+    shows the item's sprite, what it does, how to use it and how long it lasts. Choose with 1, 2
+    or 3, a click, the arrows and Enter, or the gamepad. While the cards are up, play holds still
+    (a Horde rule in the engine, so replays agree): the arrows choose instead of walking, nothing
+    jumps or fires, a dash is refused and one under way stops. Switching weapons still works.
+  - HORDE OVER: Enter plays again in the same arena; Esc goes to the title.
+  - R does nothing in Horde play: there are no consoles, and it used to restart the run. The pause
+    screen's R restarts the run on purpose.
+- **Controls screen.** F1 (or CONTROLS on the title) lists every control, and says what each part
+  of the screen means.
+- **Pause, death and level complete** use the same panels; T on the pause screen goes back to the
+  title.
+- **The window.** It can be resized, and the frame is scaled to fit, letterboxed. F11, Alt+Enter
+  or Cmd+F (Ctrl+Cmd+F, the macOS shortcut, too) switch full screen in every mode and screen, and
+  the green window button works on macOS (`game/display.py`).
+- **macOS display fix.** A macOS window surface has an alpha channel. Frames used to be drawn
+  straight onto it: the tiles left its alpha at 0, and pygame-ce then filled every text box and
+  the ghost's whole rectangle. The HUD's text showed as white bars and the ghost race runner had a
+  black box. Frames are now drawn on surfaces with no alpha channel and copied to the window
+  (`tests/test_display.py` stands in for the macOS format). This also fixes Classic's HUD on macOS.
+
+Classic keeps its own HUD and pause, death and end screens; only the title menu, the controls
+screen and the window are shared.
+
 ## Presentation (no rule changes)
 
 - A wider 16:9 view (480x270), 60 fps drawing interpolated between the 15 Hz ticks.
@@ -118,7 +175,7 @@ show whether the level can be finished without the ultra health it picks up earl
 | Feature | Controls | What it does | Code |
 |---|---|---|---|
 | Dash | F, gamepad X | 4 ticks at +13 px per tick through the engine's own collision (it never passes walls), invulnerable for 7 ticks from the start, an 18-tick cooldown, not while teleporting or before play starts | `engine/remastered.py` |
-| Horde | `--horde`, or H on the title screen; A (or `--arena`) picks the arena; 1, 2, 3, a click, or gamepad A/B/X pick an upgrade | Waves of enemies in an arena: the prison floor of Level 1, Level 2's rooftop, or Level 2's Juggernaut floor. Ants first, then flyers, cleaner robots and Juggernauts, and a boss Juggernaut with extra lives every fifth wave. Between waves you get health and ammo, and choose one of three upgrade cards (a power-up for the next wave, full health, ammo, the rocket launcher, or a faster dash). Your kills score points times a combo; a wave without damage earns a bonus. The run ends on death, with a top-10 table per arena and difficulty. A Horde game recorded before Horde 2 cannot be replayed (`horde_version`) | `engine/horde.py` |
+| Horde | HORDE on the title menu, or `--horde`; left and right on it (or A, or `--arena`) pick the arena; 1, 2, 3, a click, the arrows and Enter, or gamepad A/B/X pick an upgrade | Waves of enemies in a sealed arena: the prison floor of Level 1, Level 2's rooftop, or Level 2's Juggernaut floor. Each arena is a room of a real level, and Horde removes the ladders and lifts that lead out of it, so walls and floors made of the level's own tiles close every drop and way out when it loads: nobody can fall, walk, dash or fly out, and every enemy stays in the arena and comes for you (tested for every kind, from both ends). The whole arena is awake: in the original only what is near the view acts, so an enemy released at the far end of a long arena used to stand still until you walked over. Ants first, then flyers, cleaner robots and Juggernauts, and a boss Juggernaut with extra lives every fifth wave. Between waves you get health and ammo, and choose one of three upgrade cards (a power-up for the next wave, full health, ammo, the rocket launcher, or a faster dash). Your kills score points times a combo; a wave without damage earns a bonus. The run ends on death, with a top-10 table per arena and difficulty. Supplies land on the floor, in sight to one side of you. A Horde game recorded before the arenas were sealed cannot be replayed (`horde_version` 3) | `engine/horde.py` |
 
 ## Quality-of-life features (no rule changes)
 
@@ -133,6 +190,18 @@ Records, ghosts and Horde's high scores are kept per player in `~/.abuse_remake/
 `ABUSE_REMAKE_HOME` to keep them elsewhere.
 
 ## Tests
+
+`tests/test_display.py` checks that frames are drawn on surfaces with no alpha channel, that a
+window with one (as on macOS) shows exactly the drawn frame, that the ghost has no box around it,
+and the window's resizing and full-screen keys. `tests/test_menus.py` checks the title menu (the
+campaign starts with Training; keys, mouse and the old letters), the Horde briefing, the controls
+screen, the upgrade cards' keys, the power prompt, that R never ends a Horde run, and that every
+screen draws in both modes at several scales. `tests/test_horde2.py` checks that every spot on an
+arena's floor holds the player, that nobody leaves an arena by walking, jumping, dashing, flying
+or running fast (and that the same check finds the way out once an arena's seals are taken
+away), that every enemy kind released at either end stays in the arena and comes for the player,
+that the seals use only the level's own tiles and only in Horde, that supplies land on the floor
+40 to 140 px from the player, and that play holds still while the cards are up, also in a replay.
 
 `tests/test_remastered.py` checks:
 - Classic games and agent episodes never build Remastered or Horde rules;

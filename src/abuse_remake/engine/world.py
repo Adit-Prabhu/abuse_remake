@@ -2,7 +2,8 @@
 
 Port of historicalsource/abuse@01cce80:
 - level::tick, add_actives, pull_actives, unactivate_all: abuse/src/level.c:162-242, 596-760
-- game::step (active area = view +/- a quarter of its size): abuse/src/game.c:1980-2000
+- game::step (active area = view +/- a quarter of its size): abuse/src/game.c:1980-2000; Remastered's
+  Horde alone adds its whole arena (``globals["awake_area"]``, see engine/horde.py)
 - boundary_setback, all_boundary_setback: level.c:461-563
 - check_collisions: abuse/src/collide.c
 - hurt_radius, find_*, crush, platform_push, push_characters, send_signal: level.c:2742-3020
@@ -349,6 +350,9 @@ class World:
                 h = v.cy2 - v.cy1 + 1
                 xo, yo = v.xoff(), v.yoff()
                 self.add_actives(xo - cdiv(w, 4), yo - cdiv(h, 4), xo + w + cdiv(w, 4), yo + h + cdiv(h, 4))
+        awake = self.globals.get("awake_area")  # Remastered's Horde only: its whole arena acts
+        if awake is not None:
+            self.add_actives(*awake)
 
     # --- the tick (level.c:596-760) ---
     def step(self) -> None:

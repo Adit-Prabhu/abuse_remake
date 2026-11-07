@@ -8,7 +8,8 @@ project ("AI in Practice: Game Design and Development").
   engine and Lisp rules, played on the original Level 1 file. Every rule is cited in
   `docs/rule-source-map.md` with an evidence label.
 - **Remastered mode** adds a wider view, lighting and particles, a dash, quick restart, a ghost
-  race, an AI spectator and a Horde arena (`docs/remastered.md`). Evaluations always run Classic
+  race, an AI spectator, a campaign (Training, Level 1, Level 2) and Horde, with an interface
+  drawn from the original game's own art (`docs/remastered.md`). Evaluations always run Classic
   rules.
 - The scope record is `SCOPE.md`. Data provenance and licences are in
   `data/original/PROVENANCE.md`, and `docs/data-lineage.md` shows the data matches the 1995 and
@@ -18,8 +19,8 @@ project ("AI in Practice: Game Design and Development").
 
 ```sh
 uv sync --all-extras
-uv run abuse-remake                         # play (Remastered); --mode classic for the faithful port
-uv run abuse-remake --horde                 # the Horde arena
+uv run abuse-remake                         # play (Remastered): a title menu, the campaign starts with Training
+uv run abuse-remake --horde --arena rooftop # straight to a Horde arena; --mode classic for the faithful port
 uv run pytest                               # deterministic tests: no network, no model calls
 uv run abuse-data verify                    # check the original data files
 ```
@@ -32,7 +33,9 @@ Controls:
 - weapons: 1–4, the original Ctrl/Home (previous) and Insert/PageUp (next), Q/E, the mouse wheel,
   or the middle button;
 - pause: Esc; after a death, Space restarts from the last console;
-- Remastered: dash F, quick restart R, ghost G.
+- all controls, and what each part of the screen means: F1;
+- full screen: F11, Alt+Enter or Cmd+F; the window can also be resized;
+- Remastered: dash F, quick restart R (not in Horde), ghost G, right Shift as well as left.
 
 Gamepads work too.
 

@@ -5,7 +5,13 @@ Arenas. The level's own objects are removed; only the map and its lights stay.
 - ``prison``: the longest flat floor in Level 1 with room above it (tile columns 56 to 79, row
   109: x 1680 to 2400). The original Horde arena, and still the default.
 - ``rooftop``: the long ledge at the top of Level 2 (x 2040 to 2600), with high headroom.
-- ``pit``: Level 2's raised Juggernaut floor (x 1180 to 1500), where the level keeps two.
+- ``pit``: Level 2's raised Juggernaut floor (x 1180 to 1580), where the level keeps two.
+Each arena is a room cut out of a real level, and the ladders and lifts that lead out of it are
+objects, which Horde removes. So each arena is sealed when it loads (``SEALS``): walls and floors
+built from the level's own tiles close every drop and every way out, so that nobody can fall,
+walk, dash or fly out of it. The whole arena acts each tick (``world.globals["awake_area"]``), not
+only what is near the view as in the original (``game::step``), so every enemy comes for the
+player wherever it was released.
 
 Waves. Wave n has 2 + 2n enemies, released one every 18 ticks at the arena's ends. Waves 1 and 2
 are ants only, as in the first Horde. From wave 3 each slot is drawn from a growing roster:
@@ -17,11 +23,12 @@ its feet. The enemies run their ported AI (ant.c, flyer.lsp, jugger.lsp). Ants a
 and jumping toward the player (``run_jump``, aistate 6) as the original's wall cracks release
 them (``ant.lsp:524-551``), at 12 px per tick rather than 20.
 
-Between waves. Health and ammo drop, and three upgrade cards are offered. The next wave waits
-until one is chosen (``choose``). Speed, flight and ultra health give that power until the end
-of the next wave; when ultra health ends, health above the normal cap of 100 goes with it. The dash
-card shortens the dash's recharge down to 10 ticks, then is no longer offered: below that the
-recharge would beat the 7 ticks of invulnerability and the player could never be hurt.
+Between waves. Health and ammo drop onto the floor, 40 to 140 px to one side of the player, and
+three upgrade cards are offered. The next wave waits until one is chosen (``choose``). Speed,
+flight and ultra health give that power until the end of the next wave; when ultra health ends,
+health above the normal cap of 100 goes with it. The dash card shortens the dash's recharge down
+to 10 ticks, then is no longer offered: below that the recharge would beat the 7 ticks of
+invulnerability and the player could never be hurt.
 Invisibility is not offered: in the original it only changes how the player is drawn.
 
 Score. A kill by the player (the last hit was the player's, or the player's shot or grenade)
@@ -29,7 +36,12 @@ scores its enemy's points times the combo, which grows by one (up to 5) for each
 45 ticks of the last. A cleared wave adds 200 per wave number, and 300 more per wave number if the
 player took no damage in it. The run ends when the player dies.
 
-All state is in ``world.globals["horde"]``, so snapshots carry it. Horde draws its random numbers
+While the cards are up, play holds still: ``Game.step`` passes the player only the aim (``hold``),
+so the arrows and the mouse choose a card instead of walking, jumping or firing; a dash is refused
+and one under way stops. Switching weapons still works.
+
+All state is in ``world.globals["horde"]``, except the sealed cells, which are in the world's own
+tile map; snapshots carry both, and ``Game.state_hash`` covers both. Horde draws its random numbers
 from its own generator seeded from the game seed, so it never moves the original random table more
 than the enemies themselves do.
 """
@@ -57,10 +69,28 @@ class Arena:
 
 ARENAS = {
     "prison": Arena("prison", "level01", "Prison floor (Level 1)", 1680, 2400, 1640, 24),  # ceiling ~77 px up
-    # tile columns 68 to 86 above row 32, and 39 to 50 above row 87 (30x15 tiles); found by
-    # scanning Level 2's map for long flat floors with headroom (tests/test_horde2.py lands on them)
+    # tile columns 68 to 86 above row 32, and 39 to 52 above row 87 once sealed (30x15 tiles); found
+    # by scanning Level 2's map for long flat floors with headroom (tests/test_horde2.py lands on them)
     "rooftop": Arena("rooftop", "level02", "Rooftop (Level 2)", 2040, 2600, 481, 120),  # ceiling ~223 px up
-    "pit": Arena("pit", "level02", "Juggernaut floor (Level 2)", 1180, 1500, 1306, 40),  # ~103 px at its ends
+    "pit": Arena("pit", "level02", "Juggernaut floor (Level 2)", 1180, 1580, 1306, 40),  # ~103 px at its ends
+}
+# Cells (tile x1..x2, y1..y2, inclusive) set to a tile when the arena loads, in order. The tiles
+# are the levels' own beveled-block set: 10 and 11 the right and left faces of a wall, 12 and 13
+# the joints where a floor meets a wall on its left and right, 26 a floor's top, 28 solid fill,
+# 67 an underside, 44 an underside's right corner.
+SEALS: dict[str, tuple[tuple[int, int, int, int, int], ...]] = {
+    # a lid on the lift shaft in the top-left corner (column 56), which flight could climb
+    "prison": ((56, 57, 103, 103, 67),),
+    # a pillar from the roof to the corridor floor at the ledge's left end, over the 60 px gap
+    # (columns 66-67) that dropped into the corridor under the roof
+    "rooftop": ((66, 66, 17, 41, 11), (67, 67, 17, 41, 10), (67, 67, 32, 32, 12), (68, 68, 32, 32, 26)),
+    # a pillar from the ceiling to the lower floor at the platform's left end (columns 37-38), and
+    # the platform carried on over the right-hand gap (columns 50-52, rewriting 49-53) to the room's
+    # right wall
+    "pit": ((38, 38, 71, 92, 10), (37, 37, 72, 92, 11), (38, 38, 87, 87, 12), (39, 39, 87, 87, 26),
+            (39, 39, 88, 88, 28), (39, 39, 89, 89, 67),
+            (49, 52, 87, 87, 26), (49, 53, 88, 88, 28), (49, 52, 89, 89, 67), (53, 53, 89, 89, 44),
+            (53, 53, 87, 87, 13)),
 }
 ARENA_X1, ARENA_X2 = ARENAS["prison"].x1, ARENAS["prison"].x2  # the original arena's names
 ARENA_FLOOR_Y = ARENAS["prison"].floor_y
@@ -71,6 +101,9 @@ BREAK_TICKS = 90  # ticks between waves, once a card is chosen
 SPAWN_EVERY = 18  # ticks between enemies within a wave
 DROPS = ("HEALTH", "MBULLET_ICON20", "GRENADE_ICON10", "ROCKET_ICON5", "FBOMB_ICON5")
 BOSS_EVERY = 5
+# human traces name it: 2 added cards and arenas; 3 sealed the arenas, moved drops, holds play
+# still under the cards (stopping a dash) and keeps the whole arena awake
+VERSION = 3
 COMBO_TICKS = 45
 MAX_COMBO = 5
 POINTS = {"ANT_ROOF": 100, "FLYER": 150, "GREEN_FLYER": 200, "ROB1": 250, "JUGGER": 400, "BOSS": 2500}
@@ -94,6 +127,15 @@ CARD_POWER = {"speed": FAST_POWER, "flight": FLY_POWER, "ultra_health": HEALTH_P
 def keep_for_horde(obj) -> bool:
     """The level object filter: keep only the player's start."""
     return obj.type_name == "START"
+
+
+def seal(world, arena: str) -> None:
+    """Close the arena's drops and ways out (``SEALS``). The world's tile map is its own copy, so
+    the level as loaded elsewhere never changes."""
+    for x1, x2, y1, y2, tile in SEALS[arena]:
+        for y in range(y1, y2 + 1):
+            for x in range(x1, x2 + 1):
+                world.tiles.put(x, y, tile)
 
 
 def wave_size(wave: int) -> int:
@@ -139,7 +181,11 @@ class Horde:
             for wtype, n in START_AMMO:
                 game.view.give_weapon(wtype)
                 game.view.add_ammo(wtype, n)
+        seal(w, self.state["arena"])
         a = self.arena
+        # the whole sealed arena acts, not only what is near the view: an enemy released at the far
+        # end of a long arena would otherwise stand still until the player came near it
+        w.globals["awake_area"] = (a.x1 - 60, a.floor_y - 400, a.x2 + 60, a.floor_y + 60)
         p = game.player
         p.x, p.y = (a.x1 + a.x2) // 2, a.floor_y
         p.last_x, p.last_y = p.x, p.y
@@ -189,6 +235,14 @@ class Horde:
             rs["cooldown_max"] = max(DASH_FLOOR, rs.get("cooldown_max", DASH_COOLDOWN) - DASH_STEP)
         st["announce"] = card  # emitted after the next step: World.step clears events at its start
         return True
+
+    def hold(self, inputs):
+        """While the cards are up, the player's input keeps only the aim."""
+        if not self.state["cards"]:
+            return inputs
+        from .view import Inputs
+
+        return Inputs(pointer_x=inputs.pointer_x, pointer_y=inputs.pointer_y)
 
     def card_pool(self) -> list[str]:
         """The cards that can still do something: the dash card stops at its floor."""
@@ -295,7 +349,8 @@ class Horde:
         st = self.state
         g = self.game
         st["cleared"] = st["wave"]
-        st["score"] += 200 * st["wave"] + (300 * st["wave"] if st["wave_hp_lost"] == 0 else 0)
+        bonus, clean = 200 * st["wave"], (300 * st["wave"] if st["wave_hp_lost"] == 0 else 0)
+        st["score"] += bonus + clean
         st["break"] = True
         st["spawn_in"] = BREAK_TICKS
         p = g.player
@@ -307,7 +362,7 @@ class Horde:
             st["card_power"] = None
         self._drops()
         st["cards"] = self._rng().sample(self.card_pool(), 3)
-        g.world.emit("horde_cleared", wave=st["wave"], cards=list(st["cards"]))
+        g.world.emit("horde_cleared", wave=st["wave"], cards=list(st["cards"]), bonus=bonus, clean=clean)
 
     # --- spawning ---
     def _end(self, r: random.Random) -> int:
@@ -315,7 +370,7 @@ class Horde:
         a = self.arena
         p = self.game.player
         side = r.choice((-1, 1))
-        near = min(200, (a.x2 - a.x1) // 4)  # 80 px in the narrow pit, so both ends stay in play
+        near = min(200, (a.x2 - a.x1) // 4)  # 100 px in the narrow pit, so both ends stay in play
         if p.x - a.x1 < near:
             side = 1
         elif a.x2 - p.x < near:
@@ -370,5 +425,12 @@ class Horde:
         n = 2 + st["wave"] // 2  # health, then ammo
         for i in range(n):
             kind = "HEALTH" if i == 0 else r.choice(DROPS[1:])
-            x = max(a.x1 + 30, min(a.x2 - 30, p.x + r.randint(-120, 120)))
-            g.world.spawn(kind, x, a.floor_y - 60)
+            side, off = r.choice((-1, 1)), r.randint(40, 140)  # in sight, not under the player
+            x = p.x + side * off
+            if not a.x1 + 30 <= x <= a.x2 - 30:
+                x = p.x - side * off
+            x = max(a.x1 + 30, min(a.x2 - 30, x))
+            o = g.world.spawn(kind, x, a.floor_y - 60)
+            _, _, dy = o.try_move(o.x, o.y, 0, 90, 3)  # onto the floor: a health pack never falls
+            o.y += dy
+            o.last_y = o.y
