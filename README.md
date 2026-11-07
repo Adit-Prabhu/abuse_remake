@@ -9,7 +9,7 @@ is compared with a scripted search baseline on a suite declared before any tunin
 |---|---|
 | Recording (3–5 min) | *link added when recorded* |
 | Evaluation report | [`EVALUATION.md`](EVALUATION.md) |
-| Agent-team log | `AGENT-TEAM.md`, written by the student (to come) |
+| Agent-team log | [`AGENT-TEAM.md`](AGENT-TEAM.md), written by the student |
 | Human playtest notes | [`docs/playtests/received/`](docs/playtests/received/) |
 | Scope record | [`SCOPE.md`](SCOPE.md) |
 | Declared suite | [`SUITE.md`](SUITE.md) |
@@ -172,7 +172,7 @@ basis for publishing each part in this public repository. `docs/data-lineage.md`
   context that never wrote the code. Its records are in `docs/reviews/`.
 - **Playing agents:** the players above, with no repository tools.
 
-The student's own log is `AGENT-TEAM.md`, written by the student (to come). The agents'
+The student's own log is [`AGENT-TEAM.md`](AGENT-TEAM.md), written by the student. The agents'
 session-by-session record is `docs/agent-team-log.md`.
 
 ## Where this was built
