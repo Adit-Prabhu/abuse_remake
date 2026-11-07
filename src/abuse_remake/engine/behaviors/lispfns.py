@@ -130,6 +130,15 @@ def random(o: GameObject, n: int) -> int:
     return o.world.rng.jrandom(n)  # c_caller case 9
 
 
+def toward(o: GameObject) -> int:
+    """c_caller case 12: 1 if the nearest player is to the right, else -1."""
+    return 1 if o.world.attacker(o).x > o.x else -1
+
+
+def facing(o: GameObject) -> int:
+    return 1 if o.direction > 0 else -1  # c_caller case 14
+
+
 def site_angle(o: GameObject, target: GameObject) -> int:
     """c_caller case 153: angle from o's centre to target's centre (y up)."""
     x = target.x - o.x

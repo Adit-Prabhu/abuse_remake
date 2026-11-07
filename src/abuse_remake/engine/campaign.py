@@ -29,6 +29,19 @@ TITLES = {"level00": "Training", "level01": "Level 1", "level02": "Level 2"}
 END_LEVEL = 22  # people.lsp:978: an exit with this number ends the game (request_end_game)
 
 
+# Remastered design: flight, invisibility and ultra health were registered-version content in
+# 1995, so no shareware level has them (only speed). Remastered places them by hand in the
+# campaign levels after loading. Level 1 gets none, so its object list stays the original's and
+# Remastered Level 1 still plays exactly like Classic. Each spot is on or beside a saved route
+# (evidence/routes), so it can be reached.
+EXTRA_OBJECTS: dict[str, tuple[tuple[str, int, int], ...]] = {
+    # the training level: on the saved route, which picks each one up (tests/test_campaign_routes.py);
+    # a new power replaces the last
+    "level00": (("POWER_SNEAKY", 1061, 196), ("POWER_FLY", 1885, 421), ("POWER_HEALTH", 1771, 931)),
+    "level02": (),
+}
+
+
 def title(name: str | None) -> str:
     if name is None:
         return "the end"

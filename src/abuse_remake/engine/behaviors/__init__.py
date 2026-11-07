@@ -21,6 +21,6 @@ def lisp(name: str):
 
 def registry() -> dict[str, Callable]:
     # Importing the modules fills REGISTRY.
-    from . import enemies, logic, player, weapons, world_objects  # noqa: F401
+    from . import campaign_objects, enemies, logic, player, weapons, world_objects  # noqa: F401
 
     return REGISTRY

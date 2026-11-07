@@ -31,6 +31,21 @@ from .sprites import SpriteCache
 
 INVISIBLE_DRAW = {"dev_draw", "sensor_draw", "fb_draw"}
 TOP_DRAW_STATES = {"stopped", "running", "run_jump", "run_jump_fall", "end_run_jump"}
+FAST_POWER, FLY_POWER, SNEAKY_POWER = 1, 2, 3  # people.lsp enum
+POWER_STATES = {"stopped", "running", "start_run_jump", "run_jump", "run_jump_fall", "end_run_jump"}
+
+
+def sneaky_alpha(bot) -> int:
+    """cop.c:758-765, 868-875: invisible players fade by used_special_power sixteenths
+    (draw_trans), and at 15 the original draws a faint distortion (draw_predator)."""
+    if bot.lvars.get("special_power") != SNEAKY_POWER:
+        return 255
+    used = bot.lvars.get("used_special_power", 0)
+    if used == 0:
+        return 255
+    if used < 15:
+        return 255 * (16 - used) // 16
+    return 28
 
 
 def _lerp(a: float, b: float, t: float) -> float:
@@ -101,6 +116,11 @@ class Renderer:
                 self._draw_object(surf, o, xoff, yoff, 1.0)  # inactive: it stands still
         if self.lighting:
             self._apply_lighting(surf, xoff, yoff)
+        v = self.game.view
+        if v.draw_solid != -1:  # game.c:724-729: fill the view with one colour for a frame
+            c = v.draw_solid
+            surf.fill(((c >> 16) & 255, (c >> 8) & 255, c & 255))
+            v.draw_solid = -1
         return surf
 
     # --- map ---
@@ -149,11 +169,21 @@ class Renderer:
         sx, sy = round(left - xoff), round(top - yoff)
         if sx > self.w or sy > self.h or sx + fig.width < 0 or sy + fig.height < 0:
             return
-        if o.fade_count:
+        if o.fade_count or alpha_mul < 1.0:
             a = max(0, 255 - o.fade_count * 255 // max(1, o.fade_max))
             img = img.copy()
             img.set_alpha(int(a * alpha_mul))
         surf.blit(img, (sx, sy))
+
+    def _player_figure(self, o):
+        """cop.c:816-866: with the speed or flight power the player is drawn from its fast_* or
+        fly_* sequence of the same state and frame."""
+        sp = o.lvars.get("special_power")
+        if sp in (FAST_POWER, FLY_POWER) and o.state in POWER_STATES:
+            seq = o.ctype.sequences.get(("fast_" if sp == FAST_POWER else "fly_") + o.state)
+            if seq:
+                return seq[min(o.current_frame, len(seq) - 1)]
+        return o.figure()
 
     def _draw_object(self, surf, o, xoff, yoff, alpha):
         if o.deleted:
@@ -174,7 +204,15 @@ class Renderer:
             bx, by = self._pos(bot, alpha)
             tx = bx + (4 if bot.direction < 0 else 0)
             ty = by + 29 - bot.picture_height()
-            self._blit_figure(surf, o, tx, ty, xoff, yoff)
+            self._blit_figure(surf, o, tx, ty, xoff, yoff, alpha_mul=sneaky_alpha(bot) / 255)
+            return
+        if draw == "frabs_bottom_draw":  # the player
+            fig = self._player_figure(o)
+            if self.modern and o.lvars.get("special_power") == FAST_POWER and o.lvars.get("used_special_power"):
+                # an afterimage while running fast (draw_fast, people.lsp:390-422); drawn from
+                # the last tick's position, because cop.c:479 stores y into last2_x
+                self._blit_figure(surf, o, o.last_x, o.last_y, xoff, yoff, fig=fig, alpha_mul=0.35)
+            self._blit_figure(surf, o, x, y, xoff, yoff, fig=fig, alpha_mul=sneaky_alpha(o) / 255)
             return
         if draw == "sgun_draw":
             self._draw_bolt(surf, o, xoff, yoff)

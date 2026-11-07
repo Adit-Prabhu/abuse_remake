@@ -114,6 +114,11 @@ PRESETS = {
     "MGUN_SND": lambda: _noise(0.06, 0.3, 0.7, 13) * 0.4,
     "FADEON_SND": lambda: _tone(200, 400, 0.3, "sine", 1.2) * 0.2,
     "SPEED_SND": lambda: _tone(500, 900, 0.1, "square", 0.5) * 0.2,
+    # the campaign levels (Remastered)
+    "SPRING_SOUND": lambda: _tone(180, 720, 0.22, "tri", 0.8, vib=0.2) * 0.45,
+    "LAVA_SND": lambda: _mix(_noise(0.4, 0.8, 0.04, 30), _tone(70, 45, 0.4, "sine", 0.8)) * 0.4,
+    "FLYER_SND": lambda: _tone(240, 260, 0.12, "saw", 0.4, vib=0.3) * 0.12,
+    "FLY_SND": lambda: _noise(0.12, 0.5, 0.25, 31) * 0.25,
 }
 for i in range(4):
     PRESETS[f"PLAYER_PAIN{i}"] = (lambda k=i: _tone(180 - 15 * k, 90, 0.18, "square", 0.6) * 0.4)

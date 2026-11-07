@@ -117,6 +117,7 @@ class World:
         self.views: list = []
         self.weapon_types = [t for t in self._types_by_index if "is_weapon" in t.cflags]
         self.strict = strict
+        self._checked_types: set[str] = set()
         self._load_objects()
 
     # --- types ---
@@ -214,6 +215,14 @@ class World:
                skip_constructor: bool = False) -> GameObject:
         """``create`` (objects.c:1136): a new object with defaults and its constructor."""
         ct = self.types[type_name]
+        if self.strict and type_name not in self._checked_types:
+            # Never run a spawned object whose AI, constructor or damage function silently falls
+            # back to plain physics. A missing user_fun is not checked: only explicit calls reach
+            # it, and those would fail loudly.
+            missing = [m for m in self.missing_behaviours(type_name) if not m.startswith("user_fun=")]
+            if missing:
+                raise NotImplementedError(f"behaviours not ported yet: {{{type_name!r}: {missing}}}")
+            self._checked_types.add(type_name)
         o = GameObject(self, ct, 0, 0)
         o.defaults()  # game_object::game_object runs defaults() before create() sets x and y
         o.x, o.y, o.last_x, o.last_y = x, y, x, y
