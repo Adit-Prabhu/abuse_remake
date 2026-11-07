@@ -94,14 +94,13 @@ class App:
             args.mode = "remastered"  # Horde is a Remastered rule set
         self.modern = args.mode == "remastered"
         self.view_w, self.view_h = (480, 270) if self.modern else (VIEW_W, VIEW_H)
-        info = pygame.display.Info()
-        scale = args.scale or max(2, min((info.current_w or 1600) // self.view_w,
-                                         ((info.current_h or 900) - 80) // self.view_h))
-        self.scale = scale
-        from .display import opaque_surface, window_flags
+        from .display import desktop_size, opaque_surface, open_window
 
+        desk_w, desk_h = desktop_size()
+        scale = args.scale or max(2, min(desk_w // self.view_w, (desk_h - 80) // self.view_h))
+        self.scale = scale
         size = (self.view_w * scale, self.view_h * scale)
-        self.window = pygame.display.set_mode(size, window_flags(args))
+        self.window = open_window(size, args)  # made again when the title switches mode
         self.screen = opaque_surface(size)  # every frame is drawn here, then copied to the window
         pygame.display.set_caption("Abuse — Level 1 (remake)")
         from .audio import Audio
