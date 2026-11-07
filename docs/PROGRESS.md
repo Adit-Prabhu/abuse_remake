@@ -84,16 +84,16 @@ findings. A hanging alien takes no damage under the ported rules, so the baselin
 leaving them alone builds in a fact the model was never told, and the prompt lacks several other
 baseline rules. The docs now say so, and four tests cover the frozen prompt's claims.
 
-Still to come:
-- the course submission, which the student makes: `scripts/export_submission.py` builds the
-  `midterms/adit-prabhu/` folder in a clone of the course repository.
+On 2026-11-06 and 2026-11-07, the student finished their part:
+- the human playtest (P1), the limitations (`EVALUATION.md` §6) and `AGENT-TEAM.md`, in their
+  own voice;
+- the recording (4:51, linked from `README.md`);
+- the repository, made public;
+- the course PR, #88, opened on 2026-11-07 from an export of `ef41cc0` made by
+  `scripts/export_submission.py`, with every check green. Later corrections are exported the
+  same way.
 
-The student owns:
-- `AGENT-TEAM.md` in their own voice (the limitations paragraph and the human playtest,
-  P1 on 2026-11-06, are done);
-- the recording;
-- making the repository public;
-- the merges, and submitting on CourseWorks by 2026-11-07.
+The student still owns the merges in this repository and the CourseWorks entry.
 
 ## Remastered expansion (2026-10-14)
 

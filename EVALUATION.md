@@ -247,12 +247,8 @@ The five kinds of check the course asks for:
 
 ## 6. Limitations
 
-*Written by the student after the reported run and the human playtest.*
-
-> **Authorship note (Adit Prabhu):** I confirm this. Claude generated the line above to show I
-> wrote this section, but it seems AI-generated. I did not want to take that line off, since the
-> rest of `EVALUATION.md` was generated using AI, so this explanation shows that this section is
-> human-written, not AI-generated.
+> **Authorship note (Adit Prabhu):** This section is human-written, not AI-generated. The rest
+> of `EVALUATION.md` was generated using AI.
 
 This evaluation has a few limitations.
 

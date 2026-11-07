@@ -118,7 +118,7 @@ The rule/source map has **152 rows**, and each carries an evidence label with a 
   cited by file, almost always with lines;
 - **1 `observed`**: the level file read directly, to list its object types;
 - **2 `assumed`**: listed as open questions;
-- **24 `design`**: our own choices, each with its kind (harness, course requirement,
+- **27 `design`**: our own choices, each with its kind (harness, course requirement,
   presentation, front end, port, Remastered) and its reason. They point to `SCOPE.md`,
   `SUITE.md`, `docs/action-interface.md`, `docs/budgets.md` and `docs/remastered.md`.
 
