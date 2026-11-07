@@ -119,6 +119,31 @@ gives no p-values.
 | Prices (date, source, USD per million tokens in/out) | |
 | Approved spending cap | **USD 10** for smoke + tuning + reported run, approved by the student on 2026-10-26 |
 
+## Changes before any run
+
+These are dated, and none came after a live call or any tuning of the model.
+
+- **2026-10-26, the interface (PR #25 and its review fixes).** Checking every hidden-wall type
+  showed that the observation named camouflaged breakable walls, which leaked secrets. A hidden
+  wall is now shown only as it looks (`docs/information-boundary.md`), and every player gains
+  `fire left|right|up|down`. `attack` and `fire` hold the trigger only while the gun is still
+  turning (it fires at the angle set the tick before), and get their first shot off before the
+  hurt stop, for at most 6 ticks. The suite itself (situations, seeds, players' code
+  paths, budgets, metrics) is unchanged.
+  - **Behaviour, not code:** the four always-legal `fire` actions change what the random player
+    picks (`fire` is 172 of its 600 decisions in the committed full-level episode), so its numbers
+    moved.
+  - **Prompt:** it now describes `fire`, cracked walls, which actions ignore new threats, and
+    the tip that shooting a wall or floor that stops you may show that it breaks.
+- **Deviation from the tuning rule (recorded 2026-10-27).** The baseline's floor shot (round
+  B1) and the prompt's matching tip were first motivated by offline runs that include the
+  reported seeds 0-2 of `level01-cp2`, and by the evaluator's A* route, which a player never
+  sees. Re-checked on the tuning set alone (seeds 90-91), the floor shot is needed there too:
+  without it seed 90 dies at progress 0.060, with it 0.254 (seed 91: 0.260 either way). Both
+  players got the tip, so the comparison stays fair. But `level01-cp2` seeds 0-2 are not
+  untouched for the baseline, so the cleanest held-out evidence is `level01-cp1`,
+  `level01-cp3` and `level01`. `EVALUATION.md` says so.
+
 ## Running and reporting rules
 
 - First `abuse-eval estimate`, then the 20-request `live-smoke`, then tuning, then the freeze,

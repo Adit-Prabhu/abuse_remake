@@ -15,12 +15,14 @@ Actions (docs/action-interface.md) are strings taken from ``legal_actions()``:
     goto <ID>                 walk to a visible object using the automap (<= 15 ticks)
     use <ID>                  walk to a switch, console, teleporter, lift or the exit and press down
     attack <ID>               aim at a visible target and fire (<= 12 ticks)
+    fire left|right|up|down   fire the current weapon that way, naming nothing (<= 12 ticks)
     weapon <name>             switch weapon: a number key, or for the laser Ctrl until it is
                               selected (one press per tick)
 
 Each action runs a deterministic controller that turns it into the original's inputs (left,
 right, up, down, fire, aim, weapon keys) for up to 15 ticks. It stops early when the player is
-hurt, or (except during ``attack``) when a new threat appears, so the agent can react. Every
+hurt (``attack`` and ``fire`` after their first shot, or 6 ticks), or (except during ``attack`` and ``fire``)
+when a new threat appears, so the agent can react. Every
 player gets exactly the same controllers. Labels (``E3``) are given only at decision time, so
 nothing seen only in the middle of an action uses one up.
 
@@ -35,6 +37,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 from dataclasses import asdict, dataclass
 
 from ..engine.cmath import cdiv
@@ -42,9 +45,14 @@ from ..engine.game import Game, WeaponCommand
 from ..engine.view import Inputs
 from ..scope import FULL_LEVEL_TICK_LIMIT, SEGMENT_TICK_LIMIT
 from .nav import KnownMap, Navigator, blocked_cells, cell_of
-from .observation import WEAPON_NAMES, IdMap, build_observation, view_rect
+from .observation import WEAPON_NAMES, IdMap, build_observation, scenery_cells, view_rect
 
 PLAYER_ID = "player"
+# degrees: attack and fire pull the trigger once the gun points this close. Measured, the gun's
+# angle and the aim from the player's chest differ by under 5 degrees once the gun has turned (the
+# angle is taken from the gun tip); 10 allows that and no wider shot.
+AIM_TOLERANCE = 10
+RETURN_FIRE_TICKS = 6  # a shooting action under fire keeps going this long for its shot (laser cooldown 5, +1)
 INTERACTIVE = {"switch", "console", "teleporter", "door_teleporter", "exit", "lift"}
 TARGETABLE = {"alien", "turret", "boulder", "wall_block", "nest"}
 THREATS = {"alien", "turret", "boulder", "rock", "projectile"}
@@ -143,7 +151,7 @@ class AbuseEpisode:
             return []
         obs = build_observation(self._game, self._ids, [], self.ticks, 0, "playing", None)
         acts = ["wait", "move left", "move right", "jump", "jump left", "jump right",
-                "explore left", "explore right"]
+                "explore left", "explore right", "fire left", "fire right", "fire up", "fire down"]
         v = self._game.view
         for i, name in enumerate(WEAPON_NAMES[: v.total_weapons]):
             if i != v.current_weapon and v.weapons[i] != -1 and (i == 0 or v.weapons[i] > 0):
@@ -211,7 +219,9 @@ class AbuseEpisode:
         return "playing", ""
 
     def _reveal(self) -> None:
-        self._known.reveal(*view_rect(self._game))
+        view = view_rect(self._game)
+        self._known.reveal(*view)
+        self._known.remember_solid(*view, scenery_cells(self._game, *view))
 
     def _visible(self) -> dict:
         """What is on screen now, for the controllers. Labels come from a scratch copy: only an
@@ -280,9 +290,12 @@ class AbuseEpisode:
             return self.ticks - start_ticks
         controller = {"wait": self._c_wait, "move": self._c_move, "jump": self._c_jump,
                       "explore": self._c_explore, "goto": self._c_goto, "use": self._c_use,
-                      "attack": self._c_attack}[verb]
+                      "attack": self._c_attack, "fire": self._c_fire}[verb]
         gen = controller(arg)
         hp0 = self._game.player.hp
+        shots0 = self.counters["shots_fired"]
+        shooting = verb in ("attack", "fire")
+        hurt_at = None
         for _ in range(limit):
             if self._status()[0] != "playing":
                 break
@@ -292,9 +305,12 @@ class AbuseEpisode:
                 break
             self._tick(inp)
             if self._game.player.hp < hp0:
-                break  # hurt: give control back
+                hurt_at = self.ticks if hurt_at is None else hurt_at
+                waiting = shooting and self.counters["shots_fired"] == shots0
+                if not waiting or self.ticks - hurt_at >= RETURN_FIRE_TICKS:
+                    break  # hurt: give control back (a shooting action first gets a shot off, briefly)
             threats = {k for k, o in self._visible().items() if o["kind"] in THREATS}
-            if threats - visible_before and verb not in ("attack",):
+            if threats - visible_before and verb not in ("attack", "fire"):
                 break  # something new and dangerous came into view
         if self.ticks == start_ticks and self._status()[0] == "playing":
             px, py = self._aim_forward()
@@ -324,6 +340,7 @@ class AbuseEpisode:
             yield Inputs(x=x, pointer_x=p.x + 100 * (x or p.direction), pointer_y=p.y - 20)
 
     def _nav(self) -> Navigator:
+        x0, y0, w, h = view_rect(self._game)
         return Navigator(self._game.world.tiles, self._known, blocked_cells(self._visible().values()))
 
     def _follow(self, goal_cell, press_at_end: bool = False, close_px: int = 8, target_x: int | None = None):
@@ -411,7 +428,32 @@ class AbuseEpisode:
             ty = tgt.y - cdiv(tgt.picture_height(), 2)
             face = 1 if tgt.x > p.x else -1
             x = face if p.direction != face else 0  # turn to face the target, then stand still
-            yield Inputs(x=x, b2=1, pointer_x=tgt.x, pointer_y=ty)
+            yield Inputs(x=x, b2=int(self._aimed(tgt.x, ty)), pointer_x=tgt.x, pointer_y=ty)
+
+    def _aimed(self, px: int, py: int) -> bool:
+        """Whether a shot fired this tick would go toward (px, py). The player fires with the
+        angle its top half set last tick, because ``top_ai`` aims after ``cop_mover`` fires
+        (``engine/behaviors/player.py``), and a fresh game has no top half until its first tick.
+        So attack and fire hold the trigger only while the gun is still turning."""
+        p = self._game.player
+        top = p.objs[0] if p.objs else None
+        if top is None or "point_angle" not in top.lvars:
+            return False
+        want = math.degrees(math.atan2(p.y - 20 - py, px - p.x)) % 360
+        diff = abs(want - top.lvars["point_angle"] % 360)
+        return min(diff, 360 - diff) <= AIM_TOLERANCE
+
+    def _c_fire(self, d):
+        """Fire the current weapon that way without naming a target: what a human does when
+        they shoot at scenery that might break."""
+        for _ in range(12):
+            p = self._game.player
+            ahead = 1 if p.direction > 0 else -1
+            dx, dy, face = {"left": (-100, 0, -1), "right": (100, 0, 1),
+                            "up": (10 * ahead, -100, 0), "down": (10 * ahead, 100, 0)}[d]
+            x = face if face and p.direction != face else 0  # turn that way, then stand still
+            yield Inputs(x=x, b2=int(self._aimed(p.x + dx, p.y - 20 + dy)), pointer_x=p.x + dx,
+                         pointer_y=p.y - 20 + dy)
 
     # --- traces ------------------------------------------------------------------------
     def snapshot_for_trace(self) -> dict:

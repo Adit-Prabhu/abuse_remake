@@ -103,10 +103,11 @@ def test_a_scenario_can_have_its_own_budgets_the_same_for_every_player(tmp_path)
 
 def test_the_tuning_set_never_shares_an_episode_with_the_reported_suite():
     suite = load_config(ROOT / "eval/configs/midterm.toml")
-    tuning = load_config(ROOT / "eval/configs/midterm-tuning.toml")
     reported = {(s, seed) for s in suite["scenarios"] for seed in suite["seeds"]}
-    tuned = {(s, seed) for s in tuning["scenarios"] for seed in tuning["seeds"]}
-    assert not reported & tuned
+    for name in ("midterm-tuning", "midterm-tuning-offline"):
+        tuning = load_config(ROOT / f"eval/configs/{name}.toml")
+        tuned = {(s, seed) for s in tuning["scenarios"] for seed in tuning["seeds"]}
+        assert not reported & tuned, name
     held_out = set(suite["scenarios"]) - set(tuning["scenarios"])
     assert held_out == {"level01-cp1", "level01-cp3", "level01"}
 
@@ -156,7 +157,7 @@ def test_bootstrap_statistics():
 
 
 def test_configs_load_and_live_players_are_marked():
-    for name in ("offline", "live", "live-smoke", "ci-smoke", "midterm", "midterm-tuning"):
+    for name in ("offline", "live", "live-smoke", "ci-smoke", "midterm", "midterm-tuning", "midterm-tuning-offline"):
         cfg = load_config(ROOT / f"eval/configs/{name}.toml")
         for p in cfg["players"]:
             assert p.get("live", False) == (p["player"] == "model")

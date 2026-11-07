@@ -31,8 +31,11 @@ Actions (reply with exactly one string from LEGAL ACTIONS):
 - goto <ID>: walk toward a visible object (up to 15 ticks; repeat to keep going)
 - use <ID>: walk to a switch, console, teleporter, lift or the exit and press the action key
 - attack <ID>: aim at a visible target and fire the current weapon (up to 12 ticks)
+- fire left / fire right / fire up / fire down: fire the current weapon that way, at nothing in
+  particular (up to 12 ticks)
 - weapon <name>: switch weapon
-Actions stop early when you are hurt or a new threat appears, so you can react.
+Actions stop early when you are hurt or (except attack and fire) when a new threat appears, so you
+can react.
 
 Object kinds:
 - alien: an ant-like enemy that runs, pounces and spits; dangerous up close. Some hang from
@@ -42,16 +45,18 @@ Object kinds:
 - projectile: an enemy shot.
 - health, ammo_laser, ammo_grenade, ammo_rocket, ammo_firebomb: pickups (walk into them).
 - switch (on/off): pressing it may change something elsewhere in the level. door: opens and
-  closes. force_field: blocks the way while it is shown. wall_block: a breakable wall; shoot it.
+  closes. force_field: blocks the way while it is shown. wall_block: a wall showing cracks from
+  damage; shoot it to break it.
 - teleporter, door_teleporter: move you somewhere else when used. console: a save point.
   lift: a moving platform. exit: ends the level when used.
 
 Weapons: laser (always available; slow with no ammo), grenade, rocket and firebomb (need ammo,
 stronger). Ammo counts are in your status line.
 
-General advice: levels are usually explored by heading right first; shoot breakable walls that
-block your way; switches may open paths you saw earlier; pick up health when hurt; deal with
-threats before they reach you. If an action keeps failing to move you, try something else.
+General advice: levels are usually explored by heading right first; shoot cracked walls that
+block your way, and if a wall or floor stops you, shooting it may reveal that it breaks;
+switches may open paths you saw earlier; pick up health when hurt; deal with threats before they
+reach you. If an action keeps failing to move you, try something else.
 """
 
 NOTES_RULE = """

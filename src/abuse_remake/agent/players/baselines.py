@@ -11,7 +11,9 @@ the ``goto``, ``use`` and ``explore`` skills providing the search part.
 4. Save: use a restart console once.
 5. Switches: use each visible switch that is off, once.
 6. Supplies: pick up ammo within 250 px.
-7. Break through: attack a wall block that is close ahead, or when stuck.
+7. Break through: attack a cracked wall close ahead, or when stuck; when stuck with none in
+   sight, fire at the scenery ahead (twice per spot) and then at the floor (once per spot),
+   since a wall or floor that looks solid may break.
 8. Teleport: use a teleporter not used recently, when stuck.
 9. Otherwise explore in the current direction, turning around when no progress is made.
 """
@@ -59,9 +61,10 @@ class ScriptedPlayer:
         self.stuck = 0
         self.teleported_at = -10_000
         self.attacks: dict[str, int] = {}  # consecutive attacks on a target that did not change it
-        self.last_attack: tuple[str, bool] | None = None
+        self.last_attack: tuple[str, object] | None = None
         self.approach: dict[str, tuple[int, int]] = {}  # target -> (best distance, tries without improving)
         self.given_up: set[str] = set()
+        self.fired: dict[tuple, int] = {}  # shots at the scenery ahead, per spot and direction
 
     def start(self, info: dict) -> None:
         self.__init__()
@@ -79,9 +82,9 @@ class ScriptedPlayer:
 
         seen = {o["id"]: o for o in objs}
         if self.last_attack is not None:
-            tid, damaged_before = self.last_attack
+            tid, cracks_before = self.last_attack
             o = seen.get(tid)
-            if o is not None and o.get("damaged", False) == damaged_before:
+            if o is not None and o.get("cracks") == cracks_before:
                 self.attacks[tid] = self.attacks.get(tid, 0) + 1
             else:
                 self.attacks.pop(tid, None)
@@ -105,13 +108,13 @@ class ScriptedPlayer:
                 self.approach[tid] = (min(best, seen.get(tid, {}).get("dist", best)), tries + 1)
             if action.startswith("attack "):
                 tid = action.split()[1]
-                self.last_attack = (tid, seen.get(tid, {}).get("damaged", False))
+                self.last_attack = (tid, seen.get(tid, {}).get("cracks"))
             return {"action": action, "note": why}
 
         def can_attack(o):
-            # Walls show cracks when hit, so an attack that leaves a wall unchanged is wasted: give up
-            # after 3. Enemies show no damage, so "unchanged" says nothing about them; the generous
-            # limit only stops the player shooting forever at one it cannot reach.
+            # A wall shows more cracks as it is hit, so an attack that leaves its cracks unchanged is
+            # wasted: give up after 3. Enemies show no damage, so "unchanged" says nothing about them;
+            # the generous limit only stops the player shooting forever at one it cannot reach.
             limit = 3 if o["kind"] == "wall_block" else 20
             return f"attack {o['id']}" in legal_set and self.attacks.get(o["id"], 0) < limit
 
@@ -154,6 +157,15 @@ class ScriptedPlayer:
         for o in walls:
             if can_attack(o):
                 return pick(f"attack {o['id']}", "break through")
+        if self.stuck >= 2 and f"fire {self.direction}" in legal_set:
+            spot = (p["x"] // 30, p["y"] // 15, self.direction)
+            if self.fired.get(spot, 0) < 2:
+                self.fired[spot] = self.fired.get(spot, 0) + 1
+                return pick(f"fire {self.direction}", "stuck: shoot the wall ahead")
+            floor = (p["x"] // 30, p["y"] // 15, "down")
+            if not self.fired.get(floor):
+                self.fired[floor] = 1
+                return pick("fire down", "stuck: shoot the floor")
         # 8. teleport when stuck
         if self.stuck >= 3 and obs["tick"] - self.teleported_at > 600:
             for o in objs:

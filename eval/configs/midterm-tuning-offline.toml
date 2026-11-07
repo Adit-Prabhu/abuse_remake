@@ -1,0 +1,15 @@
+# The scripted baseline alone on the tuning set (SUITE.md): how baseline rounds are checked,
+# reproducibly and with no model calls. Never reported as the comparison.
+name = "midterm-tuning-offline"
+scenarios = ["level01-cp2"]
+seeds = [90, 91]
+difficulty = "hard"
+isolation = "process"
+reference = "scripted"
+
+[budgets]
+max_decisions = 200
+
+[[players]]
+label = "scripted"
+player = "scripted"

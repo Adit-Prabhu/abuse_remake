@@ -44,12 +44,15 @@ order.
 | #21 | `fix/episode-limits` | The decision that reaches the cap runs its ticks. Offline evidence regenerated as `offline-v4`, and every committed trace replays in CI (`tests/test_evidence.py`) | `docs/reviews/PR-21.md` (with a follow-up) |
 | #22 | `eval/midterm-suite` | `SUITE.md`, `eval/configs/midterm.toml` and `midterm-tuning.toml`, declared before any live call; per-scenario budgets; runs record `src_tree` and `prompt_sha` | harness only, no rule change |
 | #23 | `docs/midterm-rubric` | `SCOPE.md` rewritten; rule map relabelled to `code/manual/observed/assumed/design`; provenance and publication terms; the boundary's two judgement calls (hidden walls, HUD strip); a README for the course folder with the design-choices table; a 15-minute playtest protocol; a 4:30 recording script | docs, plus the boundary screenshots and their script |
+| #24 | `chore/course-package` | The course workflow, the export script, `EVALUATION.md`, and the config record on the declared suite | packaging |
+| #25 | `fix/hidden-walls` | A hidden wall is shown only as it looks (cracked: a `wall_block`; drawn as scenery: remembered solid cells; background: nothing), from per-frame renders; `fire left/right/up/down`; `attack` and `fire` hold fire only while the gun turns and return fire when hurt; the baseline adapted on the tuning set (with a recorded deviation); evidence regenerated from a clean commit | `docs/reviews/PR-25.md` (two follow-ups) |
+| #26 | `eval/live-run` | Dated Vertex prices; run caps that keep smoke, tuning and the reported run under USD 9.66 | config only |
+| #27 | `feat/level01-route` | Solver `--mode classic` and `--start`; the per-situation solver routes, replayed in CI | in progress |
 
 Still to come:
 - the Level 1 route (Classic, START to exit), replayed in CI, and the solver reference per
   situation;
 - the live smoke run, tuning (`docs/prompt-log.md`), the freeze and the reported run;
-- `EVALUATION.md`;
 - the course folder `midterms/adit-prabhu/` with `.github/workflows/midterm-adit-prabhu.yml`,
   opened as a draft PR.
 
