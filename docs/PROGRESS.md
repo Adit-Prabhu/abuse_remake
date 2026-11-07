@@ -4,6 +4,15 @@ This page lets a fresh session (human or agent) pick up the build. Update it wit
 The approved plan is summarised in the "Branches and PRs" table below; `SCOPE.md` is the scope
 record.
 
+## Title menu (2026-10-27)
+
+The student reported two problems with the title menu, and each has its own PR, stacked on #27:
+- **#28 `fix/mode-switch-crash`.** Left or right on MODE crashed the game on macOS. pygame-ce
+  segfaults when a `SCALED | RESIZABLE` window is made again at a new size, so the window is now
+  closed first. Each switch also shrank the window; that is fixed too.
+- **#29 `feat/title-submenus`.** The level and the arena were both chosen with left and right on
+  one page, which was easy to confuse. PLAY CAMPAIGN and HORDE now each open their own list.
+
 ## Remastered polish (2026-10-15)
 
 The student played the stack and reported:
@@ -81,8 +90,8 @@ state hashes computed on `main` before the work.
 | R6 (#20) | `feat/rm-polish` | R5 | The macOS display fix, a resizable window and full screen, sealed Horde arenas, the interface in the original's art (title menu, HUD, cards, briefing, controls screen), power prompts |
 
 How to pick it up:
-- `uv run abuse-remake` opens the title menu: PLAY CAMPAIGN (left and right choose the start
-  level) or HORDE (left and right choose the arena). `--level level00` and `--horde --arena
+- `uv run abuse-remake` opens the title menu: PLAY CAMPAIGN opens a list of the levels, and
+  HORDE a list of the arenas. `--level level00` and `--horde --arena
   rooftop` do the same from the command line.
 - `uv run python scripts/route_search.py --level level02 --goal level03 --via "x,y;..." --out F`
   finds a route; `tests/test_campaign_routes.py` replays every saved route.

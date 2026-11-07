@@ -127,6 +127,7 @@ class App:
             args.menu_level = args.level
         if not hasattr(args, "menu_index"):
             args.menu_index = 1 if getattr(args, "horde", False) else 0
+        self.menu_page = "main"  # or the list PLAY CAMPAIGN or HORDE opened: "campaign", "horde"
         self.state = "play" if (args.skip_title or args.frames) else "title"
         if self.state == "title" and self.modern and not getattr(args, "horde", False) and not args.playtest:
             args.level = args.menu_level  # the title shows where the campaign starts
@@ -379,7 +380,9 @@ class App:
             return self.on_key(k) if k is not None else True
         if ev.button == 0:
             return self.on_key(pg.K_SPACE if self.state == "dead" else pg.K_RETURN)
-        if ev.button == 1 and self.state != "title":  # B backs out; on the title it does not quit
+        if ev.button == 1 and self.state == "title" and self.menu_page != "main":
+            self._menu_back()  # B backs out of a list; on the title's main page it does not quit
+        elif ev.button == 1 and self.state != "title":
             return self.on_key(pg.K_ESCAPE)
         return True
 
@@ -482,6 +485,8 @@ class App:
             self.args.level = self.args.menu_level  # the title shows where the campaign starts
         self.new_game()
         self.state = "title"
+        if self.menu_page != "main":  # back on the line that opened the list the run came from
+            self.menu_page, self.args.menu_index = "main", self._main_index(self.menu_page)
 
     # --- the title menu (screens.py draws it) ---
     @property
@@ -500,6 +505,10 @@ class App:
             self.menu_change(-1 if key == pg.K_LEFT else 1)
         elif key in (pg.K_RETURN, pg.K_SPACE, pg.K_KP_ENTER):
             return self.menu_activate()
+        elif key == pg.K_ESCAPE and self.menu_page != "main":
+            self._menu_back()
+        elif self.menu_page != "main":
+            pass  # the old title's letter keys belong to the main page
         elif key == pg.K_m:
             self._set_mode("classic" if self.modern else "remastered")
         elif key == pg.K_h:
@@ -519,42 +528,56 @@ class App:
             return False
         return True
 
-    def _menu_key(self) -> str:
+    def _menu_item(self) -> dict:
         from .screens import menu_items
 
-        return menu_items(self)[self.menu_index]["key"]
+        return menu_items(self)[self.menu_index]
+
+    def _menu_key(self) -> str:
+        return self._menu_item()["key"]
+
+    def _main_index(self, key: str) -> int:
+        """Where a line sits on the title's main page."""
+        from .screens import menu_items
+
+        keys = [it["key"] for it in menu_items(self, "main")]
+        return keys.index(key) if key in keys else 0
 
     def menu_focus(self, index: int) -> None:
         """Move the title's highlight. The backdrop follows: the campaign's level or the arena."""
         from .screens import menu_items
 
         self.args.menu_index = index % len(menu_items(self))
-        key = self._menu_key()
-        if key == "campaign" and self.horde:
-            self.args.horde = False
-            self.args.level = self.args.menu_level
-            self.new_game()
-        elif key == "horde" and not self.horde:
-            self.args.horde = True
-            self.new_game()
+        it = self._menu_item()
+        if it["key"] == "campaign" and self.horde:
+            self._show_level(self.args.menu_level if self.modern and not self.args.playtest else "level01")
+        elif it["key"] == "horde" and not self.horde:
+            self._show_arena(self.arena)
+        elif it["key"] == "level" and (self.horde or self.level != it["level"]):
+            self._show_level(it["level"])
+        elif it["key"] == "arena" and (not self.horde or self.arena != it["arena"]):
+            self._show_arena(it["arena"])
 
     def menu_change(self, d: int) -> None:
-        key = self._menu_key()
-        if key == "campaign" and self.modern and not self.args.playtest:
-            self._cycle_level(d)
-        elif key == "horde":
-            self._cycle_arena(d)
-        elif key == "difficulty":
+        it = self._menu_item()
+        if it.get("opens") and d > 0:
+            self._open_page(it["key"])  # right goes into the list, as the line's arrow shows
+        elif it["key"] == "difficulty":
             self._cycle_difficulty(d)
-        elif key == "mode":
+        elif it["key"] == "mode":
             self._set_mode("classic" if self.modern else "remastered")
 
     def menu_activate(self) -> bool:
-        key = self._menu_key()
-        if key == "campaign":
+        it = self._menu_item()
+        key = it["key"]
+        if it.get("opens"):
+            self._open_page(key)
+        elif key in ("campaign", "level"):
             self.state = "play"
-        elif key == "horde":
+        elif key == "arena":
             self.state = "briefing"  # how Horde works, before wave 1
+        elif key == "back":
+            self._menu_back()
         elif key in ("difficulty", "mode"):
             self.menu_change(1)
         elif key == "controls":
@@ -564,18 +587,37 @@ class App:
             return False
         return True
 
-    def _cycle_level(self, d: int) -> None:
-        levels = campaign.playable_levels()
-        i = levels.index(self.args.menu_level) if self.args.menu_level in levels else -1
-        self.args.level = self.args.menu_level = levels[(i + d) % len(levels)]
+    def _open_page(self, page: str) -> None:
+        """PLAY CAMPAIGN's list of levels, or HORDE's list of arenas, on the current choice."""
+        from .screens import menu_items
+
+        self.menu_page = page
+        current = self.args.menu_level if page == "campaign" else self.arena
+        choices = [it.get("level") or it.get("arena") for it in menu_items(self)]
+        self.menu_focus(choices.index(current) if current in choices else 0)
+
+    def _menu_back(self) -> None:
+        page, self.menu_page = self.menu_page, "main"
+        self.menu_focus(self._main_index(page))
+
+    def _show_level(self, name: str) -> None:
+        self.args.level = self.args.menu_level = name
         self.args.horde = False
         self.new_game()
 
-    def _cycle_arena(self, d: int) -> None:
-        keys = list(ARENAS)
-        self.args.arena = keys[(keys.index(self.arena) + d) % len(keys)]
+    def _show_arena(self, key: str) -> None:
+        self.args.arena = key
         self.args.horde = True
         self.new_game()
+
+    def _cycle_level(self, d: int) -> None:
+        levels = campaign.playable_levels()
+        i = levels.index(self.args.menu_level) if self.args.menu_level in levels else -1
+        self._show_level(levels[(i + d) % len(levels)])
+
+    def _cycle_arena(self, d: int) -> None:
+        keys = list(ARENAS)
+        self._show_arena(keys[(keys.index(self.arena) + d) % len(keys)])
 
     def _cycle_difficulty(self, d: int) -> None:
         i = DIFFICULTIES.index(self.args.difficulty)
