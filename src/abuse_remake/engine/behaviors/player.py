@@ -323,7 +323,7 @@ def bottom_damage(o, amount, from_obj, hitx, hity, push_xvel, push_yvel) -> None
     """people.lsp:328-370: difficulty-scaled damage, flinch, screen flash, death debris."""
     if o.lvars["is_teleporting"] == 1:
         return
-    if o.world.globals.get("player_iframes"):  # Remastered dash only; never set in Classic mode
+    if o.world.globals.get("player_iframes"):  # Remastered only (the dash, dev mode); never set in Classic
         return
     diff = o.world.difficulty
     if diff == "easy":

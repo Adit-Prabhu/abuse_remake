@@ -62,7 +62,13 @@ def parse_args(argv=None):
     p.add_argument("--skip-title", action="store_true")
     p.add_argument("--frames", type=int, default=0, help="run N display frames with scripted input, then exit")
     p.add_argument("--screenshot", type=Path, help="save the last frame (with --frames)")
+    from .devmode import take_flag
+
+    argv, dev = take_flag(list(sys.argv[1:] if argv is None else argv))  # only with the student's key
     args = p.parse_args(argv)
+    args.dev = dev
+    if dev and (args.mode == "classic" or args.playtest or args.record is not None):
+        p.error("--dev is for Remastered, and never with --playtest or --record: dev games are not recorded")
     if args.horde and args.mode == "classic":
         p.error("--horde is a Remastered rule set; it cannot run with --mode classic")
     if args.arena != "prison" and not args.horde:
@@ -128,6 +134,11 @@ class App:
         if not hasattr(args, "menu_index"):
             args.menu_index = 1 if getattr(args, "horde", False) else 0
         self.menu_page = "main"  # or the list PLAY CAMPAIGN or HORDE opened: "campaign", "horde"
+        self.dev = bool(getattr(args, "dev", False))  # developer test mode (devmode.py), Remastered only
+        if not hasattr(args, "dev_opts"):
+            args.dev_opts = {"health": True, "ammo": True}  # kept when the title switches mode
+        self.dev_opts = args.dev_opts
+        self.dev_index = 0
         self.state = "play" if (args.skip_title or args.frames) else "title"
         if self.state == "title" and self.modern and not getattr(args, "horde", False) and not args.playtest:
             args.level = args.menu_level  # the title shows where the campaign starts
@@ -152,7 +163,8 @@ class App:
         self.level = getattr(self.args, "level", "level01")
         self.arena = getattr(self.args, "arena", "prison")
         self.game = Game(seed=self.seed, difficulty=self.args.difficulty, level=self.level, remastered=self.modern,
-                         horde=self.horde, arena=self.arena)
+                         horde=self.horde, arena=self.arena, dev=self.dev and self.modern)
+        self._apply_dev()
         self.pending_card: int | None = None
         self.card_focus = 0  # the card Enter takes; arrows and the mouse move it
         self.last_clear: dict | None = None  # the bonuses of the wave just cleared, for the cards
@@ -196,7 +208,8 @@ class App:
         campaign; ``Game(carry=...)`` follows the original's level change)."""
         self.level = name
         self.game = Game(seed=self.seed, difficulty=self.args.difficulty, level=name, remastered=True,
-                         carry=self.game)
+                         carry=self.game, dev=self.dev)
+        self._apply_dev()
         self.game.view.update_scroll()  # the camera only: the first tick snaps the view the same way
         self._rebind()
         self._level_started()
@@ -239,6 +252,7 @@ class App:
             campaign.restart_health(self.game)  # no console save: the level restarts at full health
         if which == "level_start":
             self.checkpoint = self.level_start  # a restarted level has no console save yet
+        self._apply_dev()  # the dev menu's switches as they are now, not as the save had them
         self._rebind()
         self._write({"kind": "restore", "to": which})
 
@@ -355,6 +369,17 @@ class App:
             hit = [i for i, r in enumerate(self.mhud.card_rects) if r.collidepoint(ev.pos)]
             if hit:
                 self.card_focus = hit[0]
+        elif self.state == "dev" and ev.type == pg.MOUSEMOTION:
+            hit = [i for r, i in self.screens.rows if r.collidepoint(ev.pos)]
+            if hit:
+                self.dev_index = hit[0]
+        elif self.state == "dev" and ev.type == pg.MOUSEBUTTONDOWN and ev.button == 1:
+            arrow = [i for r, i, _ in self.screens.arrows if r.collidepoint(ev.pos)]
+            if arrow:
+                self.dev_index = arrow[0]
+                self.dev_change()
+            elif any(r.collidepoint(ev.pos) for r, _ in self.screens.rows):
+                self.dev_activate()
         elif self.state == "title" and ev.type == pg.MOUSEMOTION:
             hit = [i for r, i in self.screens.rows if r.collidepoint(ev.pos)]
             if hit and hit[0] != self.menu_index:
@@ -417,6 +442,8 @@ class App:
             return True
         if self.state == "title":
             return self._title_key(key)
+        if self.state == "dev":
+            return self._dev_key(key)
         if self.state == "help":
             if key in (pg.K_F1, pg.K_ESCAPE, pg.K_RETURN, pg.K_SPACE):
                 self.state = self.help_return
@@ -429,6 +456,8 @@ class App:
             cards = self._cards_up()
             if key == pg.K_ESCAPE:
                 self.state = "paused"
+            elif key == pg.K_TAB and self.dev and self.modern:
+                self.state = "dev"  # the dev menu; the game waits
             elif cards and pg.K_1 <= key <= pg.K_3:
                 self.pending_card = key - pg.K_1  # while upgrade cards are up, 1/2/3 choose one
             elif cards and key in (pg.K_LEFT, pg.K_a, pg.K_RIGHT, pg.K_d):
@@ -628,6 +657,53 @@ class App:
         self.args.difficulty = DIFFICULTIES[(i + d) % len(DIFFICULTIES)]
         self.new_game()
 
+    # --- developer test mode (devmode.py; screens.dev_menu draws its menu) ---
+    def _apply_dev(self) -> None:
+        rm = self.game.remastered
+        if rm is not None and rm.dev is not None:
+            rm.state["dev"] = dict(self.dev_opts)
+
+    def dev_item(self) -> dict:
+        from .screens import dev_items
+
+        items = dev_items(self)
+        return items[self.dev_index % len(items)]
+
+    def _dev_key(self, key) -> bool:
+        from .screens import dev_items
+
+        pg = self.pg
+        n = len(dev_items(self))
+        if key in (pg.K_UP, pg.K_w):
+            self.dev_index = (self.dev_index - 1) % n
+        elif key in (pg.K_DOWN, pg.K_s):
+            self.dev_index = (self.dev_index + 1) % n
+        elif key in (pg.K_LEFT, pg.K_RIGHT, pg.K_a, pg.K_d):
+            self.dev_change()
+        elif key in (pg.K_RETURN, pg.K_SPACE, pg.K_KP_ENTER):
+            self.dev_activate()
+        elif key in (pg.K_TAB, pg.K_ESCAPE):
+            self.state = "play"
+        return True
+
+    def dev_change(self) -> None:
+        it = self.dev_item()
+        if it["key"] in ("health", "ammo"):
+            self.dev_opts[it["key"]] = not self.dev_opts[it["key"]]
+            self._apply_dev()
+
+    def dev_activate(self) -> None:
+        it = self.dev_item()
+        if it["key"] == "power":
+            before = self.game.player.lvars.get("special_power", 0)
+            self.game.remastered.dev_power(it["power"])
+            self._note_power(before, Inputs())  # the power's prompt, as when you pick one up
+            self.state = "play"
+        elif it["key"] == "resume":
+            self.state = "play"
+        else:
+            self.dev_change()
+
     def toggle_ghost(self) -> None:
         """Show or hide the ghost, from the campaign list or G in play, and keep the choice."""
         from .remaster import save_setting
@@ -701,6 +777,8 @@ class App:
         by = ", ".join(f"{n} {HORDE_NAMES.get(k, k)}" for k, n in sorted(st["kills_by"].items()))
         if by:
             lines.append(by)
+        if f.get("dev"):
+            lines.append("DEV MODE: NOT RECORDED")
         if f.get("rank"):
             lines.append(f"#{f['rank']} on this arena's top 10")
         top = f.get("top") or []
@@ -794,8 +872,8 @@ class App:
             from .remaster import record_horde
 
             st = self.game.horde.state
-            self.finish = record_horde(self.args.difficulty, st["cleared"], st["kills"], arena=self.arena,
-                                       score=st["score"])
+            self.finish = {"dev": True} if self.dev else record_horde(
+                self.args.difficulty, st["cleared"], st["kills"], arena=self.arena, score=st["score"])
             self.state = "horde_over"
         elif self.game.player.aistate >= 3:
             self.stats["deaths"] += 1
@@ -808,9 +886,12 @@ class App:
                 from .remaster import record_finish
 
                 self.next_level = w.globals.get("next_level")
-                self.finish = record_finish(self.args.difficulty, self.stats, self.record_level)
-                if self.finish["new_best"] and self.ghost_rec is not None:
-                    self.ghost_rec.save(self.args.difficulty, self.record_level)
+                if self.dev:
+                    self.finish = {"dev": True}  # dev runs never become records or ghosts
+                else:
+                    self.finish = record_finish(self.args.difficulty, self.stats, self.record_level)
+                    if self.finish["new_best"] and self.ghost_rec is not None:
+                        self.ghost_rec.save(self.args.difficulty, self.record_level)
 
     def _note_power(self, before: int, inp: Inputs) -> None:
         """A newly carried power gets a big prompt; one used by holding a key stays flagged on
@@ -846,7 +927,7 @@ class App:
         pg.transform.scale(surf, self.screen.get_size(), self.screen)
         if ghost_at is not None:
             self._label_ghost(ghost_at)
-        playing = self.state in ("play", "paused", "dead", "complete", "horde_over") or (
+        playing = self.state in ("play", "paused", "dead", "complete", "horde_over", "dev") or (
             self.state == "help" and self.help_return != "title")
         if playing and self.modern:
             self.mhud.draw(self.screen, self)
@@ -866,6 +947,8 @@ class App:
             sc.briefing(self.screen, self)
         elif self.state == "help":
             sc.help(self.screen, self)
+        elif self.state == "dev":
+            sc.dev_menu(self.screen, self)
         elif self.modern and self.state == "paused":
             sc.pause(self.screen, self)
         elif self.modern and self.state == "dead":

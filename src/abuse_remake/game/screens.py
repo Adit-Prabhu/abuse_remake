@@ -99,6 +99,29 @@ def menu_items(app, page: str | None = None) -> list[dict]:
     return items
 
 
+def dev_items(app) -> list[dict]:
+    """The dev menu: the four power-ups (and none), the two switches, and back to the game."""
+    from ..engine.behaviors.player import NO_POWER
+    from .modern_hud import POWERS
+
+    now = app.game.player.lvars.get("special_power", NO_POWER)
+    items = []
+    for power, (name, _image, verb) in [*POWERS.items(), (NO_POWER, ("NO POWER-UP", None, None))]:
+        use = f"Hold SHIFT or right mouse {verb.lower()}." if verb else "Health up to 200."
+        items.append({"key": "power", "power": power, "label": name, "value": None,
+                      "note": "CARRIED" if power == now else None, "note_color": GREEN,
+                      "desc": [use if power else "Drop the power-up you carry.",
+                               "Enter gives it, and back to the game."]})
+    on = app.dev_opts
+    items.append({"key": "health", "label": "UNLIMITED HEALTH", "value": "ON" if on["health"] else "OFF",
+                  "desc": ["No damage, and health stays full.", "Off: hits hurt again, to test damage."]})
+    items.append({"key": "ammo", "label": "UNLIMITED AMMO", "value": "ON" if on["ammo"] else "OFF",
+                  "desc": ["Laser, grenades, rockets and napalm: always full (the laser at its fast rate).",
+                           "Off: shots use ammo again, from full."]})
+    items.append({"key": "resume", "label": "BACK TO THE GAME", "value": None, "desc": ["Or Tab, or Esc."]})
+    return items
+
+
 BACK_ITEM = {"key": "back", "label": "BACK", "value": None, "desc": ["Back to the title menu."]}
 
 
@@ -134,21 +157,41 @@ class Screens:
             s = max(1, h // 230)
             art = pygame.transform.scale(art, (art.get_width() * s, art.get_height() * s))
             screen.blit(art, (int(w * 0.27) - art.get_width() // 2, (h - art.get_height()) // 2 - 6 * u))
-        items = menu_items(app)
+        heading = PAGE_TITLES.get(app.menu_page) or ("REMASTERED" if app.modern else "CLASSIC")
+        pw = min(222 * u, int(w * 0.5))
+        self._menu(screen, menu_items(app), app.menu_index, heading, AMBER if app.modern else TEXT, w - pw - 12 * u)
+        if app.dev and app.modern:
+            from .modern_hud import dev_badge
+
+            dev_badge(t, screen, (8 * u, 8 * u))
+        if app.menu_page == "main":
+            parts = [("key", "ENTER"), "SELECT  ", ("key", "F1"), "CONTROLS  ", ("key", "F11"), "FULL SCREEN"]
+        else:
+            parts = [("key", "ENTER"), "START  ", ("key", "ESC"), "BACK  ", ("key", "F11"), "FULL SCREEN"]
+        t.keys_line(screen, parts, (w // 2, h - 22 * u), align="center")
+        t.text(screen, "Original game (c) 1996 Crack dot Com: public-domain code and shareware data",
+               (w // 2, h - 9 * u), DIM, align="center")
+
+    def _menu(self, screen, items: list[dict], focus_index: int, heading: str, color, left: int | None = None,
+              dy: int = -4, keys: list | None = None) -> None:
+        """A menu panel in the original's art: a heading, a line per item (a setting's value
+        between arrows, a ► for a line that opens a list, or a note), the focused line's
+        description, and ``keys`` (a keys line) at its foot. ``left`` None centres it. Lays out
+        ``rows`` and ``arrows`` for the mouse."""
+        t, u = self.t, self.u
+        w, h = screen.get_size()
         pw = min(222 * u, int(w * 0.5))
         row_h = 17 * u
         desc_rows = max(sum(len(t.wrap(line, pw - 16 * u)) for line in it["desc"]) for it in items)
-        ph = 30 * u + len(items) * row_h + (8 + 9 * desc_rows) * u
-        panel = pygame.Rect(w - pw - 12 * u, (h - ph) // 2 - 4 * u, pw, ph)
+        ph = 30 * u + len(items) * row_h + (8 + 9 * desc_rows) * u + (18 * u if keys else 0)
+        panel = pygame.Rect((w - pw) // 2 if left is None else left, (h - ph) // 2 + dy * u, pw, ph)
         t.panel(screen, panel)
-        heading = PAGE_TITLES.get(app.menu_page) or ("REMASTERED" if app.modern else "CLASSIC")
-        t.text(screen, heading, (panel.centerx, panel.top + 8 * u), AMBER if app.modern else TEXT, size="big",
-               align="center")
+        t.text(screen, heading, (panel.centerx, panel.top + 8 * u), color, size="big", align="center")
         self.rows, self.arrows = [], []
         y = panel.top + 24 * u
         for i, it in enumerate(items):
             r = pygame.Rect(panel.left + 6 * u, y, pw - 12 * u, row_h - 2 * u)
-            focus = i == app.menu_index
+            focus = i == focus_index
             if focus:
                 pygame.draw.rect(screen, ui.RUST[2], r)
                 pygame.draw.rect(screen, AMBER, r, u)
@@ -164,23 +207,25 @@ class Screens:
                 self.arrows.append((la.inflate(6 * u, 8 * u), i, -1))
                 self.arrows.append((ra.inflate(6 * u, 8 * u), i, 1))
             elif it.get("opens"):  # opens its own list: Enter, a click or right
-                t.text(screen, "►", (r.right - 5 * u, r.top + 5 * u), AMBER if focus else DIM, align="right")
+                t.text(screen, "\u25ba", (r.right - 5 * u, r.top + 5 * u), AMBER if focus else DIM, align="right")
             elif it.get("note"):
-                t.text(screen, it["note"], (r.right - 5 * u, r.top + 5 * u), DIM, align="right")
+                t.text(screen, it["note"], (r.right - 5 * u, r.top + 5 * u), it.get("note_color", DIM), align="right")
             y += row_h
-        desc = items[app.menu_index]["desc"] if 0 <= app.menu_index < len(items) else []
+        desc = items[focus_index]["desc"] if 0 <= focus_index < len(items) else []
         y += 3 * u
         for line in desc:
             for part in t.wrap(line, pw - 16 * u):
                 t.text(screen, part, (panel.left + 8 * u, y), DIM)
                 y += 9 * u
-        if app.menu_page == "main":
-            parts = [("key", "ENTER"), "SELECT  ", ("key", "F1"), "CONTROLS  ", ("key", "F11"), "FULL SCREEN"]
-        else:
-            parts = [("key", "ENTER"), "START  ", ("key", "ESC"), "BACK  ", ("key", "F11"), "FULL SCREEN"]
-        t.keys_line(screen, parts, (w // 2, h - 22 * u), align="center")
-        t.text(screen, "Original game (c) 1996 Crack dot Com: public-domain code and shareware data",
-               (w // 2, h - 9 * u), DIM, align="center")
+        if keys:
+            t.keys_line(screen, keys, (panel.centerx, panel.bottom - 19 * u), align="center")
+
+    # --- developer test mode (devmode.py) ------------------------------------------------------
+    def dev_menu(self, screen, app) -> None:
+        self.t.dim(screen, 150)
+        self._menu(screen, dev_items(app), app.dev_index % len(dev_items(app)), "DEV MODE", RED, dy=-10,
+                   keys=[("key", "ENTER"), "CHOOSE  ", ("key", "\u2190"), ("key", "\u2192"), "SWITCH  ",
+                         ("key", "TAB"), "BACK"])
 
     # --- Horde's briefing ------------------------------------------------------------------------
     def briefing(self, screen, app) -> None:
@@ -285,7 +330,9 @@ class Screens:
                 (f"Damage taken {s['damage_taken']}, shots fired {s['shots']}, enemies hit {s['enemies_hit']}, "
                  f"dashes {s['dashes']}", DIM)]
         best = f.get("best")
-        if f.get("new_best"):
+        if f.get("dev"):
+            body.append(("DEV MODE: NOT RECORDED", RED))
+        elif f.get("new_best"):
             was = f" (was {clock_text(best['ticks'])})" if best else ""
             body.append((f"NEW BEST TIME{was}: saved as your ghost", GREEN))
         elif best:
