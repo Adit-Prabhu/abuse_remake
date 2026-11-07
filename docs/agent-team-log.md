@@ -1,8 +1,9 @@
-# Agent-team log (one page)
+# Agent session record
 
-> **Owner:** the student. The implementation agent drafted this page from the repo history and the
-> working sessions. **TODO (student):** check every line, correct anything you remember
-> differently, and add your own notes. It describes the work up to 2026-10-13.
+> **Written by the implementation agents**, from the repository history and the working
+> sessions. It is the detailed, agent-voiced record of who did what. **The student's own
+> one-page log, in the student's voice, is `AGENT-TEAM.md`,** which the student writes. Where the
+> two differ, the student's page is the account of record.
 
 ## Team
 
@@ -48,7 +49,7 @@ it in a fresh context, and the agent fixed or recorded every finding. The studen
 
 ## Remastered expansion (2026-10-14 and 15)
 
-> Drafted by the implementation agent. **TODO (student):** check these lines.
+> Written by the implementation agent.
 
 - **Human decisions.**
   - The agent advised finishing the required midterm items first. The student chose to extend
@@ -75,7 +76,7 @@ it in a fresh context, and the agent fixed or recorded every finding. The studen
 
 ## Remastered polish (2026-10-15)
 
-> Drafted by the implementation agent. **TODO (student):** check these lines.
+> Written by the implementation agent.
 
 - **Human decisions.** The student played the stack and listed what felt poorly made. They chose
   to seal the Horde arenas rather than open their lower floors, said the "white bars" were in the
@@ -111,3 +112,28 @@ The agent wrote the code, tests and docs. The agent also ran the reviews, as sep
 read-only agents. The student directed the scope and the decisions. No model calls were made
 for play or evaluation up to this point: every result in `evidence/` comes from the
 deterministic baselines.
+
+## Midterm fixes (2026-10-26)
+
+> Written by the implementation agent.
+
+- **Audit.** At the student's request, the agent audited the project against the course brief
+  and rubric (`docs/reviews/midterm-audit-2026-10-26.md`). Its findings:
+  - the model player had never made a live call;
+  - nothing proved Level 1 could be finished;
+  - there was no course folder, `EVALUATION.md`, recording or peer notes;
+  - the agent-team log was agent-voiced;
+  - the suite was oversized, with no held-out cases;
+  - the decision-count bug was known but unfixed.
+- **Student decisions.**
+  - Build on the reviewed #15-#20 line. Leave out the Codex polish and the bridge, and drop Neon.
+  - Vertex AI with a USD 10 cap.
+  - Open a draft course PR early.
+  - Make the repository public after a secret scan.
+- **Handoffs.** Stacked PRs from #21. Each change to a rule or the interface gets a fresh
+  read-only `rules-reviewer`, with a follow-up pass on the fixes.
+  - #21: the decision that reaches the cap ran 0 ticks; fixed test-first. The review found
+    stale evidence and tests that could not fail. The evidence was regenerated, and every
+    committed trace now replays in CI.
+  - #22: the suite was declared before any live call (`SUITE.md`).
+  - #23: the rubric documents.

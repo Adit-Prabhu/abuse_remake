@@ -73,7 +73,7 @@
     "The token budgets rely on the usage the player process reports from the provider's response.",
     "The scripted baseline is deterministic in practice, so intervals over seeds can have zero width; they measure seed variation, not other ways a player could play.",
     "Comparisons are between fixed players under equal budgets. Self-play alone does not establish learning or strong play; human playtests give the human reference.",
-    "Level 1 only. Death ends an episode, a course choice; the original reloads the last save.",
+    "Level 1 only. Death ends an episode, a design choice (harness); the original reloads the last save.",
     "The live comparison needs the owner's Vertex AI setup and has not been run at the time of writing."
   ],
   "agent_team": [

@@ -43,6 +43,45 @@ Each decision the player gets two things, as plain JSON (`agent/observation.py`,
 | The evaluator's progress measure and the route to the exit | the answer | computed in `agent/progress.py` on the runner side; the end-of-episode message carries only the episode's own outcome (`test_players_get_the_episode_outcome_without_evaluator_data`) |
 | Credentials | | player processes get a minimal environment (`protocol.BASE_ENV`). Only the model player also gets the variables its provider's SDK reads (`MODEL_ENV_PREFIXES`), and those never enter prompts, observations or traces (`test_player_processes_get_no_credentials_unless_they_are_the_model_player`) |
 
+## Two judgement calls
+
+### Breakable walls (the original's "hidden walls") are secrets
+
+The original names these objects `HIDDEN_WALL1` to `HIDDEN_WALL_3FLR`
+(`data/original/lisp/doors.lsp:168-197`). Each is drawn in play from `art/chars/sect.spe`, with
+no `dev_draw`, and its picture changes as it takes damage (`hwall_damage`). Some only break
+after a switch activates them, because `hwall_damage` checks `(activated)`.
+
+*Drawn* is not the same as *recognisable*. `evidence/boundary/hidden-wall-types.png` shows the
+first instance of each of the eight types in Level 1, in place, in Classic:
+- **Cracked stone, visibly unlike the scenery:** `HIDDEN_WALL1`, and partly `HIDDEN_WALL5`.
+- **Indistinguishable from the floor, wall or dark background around them:** the other six.
+  The front end even counts a destroyed one as a "secret".
+
+`evidence/boundary/hidden-walls-classic.png` is the full view at the first column.
+`scripts/boundary_evidence.py` re-renders both.
+
+**Finding (2026-10-26).** Until this was checked, the observation reported every hidden wall on
+screen as a `wall_block` object, and `attack W<n>` was legal for it. So the observation and the
+legal-action list told an agent which pieces of scenery are breakable, which a human playing
+for the first time would not know. That is a leaked secret. The interface is being changed
+before any tuning or live run, so that an undamaged hidden wall shows only as what it looks
+like. The change will be described here once it lands.
+
+### The Classic HUD covers a band of the view
+
+Classic draws its HUD over the play view, at fixed window pixels:
+- the health bar and the selected-weapon box are opaque;
+- the time, kills and secrets are bare text;
+- the band runs from 46 to 24 window pixels above the bottom, which is about 7 game pixels at
+  scale 3 (it shrinks as the window scale grows).
+
+The original drew its status bar outside the play view: the view is y 5..166 of the 320x200
+screen (`abuse/src/view.c:636-676`, the Timing table of the rule map). An agent's observation
+covers the whole view, so in that band it can see a little that a human cannot. Agents and
+humans are never scored against each other. Any comparison with human playtests has to say
+this.
+
 ## How it is enforced
 
 - **Process isolation.** By default every player is a child process speaking JSON lines

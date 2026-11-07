@@ -31,7 +31,8 @@ Follow `.claude/skills/port-classic-rule/SKILL.md`:
 
 1. Cite the original source (`historicalsource/abuse@01cce80` for C, `data/original/lisp` for
    Lisp) and add or update a row in `docs/rule-source-map.md` with the strongest honest label:
-   `code`, `manual`, `observed` or `assumed`.
+   `code`, `manual`, `observed` or `assumed`, or `design` (with its kind and reason) for a
+   rule that is our own choice.
 2. Write the failing test first.
 3. Port the rule.
 4. Check the player boundary.

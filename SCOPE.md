@@ -1,8 +1,13 @@
 # Scope record: Abuse (Crack dot Com, 1996), Level 1
 
-> **Owner:** the student (Executive Producer and Creative Director). This record writes down the
-> scope chosen on 2026-10-13 ("Level 1 only"). **TODO (human):** confirm it matches what the
-> instructor agreed in Session 2, and record any change here with its date.
+> **Owner:** the student (Executive Producer and Creative Director). Level 1 was chosen on
+> 2026-10-13. The implementation agent drafted this revision on 2026-10-26 from the student's
+> decisions (`docs/reviews/midterm-audit-2026-10-26.md`). The student accepts it by merging,
+> and posts the change to the course's Week 3 thread. Changes are dated at the bottom.
+
+**In one sentence:** the graded game is **Classic mode, Level 1**: a faithful, deterministic port
+of the original rules on the original level file, played by people and by agents through the
+same rules. Remastered mode is an optional layer on top. It is not graded and never evaluated.
 
 ## The classic
 
@@ -46,7 +51,7 @@ An episode ends at the first of:
    (`people.lsp` `next_level_ai`: `touching_bg` and `pressing_action_key`, where
    `pressing_action_key` is `(> (player_y_suggest) 0)`).
 2. **Loss.** The player dies.
-   - This is a course choice, not a rule of the game. In single-player mode the original
+   - This is a `design` choice (harness), not a rule of the game. In single-player mode the original
      reloads the level from the start (health 100), or reloads the save made at the last
      `RESTART_POSITION` console (`people.lsp` `restart_player`).
    - A console saves when the player presses the action key at it and picks a save slot. Health
@@ -55,44 +60,67 @@ An episode ends at the first of:
      stop at death.
 3. **Timeout.** The scenario's tick limit is reached: 9000 ticks (10 minutes of game time) for
    the full level, or 2700 ticks for segments that start at a restart console. Both limits are
-   course choices.
+   `design` choices (harness).
+4. **Agent budgets.** For agents only: the decision budget (200 per segment, 600 for the full
+   level in the declared suite), token and wall-clock budgets, and a player that fails. Each
+   ending is reported under its own name (`docs/budgets.md`).
+
+A human plays the same rules with the original restart at the last console. Agent episodes are
+the bounded version of the same level. The episode interface is specified in
+`docs/action-interface.md`, what a player may know in `docs/information-boundary.md`, and the
+declared evaluation in `SUITE.md`.
+
+## Optional layer: Remastered mode (not graded, not evaluated)
+
+`--mode remastered`, the default in the title menu, adds features that change rules. Each of
+those rules lives behind the mode and is labelled `design` (Remastered) in
+`docs/rule-source-map.md`, or `code` where it ports an original object. Classic mode, the
+fidelity tests and every agent evaluation run without them. `tests/test_classic_golden.py` pins
+Classic's behaviour, and `test_classic_games_and_agent_episodes_never_build_remastered_rules`
+checks the separation.
+
+- **Feel:** the wider view, flash lighting, particles, the dash, quick restart, the stats
+  screen and the ghost race (`docs/remastered.md`).
+- **Campaign (added 2026-10-14):** the shareware training level, then Level 1, then Level 2. The
+  two extra levels are the byte-identical shareware v1.01 files
+  (`data/original/PROVENANCE.md`). Their objects are hand-ported from the same Lisp and C as
+  Level 1's, with map rows and independent reviews (PRs #15-#17). It also has the original four
+  power-ups (speed, flight, invisibility, ultra health).
+- **Horde:** waves on three sealed arenas, with mixed enemies, a boss every fifth wave, upgrade
+  cards, score and high scores (PRs #18 and #20).
+- **Interface:** a title menu, a controls screen, the HUD in the original interface art, a
+  gamepad, a resizable window and full screen.
+
+**Every level in the build must be finishable, with evidence.** The training level and Level 2
+each have a saved input route that CI replays to the level's exit (`evidence/routes/`,
+`tests/test_campaign_routes.py`).
+
+Level 1, the graded level, has no complete route yet. The solver has found Classic routes for
+START to console 2 (293 ticks) and for console 3 to the exit (337 ticks). The middle segment is
+still being searched, and the full route lands with its CI replay in a later PR. Until then this
+is an open item, not a claim.
+
+Both modes draw the level's own lights and interpolate 60 fps rendering between the 15 Hz ticks.
+The AI spectator (`abuse-replay`) always shows Classic rules.
 
 ## Out of scope
 
-Other levels, network play, the level editor, save files on disk, a Lisp interpreter (rules are
-hand-ported and each one is cited in `docs/rule-source-map.md`), the retail data, the original
-sounds and music (copyrighted), and the later add-on content in the Lisp (plasma gun, light
-saber, extra powers, boss).
+- Levels other than Level 1, except the training level and Level 2 in Remastered's campaign.
+- Network play, the level editor, save files on disk, and a Lisp interpreter (rules are
+  hand-ported, and each is cited in `docs/rule-source-map.md`).
+- The retail data, and the original sounds and music (copyrighted; the game synthesises its own).
+- The later add-on content in the Lisp: the plasma gun, light saber, extra powers beyond the
+  original four, and the boss.
+- **Not part of this submission:**
+  - *Neon Protocol*, a separate original-game experiment (PRs #9-#14);
+  - the developer-assisted interactive bridge (`feat/codex-bridge`). It let a coding assistant
+    with repository access choose moves, so it can't meet the player boundary, and it is used
+    for nothing reported.
 
-## Optional layer: Remastered mode
+## Changes to this scope
 
-Both modes have the 60 fps drawing interpolated between ticks, the menus, mouse aiming and
-gamepad support. Remastered adds the wider view, flash lighting, particles, the dash, the stats
-screen, the ghost race and the Horde arena (`docs/remastered.md`). The AI spectator
-(`abuse-replay`) always shows Classic rules.
-
-- Classic mode shows the original 316x162 view; the wider view, particles, ghost and the other
-  presentation features belong to Remastered mode (`docs/remastered.md`). Both modes draw the
-  level's own lights; the muzzle-flash and explosion light is Remastered only. (Updated
-  2026-10-13 to match the build.)
-- Features that change rules exist only behind `--mode remastered`.
-- Fidelity tests and agent evaluations always run in Classic mode.
-
-### Remastered campaign (2026-10-14)
-
-> **Drafted by the implementation agent on 2026-10-14 from the student's choices. TODO
-> (student):** confirm or edit this paragraph; it records a scope change.
-
-The student chose to extend Remastered mode, not Classic. The extension covers:
-- the shareware training level and Level 2, played with Level 1 as a campaign;
-- the four original power-ups (speed, flight, invisibility, ultra health);
-- a larger Horde.
-
-The extra levels come from the shareware v1.01 release (`data/original/PROVENANCE.md`). Their
-objects are hand-ported from the same Lisp and C sources as Level 1's. Each object gets a row in
-`docs/rule-source-map.md` and the independent review. The fidelity claim and the agent evaluations
-stay on Classic Level 1, and `tests/test_classic_golden.py` pins Classic's behaviour.
-
-If the student confirms this, "Out of scope" above should be amended:
-- "Other levels" would become "Other levels, except Remastered's campaign";
-- "extra powers" would become "extra powers, except the four power-ups in Remastered".
+| Date | Change | Decided by |
+|---|---|---|
+| 2026-10-13 | Abuse, Level 1 only; a Classic core plus a Remastered mode; Vertex AI for the live player | the student |
+| 2026-10-14 | Remastered grows: the training level, Level 2, the four power-ups, a bigger Horde. Classic and the evaluation unchanged | the student, against the agent's advice to finish the required items first |
+| 2026-10-26 | The graded scope restated as Classic Level 1, with Remastered optional and ungraded. Neon and the bridge excluded. The evaluation suite re-declared before any live call (`SUITE.md`) | the student, after the midterm audit (`docs/reviews/midterm-audit-2026-10-26.md`) |

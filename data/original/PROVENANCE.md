@@ -58,8 +58,9 @@ retail 2.00 data is used only for comparison and is never committed.
 
 **Not included:**
 
-- The sound effects and music (`sfx/`, `music/`): Bobby Prince's copyright. The game uses CC0
-  replacement audio from `assets/`.
+- The sound effects and music (`sfx/`, `music/`): Bobby Prince's copyright. The game ships no
+  audio files. It synthesises its own effects at start-up (`src/abuse_remake/game/audio.py`)
+  and has no music.
 - The retail and registered data sets.
 
 ## What is used
@@ -71,3 +72,45 @@ retail 2.00 data is used only for comparison and is never committed.
   `startup.lsp` list.
 - `art/*.spe`, `art/chars/*.spe`: sprites for the player, enemies, items and logic objects.
 - `lisp/*.lsp`: kept as the rule source. The engine hand-ports these scripts and never runs them.
+
+## Publishing in the public course repository
+
+The course repository is public, so everything committed here must be publishable. The basis
+differs by file, and one part rests on a third party's statement. That part is flagged for the
+instructor, who resolves unclear publication rights under the course brief.
+
+**On Crack dot Com's own terms:**
+
+- **The C engine** is public domain ("Crack dot Com is hereby releasing the source code to
+  Abuse to the public domain"). We cite it by file and line and do not copy it, except for the
+  verbatim excerpts in `tests/c_reference/` used by the differential tests.
+- **Data byte-identical to the 1995 shareware v1.01 release** is covered by the release note's
+  grant to "use pieces of the source code or shareware data (excluding the WAV's …) however you
+  see fit". `docs/data-lineage.md` (`observed`, by `scripts/compare_original_data.py`) shows
+  this for:
+  - `levels/level00.spe`, `level01.spe` and `level02.spe`;
+  - the palette;
+  - 64 of the art files, including every tile set Level 1 uses.
+
+**On the upstream packager's statement only:**
+
+- **The rest of the art and the Lisp.** That is 9 art files that differ from the shareware
+  copies (interface art such as `title.spe`, `statbar.spe`, `frame.spe`, `fonts.spe`), the
+  vendored art files the shareware release does not have, `abuse.lsp`, and `lisp/`.
+  - The Lisp is the 2.0-era version. It matches retail 2.00 in 401 of 409 shared definitions,
+    carries community edits from 1996 to 2008, and has 72 definitions of registered-edition or
+    later content (`docs/data-lineage.md`).
+  - Crack dot Com's note reserves "the 'retail' and 'registered' data sets". These files come
+    from the abuse.zoy.org packaging, distributed by Debian, whose `COPYING.upstream` states
+    that `data/*` (Crack dot Com 1995, Justin Cassidy and others 1996-2008) was "released in the
+    public domain".
+  - We rely on that statement for these files. Classic Level 1's rules are ported from this Lisp,
+    and its sprites and the Remastered interface draw on this art.
+  - **Open item for the student:** confirm with the instructor that publishing these files is
+    acceptable. If it is not, replace them before the folder is published.
+
+**Excluded:** the WAVs and music (Bobby Prince), the retail and registered data downloaded only
+for the lineage comparison, and anything from other games.
+
+**Our own code, tests and documents** were written for this course by AI agents under the
+student's direction, as disclosed in `AGENT-TEAM.md` and `docs/agent-team-log.md`.

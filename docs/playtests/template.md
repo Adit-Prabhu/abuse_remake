@@ -1,43 +1,41 @@
 # Playtest P<n>, <date>
 
-> Copy this file to `P<n>-<date>.md` and fill it in after a real session (see `protocol.md`).
+> Copy this file to `received/P<n>-<date>.md` (a peer played this build) or
+> `given/<date>.md` (notes given on a classmate's build). Anonymous: no names.
 
 - **Player:** P<n>. Knows the original Abuse? (never / played it / knows it well)
-- **Machine and input:** (keyboard and mouse / gamepad), (OS)
-- **Build:** git SHA `<sha>`, mode(s) played
-- **Consent to commit the trace:** yes / no
+- **Input:** keyboard and mouse / gamepad
+- **Build:** git SHA `<sha>`; mode played: Classic
+- **Consent to commit the input trace:** yes / no
 
-## Classic run (seed 0, from the start)
+## Classic Level 1 (seed 0, from the start, 8 minutes)
 
 | Measure | Value |
 |---|---|
+| Found Down as the action key without help? | |
 | Reached console 1 / 2 / 3 (time) | |
 | Reached the exit (time) | |
 | Deaths (where) | |
 | Stuck points (where, how long) | |
+| Progress (from `abuse-replay --human-trace`) | |
 
 What the player said while playing (quotes):
 
 -
 
-## Fidelity
+## Watching the model player (3 minutes)
 
-- Does it feel like the original? What feels different (movement, aiming, enemies, weapons,
-  doors, switches)?
-- Anything that looked or behaved wrong (where, what)?
-
-## Remastered
-
-- Dash: useful? too strong or too weak?
-- Quick restart, stats screen, ghost: clear? used?
-- Horde: waves cleared, kills, fun (1–5), fair (1–5)?
+- What did they think it was trying to do? Were they right?
+- Was anything on the replay panel unclear or misleading?
 
 ## Questions
 
-1. What was hardest to understand?
-2. What would you change first?
-3. Fun overall (1–5), and why?
+1. **One thing you (or an agent) would have to guess**, and **the one question that removes
+   the guess**.
+2. What was hardest to understand?
+3. What would you change first?
+4. Fun (1–5), and why?
 
-## Facilitator notes and follow-ups
+## Follow-ups
 
-- (findings, each linked to an issue or a rule-map row)
+- (each finding, and what was done: a change, an issue, or a line in the limitations)
