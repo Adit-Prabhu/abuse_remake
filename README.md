@@ -7,7 +7,7 @@ is compared with a scripted search baseline on a suite declared before any tunin
 
 | | |
 |---|---|
-| Recording (3–5 min) | *link added when recorded* |
+| Recording (3–5 min) | [Abuse Midterm Video](https://youtu.be/Sv1Ex4Y5H7M) (4:51, YouTube, unlisted) |
 | Evaluation report | [`EVALUATION.md`](EVALUATION.md) |
 | Agent-team log | [`AGENT-TEAM.md`](AGENT-TEAM.md), written by the student |
 | Human playtest notes | [`docs/playtests/received/`](docs/playtests/received/) |

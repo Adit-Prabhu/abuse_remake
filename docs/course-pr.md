@@ -30,7 +30,7 @@ branch to `origin`, and open the PR with the description below. Wait for the
 - Evaluation report: [midterms/adit-prabhu/EVALUATION.md](https://github.com/columbia-university-ai-games/game-dev-f26/blob/adit-prabhu/midterm/midterms/adit-prabhu/EVALUATION.md)
 - Agent team log: [midterms/adit-prabhu/AGENT-TEAM.md](https://github.com/columbia-university-ai-games/game-dev-f26/blob/adit-prabhu/midterm/midterms/adit-prabhu/AGENT-TEAM.md)
 - Human playtest notes: [midterms/adit-prabhu/docs/playtests/received/](https://github.com/columbia-university-ai-games/game-dev-f26/tree/adit-prabhu/midterm/midterms/adit-prabhu/docs/playtests/received)
-- Recording (3–5 min): <recording URL>
+- Recording (3–5 min): https://youtu.be/Sv1Ex4Y5H7M
 
 Classic mode, Level 1 of Abuse (1996), on the original level file and rules. A model player
 (`gemini-3.5-flash-lite` on Vertex AI) plays it through a five-operation interface and is
