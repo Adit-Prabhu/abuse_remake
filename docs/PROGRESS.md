@@ -89,8 +89,9 @@ Still to come:
   `midterms/adit-prabhu/` folder in a clone of the course repository.
 
 The student owns:
-- `AGENT-TEAM.md` in their own voice, and the limitations paragraph;
-- the human playtest (by anyone; notes before the submission) and the recording;
+- `AGENT-TEAM.md` in their own voice (the limitations paragraph and the human playtest,
+  P1 on 2026-11-06, are done);
+- the recording;
 - making the repository public;
 - the merges, and submitting on CourseWorks by 2026-11-07.
 

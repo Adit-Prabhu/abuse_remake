@@ -1,10 +1,11 @@
 # Evaluation
 
-**Status on 2026-10-30:**
+**Status on 2026-11-06:**
 - The declared suite (`SUITE.md`) has been run once, live, from the frozen commit. All 48
   planned episodes ran and are reported in §2.
 - The solver shows that all four situations can be won under Classic rules (seed 0; §3).
-- The limitations (§6) are the student's to write.
+- The limitations (§6) are written by the student, after one human playtest
+  (`docs/playtests/received/P1-2026-11-06.md`).
 
 **2026-10-30: the live path works.** The 20-request smoke run (`eval/configs/live-smoke.toml`,
 `level01-cp1` seed 0, model-M1) made 20 calls with 0 failures and 0 refused actions. Every
@@ -246,4 +247,34 @@ The five kinds of check the course asks for:
 
 ## 6. Limitations
 
-*Written by the student after the reported run, using the peer playtest notes.*
+*Written by the student after the reported run and the human playtest.*
+
+This evaluation has a few limitations.
+
+- **Small sample.** I only tested one model across four situations with three seeds each, so 12
+  episodes per player, which is a pretty small sample.
+- **No wins, so everything rests on progress.** None of the players actually won, so the results
+  depend on progress, which only measures distance to the exit and doesn't account for obstacles
+  like doors or hidden walls.
+- **What the comparison shows.** The scripted player performed best (0.281), while M1 (0.054)
+  and M0 (0.016) were both below random (0.075). I can't confidently say memory helped, since
+  the difference between M1 and M0 was small and the confidence interval included zero.
+- **The baseline knew more than the models.** I also found out afterward that the scripted
+  player knew to ignore hanging aliens, while the models weren't told they couldn't be damaged.
+  This explains why M1 and M0 spent so much time repeatedly attacking them (63% and 73% of
+  decisions in long attack sequences). The stuck rule was also tuned using M1, which makes the
+  memory comparison less fair.
+- **The human playtest.** In the human playtest, the playtester (P1) completed the level in 9:38
+  with five deaths and checkpoint restarts, and needed help with the controls around 1:00. They
+  also initially shot at hanging aliens but eventually moved on, unlike the models. However,
+  this isn't a direct comparison, since the human could restart, used a keyboard and trackpad,
+  and saw a slightly different screen: the HUD hides about seven pixels from the human that
+  agents can see ([P1's notes](docs/playtests/received/P1-2026-11-06.md)).
+- **The reconstruction.** Finally, I only reconstructed Level 1, made assumptions about the
+  15 Hz tick rate and one random-argument order affecting an explosion sprite, and the solver
+  couldn't find routes for some seeds even though it found wins on seed 0 in every situation.
+  The shared movement skills also aren't perfect.
+
+Overall, I think the results are useful for identifying where the agents struggled, but the
+small sample, rough confidence intervals, and differences in information mean I can't make
+broader conclusions about model performance yet.
