@@ -105,7 +105,8 @@ class AbuseEpisode:
         self._ids = IdMap()
         self._known = KnownMap()
         self.ticks = 0
-        self.decisions = 0
+        self.decisions = 0  # decisions made; one being played is counted when it ends
+        self._acting = False
         self.invalid_actions = 0
         self.events: list = []
         self.counters = {"kills": 0, "damage_taken": 0, "pickups": 0, "walls": 0, "checkpoints": 0,
@@ -158,14 +159,10 @@ class AbuseEpisode:
 
     def step(self, player_id: str, action: object) -> dict:
         _check_player(player_id)
-        if self._status()[0] != "playing":
+        if self._status()[0] != "playing":  # this includes a spent decision budget
             return {"accepted": False, "error": "episode is over", "ticks": 0,
                     "observation": self.observe(player_id)}
-        if self.decisions >= self.budgets.max_decisions:
-            return {"accepted": False, "error": "decision budget exhausted", "ticks": 0,
-                    "observation": self.observe(player_id)}
-        legal = self.legal_actions(player_id)  # computed before this decision is counted
-        self.decisions += 1
+        legal = self.legal_actions(player_id)
         self._pending_events = []  # events are those since the last decision, refused or not
         if not isinstance(action, str):
             return self._refuse(f"<not text: {type(action).__name__}>", "action must be a string")
@@ -175,12 +172,26 @@ class AbuseEpisode:
             reason = "not in legal_actions" if action else "empty action"
             return self._refuse(action, reason)
         canonical = legal_lc[action]
-        ticks = self._execute(canonical)
+        # counted after it runs: counted before, the decision that reached the cap saw the budget
+        # as spent and ran no ticks
+        self._acting = True
+        try:
+            ticks = self._execute(canonical)
+        finally:
+            self._acting = False
+            self.decisions += 1
         self._last_result = {"accepted": True, "action": canonical, "error": None, "ticks": ticks}
         return {"accepted": True, "error": None, "ticks": ticks, "observation": self.observe(player_id)}
 
+    @property
+    def decision_number(self) -> int:
+        """The decision being played, while its action runs (runner side, for the spectator);
+        between decisions, the number made so far."""
+        return self.decisions + self._acting
+
     # --- internals ---------------------------------------------------------------------
     def _refuse(self, action: str, reason: str) -> dict:
+        self.decisions += 1
         self.invalid_actions += 1
         self._last_result = {"accepted": False, "action": action[:200], "error": reason, "ticks": 0}
         return {"accepted": False, "error": reason, "ticks": 0, "observation": self.observe(PLAYER_ID)}

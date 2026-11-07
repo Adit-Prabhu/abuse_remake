@@ -131,7 +131,11 @@ abuse-eval run --config eval/configs/live.toml --live --out runs/live-1 --resume
 ## Evidence so far
 
 - The offline baseline run: `evidence/reports/offline-baselines.md`, with its results, config and
-  three traces in `evidence/traces/offline-v3/`.
+  three traces in `evidence/traces/offline-v4/`. It was regenerated on 2026-10-26 after the
+  decision-count fix (PR #21). Each scripted full-level episode's 600th decision now runs, so
+  those episodes' ticks (mean 4,813 to 4,823, pooled 2,762 to 2,765) and final positions
+  changed. Every progress, kill, damage and pickup figure and every paired difference is the
+  same.
 - Progress is sampled on every tick (since the PR #5 review), and the random player seeds
   itself from its first observation instead of the episode seed.
 - Pooled over the 4 scenarios, random's progress minus scripted's is −0.271, with a

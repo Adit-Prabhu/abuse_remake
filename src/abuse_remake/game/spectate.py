@@ -1,7 +1,7 @@
 """``abuse-replay``: watch an agent play, or replay a trace, on screen or into a video.
 
     uv run abuse-replay --player scripted --scenario level01-cp3 --seed 0          # watch live
-    uv run abuse-replay --trace evidence/traces/offline-v3/scripted-level01-cp3-s0.jsonl
+    uv run abuse-replay --trace evidence/traces/offline-v4/scripted-level01-cp3-s0.jsonl
     uv run abuse-replay --trace runs/x.jsonl --video evidence/video/demo.mp4 --headless
 
 The game runs under Classic rules through the same ``AbuseEpisode`` the evaluation uses. A
@@ -173,8 +173,8 @@ class Spectator:
         y = self._text(f"{ep.scenario.name}, seed {ep.seed}, {ep.difficulty}, Classic rules", x, y, (170, 170, 170),
                        self.small)
         y += 6
-        y = self._text(f"decision {ep.decisions}/{ep.budgets.max_decisions}   tick {ep.ticks}/{ep.budgets.max_ticks}",
-                       x, y)
+        b = ep.budgets
+        y = self._text(f"decision {ep.decision_number}/{b.max_decisions}   tick {ep.ticks}/{b.max_ticks}", x, y)
         y = self._text(f"invalid actions {ep.invalid_actions}", x, y, (255, 140, 140) if ep.invalid_actions else None)
         y += 6
         act = i["action"] if isinstance(i["action"], str) else repr(i["action"])

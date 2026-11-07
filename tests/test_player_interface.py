@@ -112,6 +112,58 @@ def test_decision_budget_ends_the_episode():
     assert r["accepted"] is False and ep.decisions == 3  # after the end nothing is counted
 
 
+def test_the_last_decision_under_the_cap_still_runs():
+    """Regression: the decision that reached the cap was counted before it ran, so the controller
+    saw the budget as spent and the action was accepted with 0 ticks. The offline evidence trace
+    scripted-level01-s0 (offline-v3, git 88670c4^) shows it: decision 600, `explore left`,
+    accepted with 0 ticks."""
+    ep = AbuseEpisode("level01", seed=0, budgets=Budgets(max_ticks=9000, max_decisions=2))
+    first = ep.step(PLAYER_ID, "wait")
+    last = ep.step(PLAYER_ID, "wait")
+    assert first["ticks"] == 8 and last["accepted"] and last["ticks"] == 8
+    assert ep.ticks == 16 and ep.outcome()["reason"] == "decision budget exhausted"
+
+
+def test_switching_to_the_laser_at_the_cap_reaches_the_laser():
+    """Ctrl steps back one weapon per tick. At the cap the old counting stopped after one press,
+    on the grenade, and still reported the switch to the laser as accepted."""
+    ep = AbuseEpisode("level01", seed=0, budgets=Budgets(max_ticks=9000, max_decisions=1))
+    v = ep._game.view
+    v.weapons[1], v.weapons[2], v.current_weapon = 5, 5, 2  # grenades and rockets, rockets held
+    r = ep.step(PLAYER_ID, "weapon laser")
+    assert r["accepted"] and r["ticks"] == 2 and v.current_weapon == 0
+
+
+def test_a_refused_decision_at_the_cap_ends_the_episode_without_ticks():
+    ep = AbuseEpisode("level01", seed=0, budgets=Budgets(max_ticks=9000, max_decisions=1))
+    r = ep.step(PLAYER_ID, "fly away")
+    assert not r["accepted"] and r["ticks"] == 0 and ep.ticks == 0
+    assert ep.decisions == 1 and ep.invalid_actions == 1
+    assert ep.outcome()["reason"] == "decision budget exhausted"
+
+
+def test_the_decision_in_progress_is_numbered_while_it_runs():
+    """The spectator's panel numbers the decision being played on every tick of it."""
+    ep = AbuseEpisode("level01", seed=0, budgets=Budgets(max_ticks=9000, max_decisions=5))
+    seen = []
+    ep.on_tick = lambda: seen.append(ep.decision_number)
+    ep.step(PLAYER_ID, "wait")
+    ep.step(PLAYER_ID, "wait")
+    assert seen == [1] * 8 + [2] * 8 and ep.decision_number == 2
+
+
+def test_a_decision_is_counted_even_if_its_action_raises(monkeypatch):
+    ep = AbuseEpisode("level01", seed=0)
+
+    def boom(_):
+        raise RuntimeError("controller bug")
+
+    monkeypatch.setattr(ep, "_c_wait", boom)
+    with pytest.raises(RuntimeError):
+        ep.step(PLAYER_ID, "wait")
+    assert ep.decisions == 1 and ep.decision_number == 1
+
+
 def test_tick_limit_ends_the_episode():
     ep = AbuseEpisode("level01", seed=0, budgets=Budgets(max_ticks=20, max_decisions=100))
     while ep.outcome()["status"] == "ongoing":
