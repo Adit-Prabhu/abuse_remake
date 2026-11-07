@@ -139,6 +139,9 @@ class App:
         self.trace = getattr(self, "trace", None)  # one trace per session, kept across title toggles
         self.joy_rest: list[float] = []
         self.ghost_painter = None
+        from .remaster import ghost_shown
+
+        self.show_ghost = ghost_shown()  # the campaign list's GHOST setting; G changes it too
         if self.trace is None:
             self._open_trace()
         self.new_game()
@@ -161,7 +164,6 @@ class App:
         self.acc = 0.0
         self.pending_weapon: WeaponCommand | None = None
         self.pending_dash = False
-        self.show_ghost = True
         self._write({"kind": "new_game", "seed": self.seed, "difficulty": self.args.difficulty,
                      "mode": self.args.mode, "horde": self.horde, "level": self.level, "arena": self.arena,
                      "horde_version": HORDE_VERSION,
@@ -452,7 +454,7 @@ class App:
                 self._restore("checkpoint")  # quick restart at the last console
                 self.hud.say("Back to the last console")
             elif self.modern and key == pg.K_g:
-                self.show_ghost = not self.show_ghost
+                self.toggle_ghost()
         elif self.state == "paused":
             if key == pg.K_ESCAPE:
                 self.state = "play"
@@ -564,6 +566,8 @@ class App:
             self._open_page(it["key"])  # right goes into the list, as the line's arrow shows
         elif it["key"] == "difficulty":
             self._cycle_difficulty(d)
+        elif it["key"] == "ghost":
+            self.toggle_ghost()
         elif it["key"] == "mode":
             self._set_mode("classic" if self.modern else "remastered")
 
@@ -578,7 +582,7 @@ class App:
             self.state = "briefing"  # how Horde works, before wave 1
         elif key == "back":
             self._menu_back()
-        elif key in ("difficulty", "mode"):
+        elif key in ("difficulty", "mode", "ghost"):
             self.menu_change(1)
         elif key == "controls":
             self.help_return = "title"
@@ -623,6 +627,22 @@ class App:
         i = DIFFICULTIES.index(self.args.difficulty)
         self.args.difficulty = DIFFICULTIES[(i + d) % len(DIFFICULTIES)]
         self.new_game()
+
+    def toggle_ghost(self) -> None:
+        """Show or hide the ghost, from the campaign list or G in play, and keep the choice."""
+        from .remaster import save_setting
+
+        self.show_ghost = not self.show_ghost
+        save_setting("ghost", self.show_ghost)
+
+    def _label_ghost(self, at: tuple[int, int]) -> None:
+        """GHOST over the ghost's head, in the interface's red, so nobody takes it for an enemy."""
+        from .ui import RED
+
+        t, u = self.mhud.t, self.mhud.t.u
+        sw, sh = self.screen.get_size()
+        x, top = at[0] * sw // self.view_w, at[1] * sh // self.view_h
+        t.text(self.screen, "GHOST", (x, top - t.measure("GHOST")[1] - 2 * u), RED, align="center")
 
     def _set_mode(self, mode: str) -> None:
         from .screens import menu_items
@@ -716,6 +736,8 @@ class App:
         self.game.step(inp, weapon)
         self.renderer.note_tick()
         self.stats["ticks"] += 1
+        if self.stats["ticks"] == 1 and self.ghost and self.show_ghost:
+            self.hud.say("Red GHOST: your best run. G hides it", 300)  # one line at every scale
         self._note_power(power_before, inp)
         if self.ghost_rec is not None:
             self.ghost_rec.capture(self.game)
@@ -806,6 +828,7 @@ class App:
 
     def draw(self):
         pg = self.pg
+        ghost_at = None
         alpha = min(1.0, self.acc / TICK) if self.state == "play" else 1.0
         surf = self.renderer.render(alpha)
         if self.modern:
@@ -818,9 +841,11 @@ class App:
                     from .remaster import GhostPainter
 
                     self.ghost_painter = GhostPainter(pg, self.sprites)
-                self.ghost_painter.draw(surf, self.game, row, xoff, yoff)
+                ghost_at = self.ghost_painter.draw(surf, self.game, row, xoff, yoff)
             self.particles.draw(surf, xoff, yoff)
         pg.transform.scale(surf, self.screen.get_size(), self.screen)
+        if ghost_at is not None:
+            self._label_ghost(ghost_at)
         playing = self.state in ("play", "paused", "dead", "complete", "horde_over") or (
             self.state == "help" and self.help_return != "title")
         if playing and self.modern:

@@ -67,7 +67,10 @@ def menu_items(app, page: str | None = None) -> list[dict]:
     main page opens two lists: PLAY CAMPAIGN lists only the levels, HORDE only the arenas."""
     page = page or app.menu_page
     if page == "campaign":
-        return [*(_level_item(app, name) for name in campaign.playable_levels()), BACK_ITEM]
+        ghost = {"key": "ghost", "label": "GHOST", "value": "ON" if app.show_ghost else "OFF",
+                 "desc": ["A red GHOST replays your best run on the level, to race.",
+                          "Off only hides it: your best is still saved. G switches it in play."]}
+        return [*(_level_item(app, name) for name in campaign.playable_levels()), ghost, BACK_ITEM]
     if page == "horde":
         return [*(_arena_item(app, key) for key in ARENAS), BACK_ITEM]
     items = []
