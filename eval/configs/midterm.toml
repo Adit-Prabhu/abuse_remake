@@ -1,0 +1,54 @@
+# The declared midterm suite (SUITE.md). Committed on 2026-10-26, before any live model call
+# and before any prompt or baseline tuning. Only these episodes are reported; all tuning uses
+# midterm-tuning.toml, whose seeds never appear here. Live players run only with --live.
+name = "midterm"
+scenarios = ["level01-cp1", "level01-cp2", "level01-cp3", "level01"]
+seeds = [0, 1, 2]
+difficulty = "hard"
+isolation = "process"
+decision_timeout = 60.0  # the runner's wait for a reply; each model request itself times out at 20 s
+reference = "scripted"
+
+[budgets]                 # the same for every player in a scenario
+max_decisions = 200       # checkpoint segments have 2700 ticks
+max_input_tokens = 600000
+max_output_tokens = 150000
+max_wall_s = 3600
+
+[budgets.scenarios.level01]  # the full level has 9000 ticks, three times a segment's
+max_decisions = 600
+max_input_tokens = 1800000
+max_output_tokens = 450000
+max_wall_s = 7200
+
+[run]                     # stop starting live episodes once these are reached
+max_input_tokens = 20000000
+max_output_tokens = 3000000
+
+[prices]                  # USD per million tokens, from the provider's price page, dated, before a live run
+date = ""
+source = ""
+input_per_mtok = 0.0
+output_per_mtok = 0.0
+
+[[players]]
+label = "random"
+player = "random"
+
+[[players]]
+label = "scripted"
+player = "scripted"
+
+# The two model players differ only in --memory: M0 sees the current observation, M1 also the
+# last 8 turns. The rest of the model settings are frozen at the end of tuning (SUITE.md).
+[[players]]
+label = "model-M0"
+player = "model"
+args = ["--provider", "vertex", "--memory", "M0", "--timeout", "20", "--max-output-tokens", "2048"]
+live = true
+
+[[players]]
+label = "model-M1"
+player = "model"
+args = ["--provider", "vertex", "--memory", "M1", "--timeout", "20", "--max-output-tokens", "2048"]
+live = true

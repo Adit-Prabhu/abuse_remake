@@ -62,6 +62,20 @@ after one refused decision, so a misconfigured run cannot spend its budget on re
 
 ## The repeated comparison
 
+The declared midterm suite is `SUITE.md`: `eval/configs/midterm.toml` is reported, and
+`eval/configs/midterm-tuning.toml` is the only place prompts and the baseline are tuned. A
+scenario can have its own budgets (`[budgets.scenarios.<name>]`), the same for every player;
+the full level gets 600 decisions to the segments' 200. Each run records the git tree hash of
+`src/` and the prompt module's hash (`src_tree`, `prompt_sha` in `config.json`), so a report
+can be matched to the submitted code and the frozen prompt.
+
+```sh
+uv run abuse-eval estimate --config eval/configs/midterm.toml            # tokens and cost, no calls
+COURSE_MODEL=<id> uv run abuse-eval run --config eval/configs/midterm.toml --live --jobs 6 --out runs/midterm
+```
+
+The older configs:
+
 ```sh
 uv run abuse-eval run --config eval/configs/offline.toml --jobs 6        # baselines, no network
 uv run abuse-eval estimate --config eval/configs/live.toml               # tokens and cost, no calls

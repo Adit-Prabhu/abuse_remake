@@ -27,6 +27,9 @@ def test_ci_smoke_eval_reports_every_planned_episode(tmp_path):
     report = write_report(tmp_path / "a")
     assert "not run: live player and --live not given: 2" in report
     assert "| model-M1 | 2 | 0 |" in report  # planned 2, ran 0: listed, not dropped
+    record = json.loads((tmp_path / "a" / "config.json").read_text())
+    assert len(record["prompt_sha"]) == 12 and "src_tree" in record and "src_dirty" in record
+    assert f"prompt `{record['prompt_sha']}`" in report
     rows2 = run(cfg, tmp_path / "b", live=False, log=None)  # same seeds: the same results
     key = ("label", "scenario", "seed", "progress", "ticks", "x", "y", "hp")
     assert [{k: r.get(k) for k in key} for r in rows] == [{k: r.get(k) for k in key} for r in rows2]
@@ -82,6 +85,31 @@ def test_estimate_and_cost_make_no_calls(monkeypatch):
     assert cost(cfg, 1_000_000, 100_000) == 3.0
 
 
+def test_a_scenario_can_have_its_own_budgets_the_same_for_every_player(tmp_path):
+    cfg = load_config(ROOT / "eval/configs/midterm.toml")
+    assert evaluate.budgets_for(cfg, "level01-cp1").max_decisions == 200
+    full = evaluate.budgets_for(cfg, "level01")
+    assert full.max_decisions == 600 and full.max_input_tokens == 1_800_000 and full.max_ticks == 9000
+    est = estimate(cfg)  # 2 live players x (3 segments x 3 seeds x 200 + 3 seeds x 600)
+    assert est["live_episodes"] == 24 and est["requests_max"] == 2 * (9 * 200 + 3 * 600)
+    assert est["max_decisions"] == {"level01-cp1": 200, "level01-cp2": 200, "level01-cp3": 200, "level01": 600}
+    bad = tmp_path / "bad.toml"
+    bad.write_text((ROOT / "eval/configs/midterm.toml").read_text().replace(
+        "[budgets.scenarios.level01]", "[budgets.scenarios.level99]"))
+    with pytest.raises(SystemExit, match="level99"):
+        load_config(bad)
+
+
+def test_the_tuning_set_never_shares_an_episode_with_the_reported_suite():
+    suite = load_config(ROOT / "eval/configs/midterm.toml")
+    tuning = load_config(ROOT / "eval/configs/midterm-tuning.toml")
+    reported = {(s, seed) for s in suite["scenarios"] for seed in suite["seeds"]}
+    tuned = {(s, seed) for s in tuning["scenarios"] for seed in tuning["seeds"]}
+    assert not reported & tuned
+    held_out = set(suite["scenarios"]) - set(tuning["scenarios"])
+    assert held_out == {"level01-cp1", "level01-cp3", "level01"}
+
+
 def test_bootstrap_statistics():
     assert mean_ci([0.5, 0.5, 0.5]) == (0.5, 0.5, 0.5)  # a deterministic player: zero width, and said so
     m, lo, hi = mean_ci([0.7])
@@ -102,7 +130,7 @@ def test_bootstrap_statistics():
 
 
 def test_configs_load_and_live_players_are_marked():
-    for name in ("offline", "live", "live-smoke", "ci-smoke"):
+    for name in ("offline", "live", "live-smoke", "ci-smoke", "midterm", "midterm-tuning"):
         cfg = load_config(ROOT / f"eval/configs/{name}.toml")
         for p in cfg["players"]:
             assert p.get("live", False) == (p["player"] == "model")
