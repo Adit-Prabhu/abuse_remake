@@ -73,14 +73,24 @@ course project (set in `GOOGLE_CLOUD_PROJECT` at run time, never committed) with
 Also on 2026-10-30 (`eval/tuning`): two tuning rounds and the freeze (`docs/prompt-log.md`,
 the freeze table in `SUITE.md`). Live spending so far: USD 0.27.
 
+Also on 2026-10-30 (`eval/reported-run`): the reported run, from the frozen commit `c05542c`.
+All 48 episodes ran. No player won. Pooled progress: scripted 0.281, random 0.075, model-M1
+0.054, model-M0 0.016. The model players spent most of their decisions attacking hanging aliens,
+which the baseline's rules leave alone (`EVALUATION.md` §2). Reported run USD 3.00; USD 3.27
+in all (tokens times the dated list prices, not the billed amount).
+
+On 2026-11-06: the independent review of PRs #32-#34 (`docs/reviews/PR-32-34.md`). No blocking
+findings. A hanging alien takes no damage under the ported rules, so the baseline's rule of
+leaving them alone builds in a fact the model was never told, and the prompt lacks several other
+baseline rules. The docs now say so, and four tests cover the frozen prompt's claims.
+
 Still to come:
-- the reported run of `eval/configs/midterm.toml`, from the frozen `src` tree;
 - the course submission, which the student makes: `scripts/export_submission.py` builds the
   `midterms/adit-prabhu/` folder in a clone of the course repository.
 
 The student owns:
 - `AGENT-TEAM.md` in their own voice, and the limitations paragraph;
-- the peer playtest (notes due 2026-11-06) and the recording;
+- the human playtest (by anyone; notes before the submission) and the recording;
 - making the repository public;
 - the merges, and submitting on CourseWorks by 2026-11-07.
 
@@ -199,14 +209,10 @@ evaluation harness.
 
 Milestones 1-9 are done and reviewed. The open work is listed under "Midterm fixes" at the top
 of this page:
-1. **The live comparison**, which waits on the student's Vertex credentials
-   (`gcloud auth application-default login` and a project ID). Then, in order, as `SUITE.md`
-   says: `abuse-eval estimate` on `eval/configs/midterm.toml`, the 20-request `live-smoke`, at
-   most two tuning rounds on `midterm-tuning.toml` (logged in `docs/prompt-log.md`), the freeze,
-   the reported run, and the results in `EVALUATION.md`. Commands are in `docs/evaluation.md`.
-   Prices and run caps are already filled in.
-2. The student-owned items listed there: the merges, `AGENT-TEAM.md`, the peer playtest, the
-   recording, making the repository public, and the course submission.
+1. **The live comparison**: done on 2026-10-30 (smoke, two tuning rounds, the freeze, the
+   reported run; `EVALUATION.md` §2).
+2. The student-owned items listed there: the merges, `AGENT-TEAM.md`, the human playtest, the
+   recording, making the repository public, and the course submission (`docs/course-pr.md`).
 
 ## Facts established from the source (cite these in the map)
 

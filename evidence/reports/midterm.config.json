@@ -1,0 +1,141 @@
+{
+  "config": {
+    "name": "midterm",
+    "scenarios": [
+      "level01-cp1",
+      "level01-cp2",
+      "level01-cp3",
+      "level01"
+    ],
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "difficulty": "hard",
+    "isolation": "process",
+    "decision_timeout": 60.0,
+    "reference": "scripted",
+    "compare": [
+      [
+        "model-M1",
+        "model-M0"
+      ]
+    ],
+    "budgets": {
+      "max_decisions": 200,
+      "max_input_tokens": 600000,
+      "max_output_tokens": 150000,
+      "max_wall_s": 3600,
+      "scenarios": {
+        "level01": {
+          "max_decisions": 600,
+          "max_input_tokens": 1800000,
+          "max_output_tokens": 450000,
+          "max_wall_s": 7200
+        }
+      }
+    },
+    "run": {
+      "max_input_tokens": 13000000,
+      "max_output_tokens": 1500000
+    },
+    "prices": {
+      "date": "2026-10-26",
+      "source": "https://cloud.google.com/vertex-ai/generative-ai/pricing",
+      "input_per_mtok": 0.3,
+      "output_per_mtok": 2.5
+    },
+    "players": [
+      {
+        "label": "random",
+        "player": "random"
+      },
+      {
+        "label": "scripted",
+        "player": "scripted"
+      },
+      {
+        "label": "model-M0",
+        "player": "model",
+        "args": [
+          "--provider",
+          "vertex",
+          "--memory",
+          "M0",
+          "--timeout",
+          "20",
+          "--max-output-tokens",
+          "2048"
+        ],
+        "live": true
+      },
+      {
+        "label": "model-M1",
+        "player": "model",
+        "args": [
+          "--provider",
+          "vertex",
+          "--memory",
+          "M1",
+          "--timeout",
+          "20",
+          "--max-output-tokens",
+          "2048"
+        ],
+        "live": true
+      }
+    ]
+  },
+  "git": "c05542c1a43f6cf39322c93c5e0cd574d32887da",
+  "version": "0.1.0",
+  "python": "3.12.0",
+  "packages": {
+    "pygame-ce": "2.5.8",
+    "numpy": "2.5.4",
+    "google-genai": "2.30.0",
+    "anthropic": "0.125.0",
+    "openai": "2.54.0"
+  },
+  "live": true,
+  "only": null,
+  "started": "2026-10-30T16:01:43+00:00",
+  "course_model": "gemini-3.5-flash-lite",
+  "budgets": {
+    "level01-cp1": {
+      "max_ticks": 2700,
+      "max_decisions": 200,
+      "max_action_ticks": 15,
+      "max_input_tokens": 600000,
+      "max_output_tokens": 150000,
+      "max_wall_s": 3600.0
+    },
+    "level01-cp2": {
+      "max_ticks": 2700,
+      "max_decisions": 200,
+      "max_action_ticks": 15,
+      "max_input_tokens": 600000,
+      "max_output_tokens": 150000,
+      "max_wall_s": 3600.0
+    },
+    "level01-cp3": {
+      "max_ticks": 2700,
+      "max_decisions": 200,
+      "max_action_ticks": 15,
+      "max_input_tokens": 600000,
+      "max_output_tokens": 150000,
+      "max_wall_s": 3600.0
+    },
+    "level01": {
+      "max_ticks": 9000,
+      "max_decisions": 600,
+      "max_action_ticks": 15,
+      "max_input_tokens": 1800000,
+      "max_output_tokens": 450000,
+      "max_wall_s": 7200.0
+    }
+  },
+  "src_tree": "2982976605414623a4351cb5b610af5706178bb3",
+  "src_dirty": false,
+  "prompt_sha": "52e0fd185e2d"
+}

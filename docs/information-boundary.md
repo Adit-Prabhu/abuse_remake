@@ -154,13 +154,35 @@ this.
 
 The system prompt (`agent/prompts.py`) holds only manual-level knowledge: the goal, the controls
 as actions, what each kind of object is (as the screen shows it), and the weapons. It also
-holds the same priors the scripted baseline's rules contain, so neither player starts with more:
-head right first, shoot
-breakable walls, try switches, heal when hurt, deal with threats first, and when stuck shoot the
-wall ahead and then the floor (the baseline's "break through" rule, added to the prompt in
-tuning round 2, `docs/prompt-log.md`). It contains no map
-knowledge: nothing about where the exit, switches or secrets are
-(`test_system_prompt_has_no_map_knowledge`).
+holds some of the priors the scripted baseline's rules contain: head right first, shoot
+breakable walls, try switches, heal when hurt, deal with threats first, and when stuck shoot
+the wall ahead and then the floor (close to the baseline's "break through" rule, added to the
+prompt in tuning round 2, `docs/prompt-log.md`). It contains no map knowledge: nothing about
+where the exit, switches or secrets are (`test_system_prompt_has_no_map_knowledge`).
+
+This page used to say the prompt held the same priors as the baseline. It does not. The
+missing hanging-alien rule was found after the reported run, and the independent review of PRs
+#32-#34 found the rest (`docs/reviews/PR-32-34.md`). The prompt is frozen, so it stays as it
+is. The baseline rules
+(`agent/players/baselines.py`) that the prompt lacks:
+- **Leave hanging aliens alone** (rule 1). This builds in an engine rule that the observation
+  never shows: a hanging alien takes no damage (`ant.lsp:398-449`,
+  `test_hanging_ant_ignores_damage`). The prompt says aliens may hang, but not that they cannot
+  be hurt then. The model spent most of its reported decisions attacking hanging aliens
+  (`EVALUATION.md` §2).
+- **Give up**: after 20 attacks in a row on one enemy, after 3 on a wall whose cracks do not
+  change, and after 3 approaches to an object that get no closer.
+- **Ignore** folded turrets, dying aliens, and threats more than 220 px away.
+- **Pick up ammo** within 250 px.
+- **Use a teleporter when stuck.**
+- **Save at each console once.** The prompt now says the opposite, that saving does not help,
+  which is true for agents: their episodes end at death
+  (`test_an_agent_episode_ends_at_death_even_after_saving_at_a_console`).
+
+The stuck rule itself is close to the baseline's, not the same: the baseline counts itself
+stuck when its x changed by less than 20 px over 4 decisions, while the prompt says "the same x
+and y" or "few ticks", and only M1 and M2 show the history it names
+(`test_the_stuck_rule_names_what_the_turn_and_the_m1_history_print`).
 
 ## Memory conditions
 
