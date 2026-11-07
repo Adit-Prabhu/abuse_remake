@@ -156,7 +156,9 @@ The system prompt (`agent/prompts.py`) holds only manual-level knowledge: the go
 as actions, what each kind of object is (as the screen shows it), and the weapons. It also
 holds the same priors the scripted baseline's rules contain, so neither player starts with more:
 head right first, shoot
-breakable walls, try switches, heal when hurt, deal with threats first. It contains no map
+breakable walls, try switches, heal when hurt, deal with threats first, and when stuck shoot the
+wall ahead and then the floor (the baseline's "break through" rule, added to the prompt in
+tuning round 2, `docs/prompt-log.md`). It contains no map
 knowledge: nothing about where the exit, switches or secrets are
 (`test_system_prompt_has_no_map_knowledge`).
 

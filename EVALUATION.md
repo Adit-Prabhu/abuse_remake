@@ -13,6 +13,12 @@ output tokens (USD 0.009 at the dated prices), with latency 0.86 s p50 and 1.69 
 (`evidence/reports/live-smoke.md`). It is a check of the path, not a result: 20 decisions,
 one episode, and not part of the suite.
 
+**2026-10-30: tuning is done and the prompt is frozen.** Two rounds on the tuning set
+(`level01-cp2`, seeds 90 and 91) brought model-M1's mean progress there from 0.0055 to 0.057;
+scripted's is 0.254. The rule that picked the frozen prompt was committed before the second
+round ran (`docs/prompt-log.md`). The frozen commit, `src` tree, prompt hash and model ID are in
+`SUITE.md`.
+
 ## 1. The declared suite
 
 [`SUITE.md`](SUITE.md) was declared on 2026-10-26, before any live model call and before any

@@ -56,7 +56,11 @@ stronger). Ammo counts are in your status line.
 General advice: levels are usually explored by heading right first; shoot cracked walls that
 block your way, and if a wall or floor stops you, shooting it may reveal that it breaks;
 switches may open paths you saw earlier; pick up health when hurt; deal with threats before they
-reach you. If an action keeps failing to move you, try something else.
+reach you. If an action does not move you (LAST ACTION shows few ticks, or YOUR LAST TURNS show
+the same x and y), do not repeat it. You are probably blocked: fire at the wall in front of you
+(fire left or fire right), then fire down at the floor, since walls and floors can break; then
+try jumping or the other direction. Death ends the episode, so saving at a console does not
+help you.
 """
 
 NOTES_RULE = """
