@@ -46,6 +46,33 @@ it in a fresh context, and the agent fixed or recorded every finding. The studen
 | #7 | Remastered mode | No blocking findings; 8 should-fix findings. Among them: spectating a model skipped the budgets, the replay check could pass a truncated trace, and playtests defaulted to Remastered rules. All fixed. The first review run was cut off by a usage limit and re-run. `PR-7.md` |
 | #8 | Evidence, docs, release | This PR. Its own changes are docs, configuration and the release workflow |
 
+## Remastered expansion (2026-10-14 and 15)
+
+> Drafted by the implementation agent. **TODO (student):** check these lines.
+
+- **Human decisions.**
+  - The agent advised finishing the required midterm items first. The student chose to extend
+    Remastered first, and the midterm work after.
+  - The student picked:
+    - the shareware training level and Level 2;
+    - the original four power-ups;
+    - all four Horde upgrades.
+  - The student approved the written plan (`~/.claude/plans/remastered-expansion.md`), and said
+    "go ahead" and later "keep going".
+- **Handoffs.** Five stacked PRs, #15-#19. A fresh read-only reviewer checked R1-R4, each in its
+  own worktree; every review got a follow-up pass on the fixes.
+  - R1: 1 blocking finding. Level 1 could not be finished while Level 2 was unported.
+  - R2: no blocking findings. 1995-vs-2.0 differences were documented, and the weak tests made
+    exact.
+  - R3: no fidelity bugs; citations, wording and tests fixed.
+  - R4: 1 blocking finding. Three dash cards made the player permanently invulnerable.
+- **What went wrong.**
+  - Unguided search could not finish Level 2. It is a long loop with switches, teleporters, a gate
+    puzzle and enemies that must be fought. The route was built in segments, from scripted steps
+    and short searches.
+  - Several usage limits interrupted reviews, which were resumed.
+  - A test that killed enemies outside a tick hid that Horde reads damage only from inside one.
+
 ## What went wrong, and what changed
 
 - **Provenance.** The agent first claimed a data lineage it had not verified. The PR #1
