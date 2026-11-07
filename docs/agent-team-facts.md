@@ -28,7 +28,9 @@
 | #23 | `SCOPE.md` claimed a Level 1 route that did not exist; the Lisp was called "shareware data" | honest scope and publication terms; it led to checking every hidden wall | `PR-23.md` |
 | #24 | the export could delete uncommitted work; the eval smoke could not fail; solver results were claimed before they existed | a safe, tested export; a failing eval; honest claims | `PR-24.md` |
 | #25 | **the observation leaked secrets** (camouflaged breakable walls were named); later, two walls misclassified, and players unable to return fire | each wall shown only as it looks; the aim fixed; three review rounds | `PR-25.md` |
-| #27 | (in review) | | |
+| #27 | every solver route was seed 0, while the trials use seeds 0-2; nothing checked a replay really ran Classic | routes searched for seeds 1-2 too (found for `cp3` on all three, `cp2` on seed 1) and reported seed by seed; the route test asserts Classic | `PR-27.md` |
+| #31 | the dev-mode tests could not catch a narrower gate or a broken health refill | corrected and covered; each removal was tried and fails a test | `PR-31.md` |
+| #32-#34 | **a hanging alien takes no damage, and only the baseline knew it**; the prompt lacked other baseline rules too; the stuck rule's condition was met but not followed; the spend bound was not a bound; "ahead in every situation" held for the means only | the documents corrected (`EVALUATION.md` §2, `docs/information-boundary.md`), four tests added; the prompt, suite and results left frozen | `PR-32-34.md` |
 
 ## Decisions the student made (dated)
 
@@ -42,6 +44,19 @@
 | 2026-10-26 | Vertex with a USD 10 cap; make the repository public after a secret scan |
 | 2026-10-27 | nothing goes into the course repository until the submission is finished; the agent works only in this repository (the early draft course PR it had opened, #58, was closed and its branch deleted) | the audit's header, `SUITE.md` |
 | 2026-10-26 | "fix it one by one", stacked PRs, aiming for 20/20; no AI co-author trailers | PRs #21-#27 |
+| 2026-10-27 | a developer test mode, locked to the student's machine and kept out of Classic | PR #31 |
+| 2026-10-30 | approved the live runs under the USD 10 cap: the smoke run, two tuning rounds, the reported run; the rule that froze the prompt was set before round 2 ran | `docs/prompt-log.md`, `SUITE.md` |
+| 2026-10-30 | the reported run is final: all 48 episodes reported, none re-run (estimated spend USD 3.27) | `EVALUATION.md` §2 |
+| 2026-11-06 | after the review of #32-#34: fix the documents and tests, not the frozen prompt or results | `docs/reviews/PR-32-34.md` |
+| 2026-11-06 | one human playtest by anyone (the instructor's update); P1 reached the exit at 9:38, and also tried to shoot hanging aliens | `docs/playtests/received/P1-2026-11-06.md` |
+| 2026-11-06 | the student wrote the limitations (`EVALUATION.md` §6) | `EVALUATION.md` §6 |
+
+## Where an agent overstepped
+
+- 2026-11-06: while preparing the course PR description, the implementation agent ran one
+  read-only command against the course repository (`gh pr view 58`, output discarded), against
+  the 2026-10-27 rule that it works only in this repository. It told the student at once; nothing
+  was written there.
 
 ## Things the student can say in their own words
 
@@ -53,4 +68,7 @@ These are prompts only, so the student can answer each in their own voice.
 - What did you learn from the reviews? For example, the hidden-wall leak was found only because
   a reviewer refused one screenshot as evidence for eight wall types.
 - What would you do differently?
-- How did you use the human playtest notes?
+- How did you use the human playtest notes? (P1 hit the same hanging-alien trap as the model,
+  and moved on.)
+- What did the reported run teach you about the baseline and the prompt being fair to each
+  other?
