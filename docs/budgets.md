@@ -13,7 +13,7 @@ own episode ending, so it is never confused with a death or a timeout.
 | Time per decision | 90 s (`--decision-timeout`); 60 s in the live configs | the runner's protocol client | the decision is refused (`no reply within ... s`). Requests carry ids: a reply that arrives later is dropped, never used for the next decision, and its tokens still count |
 | Time per model request | 20 s (`--timeout`), one attempt | the provider adapter (SDK timeout; SDK retries off; the Vertex SDK's automatic continuation off, so one decision is one request) | the decision is refused with category `timeout` |
 | Output tokens per model request | 1024 (`--max-output-tokens`); 2048 in the live configs | the provider | the decision is refused with category `truncated`; its tokens still count. On models that think, thinking tokens count against this cap: set `--thinking-budget` (Gemini) or `--effort low` (Claude, OpenAI) to leave room |
-| Tokens per run | 30M input / 4M output in the live config | `abuse-eval`, checked before each live episode starts | later live episodes are listed as `not run: run token budget exhausted`. A run can pass the cap by at most one episode's own token budget |
+| Tokens per run | 20M input / 3M output in the declared suite (`eval/configs/midterm.toml`) | `abuse-eval`, checked before each live episode starts | later live episodes are listed as `not run: run token budget exhausted`. A run can pass the cap by at most one episode's own token budget |
 | Working credentials | | the provider adapter | a rejected or missing credential (HTTP 401/403/404, no credentials found) is fatal: the episode ends as `player failed` after that one refused decision, instead of spending its budget on refusals |
 
 ## Notes

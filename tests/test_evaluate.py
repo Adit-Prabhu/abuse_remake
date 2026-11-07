@@ -22,6 +22,7 @@ def test_ci_smoke_eval_reports_every_planned_episode(tmp_path):
     live = [r for r in rows if r["label"] == "model-M1"]
     assert all(not r["ran"] and r["reason"] == "not run: live player and --live not given" for r in live)
     ran = [r for r in rows if r["ran"]]
+    assert len(ran) == 4  # random and scripted, two seeds each: an empty run must not pass
     assert all(r["decisions"] == 12 and 0.0 <= r["progress"] <= 1.0 and r["invalid_actions"] == 0 for r in ran)
     assert all((tmp_path / "a" / r["trace"]).exists() for r in ran)
     report = write_report(tmp_path / "a")
@@ -108,6 +109,31 @@ def test_the_tuning_set_never_shares_an_episode_with_the_reported_suite():
     assert not reported & tuned
     held_out = set(suite["scenarios"]) - set(tuning["scenarios"])
     assert held_out == {"level01-cp1", "level01-cp3", "level01"}
+
+
+def test_declared_pairs_are_compared_on_the_same_cases(tmp_path):
+    cfg = load_config(ROOT / "eval/configs/ci-smoke.toml")
+    cfg["compare"] = [["random", "scripted"]]
+    run(cfg, tmp_path / "p", live=False, log=None)
+    report = write_report(tmp_path / "p")
+    assert "## Other paired comparisons (declared in the config)" in report
+    assert "| random | scripted | level01-cp1 | 2 |" in report
+    assert "latency p50 / p95 s" in report
+    bad = tmp_path / "bad.toml"
+    bad.write_text((ROOT / "eval/configs/ci-smoke.toml").read_text().replace(
+        'reference = "scripted"', 'reference = "scripted"\ncompare = [["random", "nobody"]]'))
+    with pytest.raises(SystemExit, match="compare"):
+        load_config(bad)
+
+
+def test_a_crashed_episode_makes_the_run_exit_non_zero(tmp_path, monkeypatch):
+    def boom(*a, **k):
+        raise RuntimeError("engine bug")
+
+    monkeypatch.setattr(evaluate, "run_episode", boom)
+    config = str(ROOT / "eval/configs/ci-smoke.toml")
+    assert evaluate.main(["run", "--config", config, "--out", str(tmp_path / "c")]) == 1
+    assert "crashed: RuntimeError" in (tmp_path / "c" / "report.md").read_text()
 
 
 def test_bootstrap_statistics():

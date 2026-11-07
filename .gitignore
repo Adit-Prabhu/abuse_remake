@@ -27,3 +27,6 @@ local-audio/
 
 .claude/settings.local.json
 .claude/worktrees/
+
+# The course repository ignores every reports/ folder; the evidence reports are submitted
+!evidence/reports/

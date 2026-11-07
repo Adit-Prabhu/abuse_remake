@@ -440,3 +440,23 @@ def test_episodes_are_identical_across_processes_and_hash_seeds():
         assert r.returncode == 0, r.stderr
         out.add(r.stdout.strip())
     assert len(out) == 1
+
+
+def test_using_the_exit_wins_the_episode_through_the_interface():
+    """The terminal win, through the five operations: on screen, `use X1` walks up the slope to
+    the exit and presses the action key, and the outcome is won, score 1."""
+    ep = AbuseEpisode("level01-cp3", seed=0)
+    p, v = ep._game.player, ep._game.view
+    p.x, p.y = 2620, 316  # test set-up: on the floor before the exit's slope, as the solver's route passes
+    p.last_x, p.last_y = p.x, p.y
+    v.last_x, v.last_y, v.last_last_x, v.last_last_y = p.x, p.y, p.x, p.y
+    ep.step(PLAYER_ID, "wait")
+    use = [a for a in ep.legal_actions(PLAYER_ID) if a.startswith("use X")]
+    assert use
+    for _ in range(4):
+        if ep.outcome()["status"] != "ongoing":
+            break
+        ep.step(PLAYER_ID, use[0])
+    out = ep.outcome()
+    assert out["status"] == "terminal" and out["reason"] == "reached the exit" and out["score"] == 1
+    assert ep.legal_actions(PLAYER_ID) == [] and not ep.step(PLAYER_ID, "wait")["accepted"]
