@@ -266,6 +266,14 @@ original and carry no evidence label.
 - Our bounding-box prefilter never changes a result (a property of our code, not a rule). Where: `TileMap.foreground_intersect`. Check: `tests/test_engine_core.py` compares against the unfiltered reference
 - Level 2 can be finished: a saved input route (2,435 ticks) ends it at its exit, picking up the three placed power-ups. Where: `evidence/routes/level02.json`. Check: evidence of playability (built from searched and scripted segments with our own engine; the chaining scripts are not in the repo, so it replays but cannot be rebuilt from the repo). Checked by `test_a_saved_route_finishes_its_level`, `test_the_level_2_route_picks_up_its_three_placed_power_ups`
 - The training level can be finished: a saved input route ends it at the portal room (since Level 2 is playable, at the portal to Level 2, the first open exit it touches). Where: `evidence/routes/level00.json`, `scripts/route_search.py`. Check: evidence of playability (found by searching our own engine, so it is a check, not `observed`). Checked by `test_a_saved_route_finishes_its_level`
+- Level 1 can be finished under Classic rules (difficulty hard): saved input routes from START
+  and from each checkpoint scenario's start, for seed 0, and for more seeds where the solver
+  found one (`EVALUATION.md` §3). Where: `evidence/routes/level01.json`,
+  `evidence/routes/solver/`, `docs/level01-route.md`. Check: evidence of playability, found
+  segment by segment by `scripts/route_search.py --mode classic` (privileged: it reads the
+  engine). Checked by `test_a_saved_route_finishes_its_level`,
+  `test_a_solver_route_wins_its_scenario_under_classic_rules`, and
+  `test_every_playable_level_has_a_route_and_level_1_s_is_classic`
 
 ## Open questions
 

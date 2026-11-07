@@ -1,6 +1,14 @@
-"""Find an input route that finishes a Remastered campaign level, by searching the engine.
+"""Find an input route that finishes a campaign level, by searching the engine.
 
     uv run python scripts/route_search.py --level level00 --goal level01 --out evidence/routes/level00.json
+    uv run python scripts/route_search.py --mode classic --level level01 --goal level02 --out F
+
+With ``--mode classic`` the search and the replay run Classic rules (the graded Level 1), and
+the route is finished when the level ends; otherwise they run Remastered's campaign rules.
+``--start`` begins at a restart console as the agents' checkpoint scenarios do. A long level is
+found segment by segment: ``--to`` reaches a point (``--press`` then throws a switch there),
+``--prefix`` continues from a saved segment, ``--via`` gives waypoints, and ``--min-hp`` lets a
+segment cross a trap. docs/level01-route.md gives the commands for Level 1.
 
 A development tool, not a player: it reads the World object freely. It runs a best-first search
 over short input "macros" (run, jump, climb, press down, wait), from engine snapshots, keyed by
@@ -90,14 +98,17 @@ def key(g, cell: int) -> tuple:
 
 def search(level: str, goal: str, seed: int, difficulty: str, budget: int, cell: int, ticks: int,
            to: tuple[int, int] | None = None, via: list[tuple[int, int]] | None = None,
-           prefix: list[list[int]] | None = None):
+           prefix: list[list[int]] | None = None, mode: str = "remastered",
+           start: tuple[int, int] | None = None, min_hp: int = 25):
     """Search for inputs that end the level through an exit to ``goal``, or, with ``to``, that
     bring the player within 24 px of that point. ``via`` gives waypoints to pass in order on
     the way (a hint for big looping levels; the route is still checked only at its end).
     ``prefix``: saved rows to play first; the search continues from where they leave off, so a
     long level can be found segment by segment."""
     via = list(via or [])
-    g = Game(seed=seed, difficulty=difficulty, level=level, remastered=True)
+    g = Game(seed=seed, difficulty=difficulty, level=level, remastered=mode == "remastered")
+    if start is not None:
+        place(g, start)
     if to is not None:
         points = [to]
     else:
@@ -126,7 +137,7 @@ def search(level: str, goal: str, seed: int, difficulty: str, budget: int, cell:
         if to is not None:
             p = game.player
             return abs(p.x - to[0]) <= 24 and abs(p.y - to[1]) <= 24
-        return finished(game, goal)
+        return finished(game, goal, mode)
 
     counter = itertools.count()
     start_rows: list = []
@@ -158,7 +169,7 @@ def search(level: str, goal: str, seed: int, difficulty: str, budget: int, cell:
                     break  # dead, or the level ended at another exit (the game would stop here)
             if g.world.globals.get("level_complete"):
                 continue
-            if g.player_dead or g.player.hp < min(hp0, 25):
+            if g.player_dead or g.player.hp < min(hp0, min_hp):
                 continue
             wi = advance(g, wi0)
             k = (key(g, cell), wi)
@@ -174,19 +185,34 @@ def search(level: str, goal: str, seed: int, difficulty: str, budget: int, cell:
     return None, expanded, time.time() - t0
 
 
-def finished(game, goal: str) -> bool:
+def finished(game, goal: str, mode: str = "remastered") -> bool:
     """The level ended at an exit to ``goal``: the next level is ``goal``, or, when ``goal``
-    cannot be played (Level 2's exit to Level 3), the campaign ended there."""
+    cannot be played (Level 2's exit to Level 3), the campaign ended there. In Classic, which
+    has no campaign, the level ending is the finish."""
     w = game.world
     if not w.globals.get("level_complete"):
         return False
+    if mode == "classic":
+        return True
     return w.globals.get("next_level") == goal if campaign.playable(goal) else "next_level" not in w.globals
+
+
+def place(g, start: tuple[int, int]) -> None:
+    """Start at a restart console the way the agents' checkpoint scenarios do
+    (``AbuseEpisode.reset``): a fresh level with the player and the camera moved there."""
+    p, v = g.player, g.view
+    p.x, p.y = start
+    p.last_x, p.last_y = p.x, p.y
+    v.last_x, v.last_y, v.last_last_x, v.last_last_y = p.x, p.y, p.x, p.y
 
 
 def replay_route(route: dict) -> Game:
     """Play a saved route as the app would: it stops at the first tick that ends the level.
     Returns the game at that point (or after the last input)."""
-    g = Game(seed=route["seed"], difficulty=route["difficulty"], level=route["level"], remastered=True)
+    g = Game(seed=route["seed"], difficulty=route["difficulty"], level=route["level"],
+             remastered=route.get("mode", "remastered") == "remastered")
+    if route.get("start"):
+        place(g, tuple(route["start"]))
     for n, x, y, special, fire, dx, dy in route["inputs"]:
         for _ in range(n):
             p = g.player
@@ -199,6 +225,7 @@ def replay_route(route: dict) -> Game:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--level", required=True, choices=campaign.LEVELS)
+    ap.add_argument("--mode", choices=("remastered", "classic"), default="remastered")
     ap.add_argument("--goal", required=True)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--difficulty", default="hard")
@@ -207,26 +234,54 @@ def main(argv=None) -> int:
     ap.add_argument("--ticks", type=int, default=6, help="ticks per macro")
     ap.add_argument("--to", help="X,Y: reach this point instead of an exit (to check a spot is reachable)")
     ap.add_argument("--via", help="X,Y;X,Y;...: waypoints to pass in order (a hint for looping levels)")
+    ap.add_argument("--press", type=int, default=0,
+                    help="with --to: then hold the action key (down) this many ticks, to throw a switch there")
+    ap.add_argument("--min-hp", type=int, default=25,
+                    help="drop a branch whose health falls below this (lower it to cross a trap)")
+    ap.add_argument("--start", help="X,Y: start at this restart console, as a checkpoint scenario does")
     ap.add_argument("--prefix", type=Path, help="a saved route or reach file whose inputs are played first")
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args(argv)
     to = tuple(int(v) for v in args.to.split(",")) if args.to else None
     via = [tuple(int(v) for v in p.split(",")) for p in args.via.split(";")] if args.via else None
-    prefix = json.loads(args.prefix.read_text())["inputs"] if args.prefix else None
+    start = tuple(int(v) for v in args.start.split(",")) if args.start else None
+    prefix = None
+    if args.prefix:  # a segment continues the saved one: same start, mode and seed, or it means nothing
+        saved = json.loads(args.prefix.read_text())
+        prefix = saved["inputs"]
+        saved_start = tuple(saved["start"]) if saved.get("start") else None
+        if start is None:
+            start = saved_start
+        if start != saved_start or saved.get("mode", "remastered") != args.mode or saved["seed"] != args.seed:
+            raise SystemExit(f"--prefix {args.prefix} was found with start {saved_start}, mode "
+                             f"{saved.get('mode', 'remastered')}, seed {saved['seed']}: give the same")
+    if args.press and not args.to:
+        raise SystemExit("--press throws a switch at the end of a --to segment; give --to")
     rows, expanded, secs = search(args.level, args.goal, args.seed, args.difficulty, args.budget,
-                                  args.cell, args.ticks, to, via, prefix)
+                                  args.cell, args.ticks, to, via, prefix, args.mode, start, args.min_hp)
     if rows is None:
         print(f"no route found after {expanded} nodes ({secs:.0f}s)")
         return 1
     route = {"format": "campaign-route-1", "level": args.level, "goal": args.goal, "seed": args.seed,
              "difficulty": args.difficulty, "ticks": sum(r[0] for r in rows), "inputs": rows}
+    if args.mode == "classic":
+        route["mode"] = "classic"
+    if start is not None:
+        route["start"] = list(start)
     if via:
         route["via"] = [list(v) for v in via]
     if to is not None:
         route["format"], route["to"] = "campaign-reach-1", list(to)
+        if args.press:
+            before = replay_route(route)
+            rows.append([args.press, 0, 1, 0, 0, 100, 0])
+            route["ticks"] += args.press
+            route["press"] = args.press
+            if signature(replay_route(route))[0] == signature(before)[0]:
+                raise SystemExit("--press changed no switch or door: the segment does not end close enough to one")
     g = replay_route(route)
     if to is None:
-        assert finished(g, args.goal)
+        assert finished(g, args.goal, args.mode)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(route, separators=(",", ":")) + "\n")
     print(f"route found: {route['ticks']} ticks, {len(rows)} rows, {expanded} nodes, {secs:.0f}s -> {args.out}")

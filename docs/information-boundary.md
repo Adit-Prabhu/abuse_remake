@@ -41,7 +41,7 @@ Each decision the player gets two things, as plain JSON (`agent/observation.py`,
 | Engine type names and object UIDs | a key into the level file | public kinds and labels, given only when an observation first shows the object, nearest first; an object seen only in the middle of an action uses no label (`test_labels_are_given_only_at_decision_time_nearest_first`) |
 | The episode seed | it is the random table's start position, so it would predict every random draw | the start message carries no seed; the random player seeds itself from its first observation |
 | The level file, `docs/rule-source-map.md`, the original Lisp | the whole map and every rule | players run as separate processes that get only JSON (`agent/protocol.py`) |
-| The evaluator's progress measure and the route to the exit | the answer | computed in `agent/progress.py` on the runner side; the end-of-episode message carries only the episode's own outcome (`test_players_get_the_episode_outcome_without_evaluator_data`) |
+| The evaluator's progress measure, the route to the exit, and the solver's routes and walkthrough (`evidence/routes/`, `docs/level01-route.md`) | the answer | computed in `agent/progress.py` on the runner side; the end-of-episode message carries only the episode's own outcome (`test_players_get_the_episode_outcome_without_evaluator_data`) |
 | Credentials | | player processes get a minimal environment (`protocol.BASE_ENV`). Only the model player also gets the variables its provider's SDK reads (`MODEL_ENV_PREFIXES`), and those never enter prompts, observations or traces (`test_player_processes_get_no_credentials_unless_they_are_the_model_player`) |
 
 ## Two judgement calls

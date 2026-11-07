@@ -47,19 +47,16 @@ order.
 | #24 | `chore/course-package` | The course workflow, the export script, `EVALUATION.md`, and the config record on the declared suite | packaging |
 | #25 | `fix/hidden-walls` | A hidden wall is shown only as it looks (cracked: a `wall_block`; drawn as scenery: remembered solid cells; background: nothing), from per-frame renders; `fire left/right/up/down`; `attack` and `fire` hold fire only while the gun turns and return fire when hurt; the baseline adapted on the tuning set (with a recorded deviation); evidence regenerated from a clean commit | `docs/reviews/PR-25.md` (two follow-ups) |
 | #26 | `eval/live-run` | Dated Vertex prices; run caps that keep smoke, tuning and the reported run under USD 9.66 | config only |
-| #27 | `feat/level01-route` | Solver `--mode classic` and `--start`; the per-situation solver routes, replayed in CI | in progress |
+| #27 | `feat/level01-route` | The solver's Classic mode, scenario starts, `--press` and `--min-hp`; Level 1 finished from START (1,414 ticks) and from every checkpoint scenario, replayed in CI; `docs/level01-route.md` | `docs/reviews/PR-27.md` |
 
 Still to come:
-- the Level 1 route (Classic, START to exit), replayed in CI, and the solver reference per
-  situation;
 - the live smoke run, tuning (`docs/prompt-log.md`), the freeze and the reported run;
-- the course folder `midterms/adit-prabhu/` with `.github/workflows/midterm-adit-prabhu.yml`,
-  opened as a draft PR.
+- the course submission, which the student makes: `scripts/export_submission.py` builds the
+  `midterms/adit-prabhu/` folder in a clone of the course repository.
 
 The student owns:
 - `AGENT-TEAM.md` in their own voice, and the limitations paragraph;
 - the peer playtest (notes due 2026-11-06) and the recording;
-- the Week 3 thread post about the scope change;
 - making the repository public;
 - the merges, and submitting on CourseWorks by 2026-11-07.
 
@@ -176,25 +173,16 @@ evaluation harness.
 
 ## Next steps
 
-1. Every milestone PR (#1–#7) now has an independent review record with all findings resolved.
-   The remaining work is the human-owned items below.
-2. **Live comparison (human-gated).**
-   - The owner sets up Vertex: `gcloud auth application-default login`, `GOOGLE_CLOUD_PROJECT`,
-     `GOOGLE_CLOUD_LOCATION`, and `COURSE_MODEL` (a Gemini ID).
-   - The owner fills in `[prices]` in `eval/configs/live.toml`.
-   - Show `abuse-eval estimate`, get approval, run `live-smoke`, then `live`, with
-     `--report-to docs/evaluation-report.md`.
-   - Commit a few traces under `evidence/traces/`.
-3. Milestone 8, Remastered mode: dash, stats screen, quick restart, ghost race, AI spectator,
-   Horde.
-4. Milestone 9:
-   - `agent-config.json` (course-1);
-   - skills `.claude/skills/port-classic-rule/` and `.claude/skills/agent-eval/`;
-   - docs: `agent-team-log.md`, `human-responsibility.md`, `playtests/protocol.md` and
-     `playtests/template.md`, `demo.md`;
-   - `release.yml` (PyInstaller on tag);
-   - the README submission checklist;
-   - `abuse-replay` to MP4, and the demo video.
+Milestones 1-9 are done and reviewed. The open work is listed under "Midterm fixes" at the top
+of this page:
+1. **The live comparison**, which waits on the student's Vertex credentials
+   (`gcloud auth application-default login` and a project ID). Then, in order, as `SUITE.md`
+   says: `abuse-eval estimate` on `eval/configs/midterm.toml`, the 20-request `live-smoke`, at
+   most two tuning rounds on `midterm-tuning.toml` (logged in `docs/prompt-log.md`), the freeze,
+   the reported run, and the results in `EVALUATION.md`. Commands are in `docs/evaluation.md`.
+   Prices and run caps are already filled in.
+2. The student-owned items listed there: the merges, `AGENT-TEAM.md`, the peer playtest, the
+   recording, making the repository public, and the course submission.
 
 ## Facts established from the source (cite these in the map)
 
@@ -228,7 +216,5 @@ evaluation harness.
 
 ## Human-owned items still open
 
-- Confirm `SCOPE.md` against the Session 2 agreement.
-- Merge the PRs in order, and push tag `v1.0.0` at the end.
-- Set up Vertex credentials before the live evaluation.
-- Peer playtests, the narrated demo, and Asana links.
+See "The student owns" under "Midterm fixes" at the top of this page. The midterm needs no
+release tag and no Asana links.

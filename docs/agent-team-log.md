@@ -128,7 +128,9 @@ deterministic baselines.
 - **Student decisions.**
   - Build on the reviewed #15-#20 line. Leave out the Codex polish and the bridge, and drop Neon.
   - Vertex AI with a USD 10 cap.
-  - Open a draft course PR early.
+  - Open a draft course PR early. (Withdrawn on 2026-10-27: the student wants nothing in the
+    course repository until the submission is finished. PR #58 was closed and its branch
+    deleted, and the agent works only in this repository.)
   - Make the repository public after a secret scan.
 - **Handoffs.** Stacked PRs from #21. Each change to a rule or the interface gets a fresh
   read-only `rules-reviewer`, with a follow-up pass on the fixes.
