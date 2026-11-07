@@ -1,5 +1,5 @@
 # The course repository's check for midterms/adit-prabhu/: deterministic tests only, no
-# network model calls and no secrets. The job runs only in the course repository.
+# network model calls and no credentials. The job runs only in the course repository.
 name: midterm-adit-prabhu
 
 on:
