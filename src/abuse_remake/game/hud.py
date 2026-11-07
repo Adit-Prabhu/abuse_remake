@@ -23,6 +23,7 @@ class Hud:
         self.sprites = sprites
         self.help_text = ""
         self.help_frames = 0
+        self.card_rects: list = []  # where Horde's cards were drawn, for mouse clicks
 
     def say(self, text: str, frames: int = 150) -> None:
         self.messages.append([text, frames])
@@ -91,6 +92,53 @@ class Hud:
             y += 28
             m[1] -= 1
         self.messages = [m for m in self.messages if m[1] > 0]
+
+    def draw_horde(self, screen: pygame.Surface, game) -> None:
+        """Horde's panel: wave, score and combo at the top right, the boss's health along the
+        top, and the upgrade cards while they are offered."""
+        from ..engine.horde import CARDS, COMBO_TICKS
+
+        st = game.horde.state
+        w, h = screen.get_size()
+        combo = f"   x{st['combo']}" if st["combo"] > 1 and st["tick"] - st["last_kill"] <= COMBO_TICKS else ""
+        text = f"WAVE {st['wave']}   SCORE {st['score']}{combo}   kills {st['kills']}"
+        if st["break"] and not st["cards"]:
+            text += "   (next wave soon)"
+        img = self.font.render(text, True, (255, 220, 120))
+        screen.blit(img, (w - img.get_width() - 14, h - 76))
+        health, most = game.horde.boss_health()
+        if st["boss"] is not None and most:
+            bar = pygame.Rect(w // 4, 52, w // 2, 14)  # below the message line
+            pygame.draw.rect(screen, (40, 10, 10), bar, border_radius=4)
+            pygame.draw.rect(screen, (220, 50, 40), (bar.x, bar.y, bar.w * health // most, bar.h),
+                             border_radius=4)
+            pygame.draw.rect(screen, (230, 200, 200), bar, 1, border_radius=4)
+            label = self.small.render("JUGGERNAUT BOSS", True, (255, 210, 200))
+            screen.blit(label, label.get_rect(midtop=(w // 2, bar.bottom + 3)))
+        self.card_rects = []
+        if st["cards"]:
+            cw, ch, gap = 240, 110, 24
+            x0 = (w - 3 * cw - 2 * gap) // 2
+            y0 = h // 2 - ch // 2
+            title = self.font.render("Choose an upgrade: 1/2/3, click, or gamepad A/B/X", True, (255, 240, 200))
+            screen.blit(title, title.get_rect(midbottom=(w // 2, y0 - 10)))
+            for i, card in enumerate(st["cards"]):
+                r = pygame.Rect(x0 + i * (cw + gap), y0, cw, ch)
+                self.card_rects.append(r)
+                shade = pygame.Surface(r.size, pygame.SRCALPHA)
+                shade.fill((10, 20, 40, 220))
+                screen.blit(shade, r)
+                pygame.draw.rect(screen, (120, 200, 255), r, 2, border_radius=6)
+                head = self.font.render(f"{i + 1}  {card.replace('_', ' ').upper()}", True, (190, 230, 255))
+                screen.blit(head, (r.x + 12, r.y + 12))
+                words, line, y = CARDS[card].split(), "", r.y + 46
+                for word in words + [None]:
+                    if word is None or self.small.size(line + " " + word)[0] > cw - 24:
+                        screen.blit(self.small.render(line.strip(), True, (220, 220, 220)), (r.x + 12, y))
+                        y += 20
+                        line = ""
+                    if word is not None:
+                        line += " " + word
 
     def center(self, screen, lines, sub=None) -> None:
         w, h = screen.get_size()

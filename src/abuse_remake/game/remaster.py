@@ -157,13 +157,55 @@ class GhostPainter:
             self._blit(surf, tfig, tx, ty, td, xoff, yoff)
 
 
-def record_horde(difficulty: str, cleared: int, kills: int) -> dict:
-    """Store a Horde result. Returns {"best": previous best or None, "new_best": bool}."""
+def horde_key(difficulty: str, arena: str = "prison") -> str:
+    """The best-run key; the prison arena keeps the original Horde's key."""
+    return f"horde-{difficulty}" if arena == "prison" else f"horde-{arena}-{difficulty}"
+
+
+TOP = 10
+
+
+def _load_scores() -> dict:
+    """The high-score tables. A file that cannot be read is moved aside, like records.json."""
+    path = data_dir() / "horde_scores.json"
+    got = _read(path)
+    if not isinstance(got, dict):
+        if path.exists():
+            try:
+                path.replace(path.with_suffix(".unreadable.json"))
+            except OSError:
+                pass
+        return {}
+    return got
+
+
+def horde_top(difficulty: str, arena: str = "prison") -> list[dict]:
+    """The top 10 Horde scores for an arena and difficulty, best first."""
+    rows = _load_scores().get(f"{arena}-{difficulty}")
+    if not isinstance(rows, list):
+        return []
+    fields = ("score", "cleared", "kills")
+    ok = [r for r in rows if isinstance(r, dict) and all(isinstance(r.get(k), int) for k in fields)]
+    return sorted(ok, key=lambda r: -r["score"])[:TOP]
+
+
+def record_horde(difficulty: str, cleared: int, kills: int, arena: str = "prison", score: int = 0) -> dict:
+    """Store a Horde result. Returns {"best": previous best or None, "new_best": bool,
+    "rank": 1-based place in the arena's top 10 or None, "top": the table}."""
     recs = load_records()
-    key = f"horde-{difficulty}"
+    key = horde_key(difficulty, arena)
     prev = recs.get(key)
     new_best = prev is None or (cleared, kills) > (prev.get("cleared", 0), prev.get("kills", 0))
     if new_best:
         recs[key] = {"cleared": cleared, "kills": kills}
         _write(data_dir() / "records.json", recs)
-    return {"best": prev, "new_best": new_best}
+    entry = {"score": score, "cleared": cleared, "kills": kills}
+    table = sorted(horde_top(difficulty, arena) + [entry], key=lambda r: -r["score"])
+    rank = next((i + 1 for i, r in enumerate(table) if r is entry), None)
+    if rank is not None and rank > TOP:
+        rank = None
+    table = table[:TOP]
+    got = _load_scores()
+    got[f"{arena}-{difficulty}"] = table
+    _write(data_dir() / "horde_scores.json", got)
+    return {"best": prev, "new_best": new_best, "rank": rank, "top": table}
